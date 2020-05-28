@@ -1,0 +1,3 @@
+/// @desc 
+
+canvas.__renderChildren();
