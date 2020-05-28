@@ -1,4 +1,4 @@
-pub mod boss {
+mod boss {
     use super::*;
 
     mod yy_resource;
@@ -18,7 +18,5 @@ pub mod boss {
     }
     pub use resources_ext::*;
 }
-
-fn main() {
-    
-}
+pub use boss::*;
+pub use yy_typings;

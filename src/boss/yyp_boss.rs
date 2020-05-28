@@ -1,8 +1,7 @@
 use super::{folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource};
-use anyhow::{bail, format_err, Context, Result};
-use std::collections::HashMap;
+use anyhow::{format_err, Context, Result as AnyResult};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -21,7 +20,7 @@ pub struct YypBoss {
 
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
-    pub fn new(path_to_yyp: &Path) -> Result<YypBoss> {
+    pub fn new(path_to_yyp: &Path) -> AnyResult<YypBoss> {
         let tcu = TrailingCommaUtility::new();
         let yyp_file = fs::read_to_string(&path_to_yyp)
             .with_context(|| format!("Path given: {:?}", path_to_yyp))?;
@@ -50,16 +49,13 @@ impl YypBoss {
                 };
 
                 let parent_path = folder_graph.view_path();
-                let mut entry = folder_graph.members.entry(section_name.clone());
-                let new_member = entry.or_insert(FolderMember {
-                    child: Child::SubFolder(FolderGraph::new(section_name, parent_path)),
+                let entry = folder_graph.folders.entry(section_name.clone());
+                let new_member = entry.or_insert(SubfolderMember {
+                    child: FolderGraph::new(section_name, parent_path),
                     order: new_folder.order,
                 });
 
-                folder_graph = match &mut new_member.child {
-                    Child::SubFolder(folder) => folder,
-                    _ => unimplemented!("We're only adding folders here"),
-                };
+                folder_graph = &mut new_member.child;
             }
         }
 
@@ -77,9 +73,10 @@ impl YypBoss {
                 .unwrap()
                 .join(&sprite_resource.id.path);
 
-            let sprite_yy: Sprite = yyp_boss
-                .deserialize_yyfile(&sprite_path)
-                .with_context(|| format!("Error importing sprite with Path {:#?}", sprite_path))?;
+            let sprite_yy: Sprite =
+                yyp_boss.deserialize_yyfile(&sprite_path).with_context(|| {
+                    format!("Error deserializing sprite with Path {:#?}", sprite_path)
+                })?;
 
             let frame_buffers: Vec<_> = sprite_yy
                 .frames
@@ -100,11 +97,19 @@ impl YypBoss {
                 })
                 .collect();
 
-            YypBoss::add_file_iteratable(
-                &mut yyp_boss.folder_graph,
-                sprite_yy.parent.clone(),
-                sprite_yy.filesystem_path(),
-            )?;
+            // Add to the folder graph
+            yyp_boss
+                .folder_graph
+                .find_subfolder_mut(&sprite_yy.parent)?
+                .files
+                .insert(
+                    sprite_yy.name.clone(),
+                    FileMember {
+                        child: sprite_yy.filesystem_path(),
+                        order: sprite_resource.order,
+                    },
+                );
+
             yyp_boss.resource_names.insert(sprite_yy.name.clone());
             yyp_boss.sprites.add_new_startup(sprite_yy, frame_buffers);
         }
@@ -129,7 +134,11 @@ impl YypBoss {
         self.add_new_resource(&mut sprite);
 
         // Add to the Views...
-        if let Err(e) = self.add_file(sprite.parent_path(), sprite.filesystem_path()) {
+        if let Err(e) = self.add_file_at_end(
+            sprite.parent_path(),
+            sprite.name.clone(),
+            sprite.filesystem_path(),
+        ) {
             log::error!(
                         "Couldn't add Sprite {}. It reported a parent path of {:#?}, and an FS path of {:#?}.\n\
                     Error was: {:}",
@@ -139,7 +148,11 @@ impl YypBoss {
                         e
                     );
 
-            if let Err(e) = self.add_file(self.root_path(), sprite.filesystem_path()) {
+            if let Err(e) = self.add_file_at_end(
+                self.root_path(),
+                sprite.name.clone(),
+                sprite.filesystem_path(),
+            ) {
                 log::error!(
                     "And we couldn't even add to root! {:}. Aborting operation...",
                     e
@@ -151,102 +164,138 @@ impl YypBoss {
         self.sprites.add_new(sprite, associated_data);
     }
 
-    pub fn add_folder(&mut self, folder_name: String, parent: ViewPath) -> Result<ViewPath> {
-        todo!("Many fixes are needed here!
-        
-        First:
-        1. We can have a file and a folder, in the same subfolder, with the same name. (we 
-            cannot have a file and a file with the same name ,or a folder and a folder with the same name).
-        2. We need a quick way to calculate order, and deal with asking users for Order on insertion.
-        3. That's probably it actually. We'll need to make two hashmaps here and work with that I think.");
+    /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
+    ///
+    ///```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_enemy
+    /// ```
+    ///
+    /// and user adds a folder with name `Items` to the `Sprites` folder, then the output tree will be:
+    ///
+    /// ```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_enemy
+    ///     - Items/
+    ///```
+    ///
+    /// `add_folder_to_end` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
+    /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
+    pub fn add_folder_to_end(
+        &mut self,
+        parent_path: ViewPath,
+        name: String,
+    ) -> Result<ViewPath, FolderGraphError> {
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
 
-        let mut folder = &mut self.folder_graph;
-
-        if folder.name != folder_name {
-            for path in parent.path.iter().skip(1) {
-                let string = path.to_string_lossy();
-                let path_name: &str = string.split(".yy").next().unwrap();
-
-                match &mut folder
-                    .members
-                    .get_mut(path_name)
-                    .ok_or_else(|| format_err!("Couldn't find the subfolder {}", path_name))?
-                    .child
-                {
-                    Child::SubFolder(sf) => {
-                        folder = sf;
-                    }
-                    Child::File(_) => {
-                        bail!("Path ended with a File, not a Folder.");
-                    }
-                }
-            }
+        if subfolder.folders.contains_key(&name) {
+            return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
-        if folder.members.contains_key(&folder_name) {
-            bail!("Path already had a folder by that name. Duplicate folders are not allowed.");
-        }
-
-        folder.members.insert(
-            folder_name,
-            FolderMember {
-                child: Child::SubFolder(FolderGraph::new(folder_name.clone(), folder.view_path())),
-                order: 0,
+        // Add the Subfolder View:
+        subfolder.folders.insert(
+            name.clone(),
+            SubfolderMember {
+                child: FolderGraph::new(name.clone(), parent_path.clone()),
+                order,
             },
         );
 
-        let string = parent.path.to_string_lossy();
-        let path_name: &str = string.split(".yy").next().unwrap();
+        let path_name = parent_path.path.to_string_lossy();
+        let path_name = path_name.trim_end_matches(".yy");
 
-        let path = Path::new(&format!("{}/{}.yy", path_name, folder_name)).to_owned();
+        let path = Path::new(&format!("{}/{}.yy", path_name, name.clone())).to_owned();
 
         self.yyp.folders.insert(YypFolder {
             folder_path: path.clone(),
             order: 0,
-            name: folder_name.clone(),
+            name: name.clone(),
             ..YypFolder::default()
         });
         self.dirty = true;
 
-        Ok(ViewPath {
-            path,
-            name: folder_name,
-        })
+        Ok(ViewPath { path, name })
     }
 
-    /// Adds a file to the Virtual File System.
-    pub fn add_file(
+    /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
+    ///
+    ///```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_enemy
+    /// ```
+    ///
+    /// and user adds a file with name `spr_item` to the `Sprites` folder, then the output tree will be:
+    ///
+    /// ```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_enemy
+    ///     - spr_item
+    ///```
+    pub fn add_file_at_end(
         &mut self,
         parent_path: ViewPath,
-        filesystem_path: FilesystemPath,
-    ) -> Result<()> {
-        YypBoss::add_file_iteratable(&mut self.folder_graph, parent_path, filesystem_path)
+        name: String,
+        child: FilesystemPath,
+    ) -> Result<(), FolderGraphError> {
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
+        if subfolder.files.contains_key(&name) {
+            return Err(FolderGraphError::FileAlreadyPresent);
+        }
+
+        subfolder.files.insert(name, FileMember { child, order });
+        Ok(())
     }
 
-    /// Stupid ass borrow checker
-    fn add_file_iteratable(
-        mut folder: &mut FolderGraph,
+    /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
+    ///
+    ///```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_enemy
+    /// ```
+    ///
+    /// and user adds a file with name `spr_item` to the `Sprites` folder at order 1, then the output tree will be:
+    ///
+    /// ```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - spr_item
+    ///     - spr_enemy
+    ///```
+    ///
+    /// Additionally, `spr_enemy`'s order will be updated to be `2`.
+    pub fn add_file_with_order(
+        &mut self,
         parent_path: ViewPath,
-        filesystem_path: FilesystemPath,
-    ) -> Result<()> {
-        if parent_path.name != folder.name {
-            for path in parent_path.path.iter().skip(1) {
-                let path_name = path.to_string_lossy();
-                let path_name = if let Some(pos) = path_name.find(".yy") {
-                    std::borrow::Cow::Borrowed(&path_name[..pos])
-                } else {
-                    path_name
-                };
+        name: String,
+        child: FilesystemPath,
+        order: usize,
+    ) -> Result<(), FolderGraphError> {
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+        if subfolder.files.contains_key(&name) {
+            return Err(FolderGraphError::FileAlreadyPresent);
+        }
 
-                folder = folder
-                    .subfolders
-                    .iter_mut()
-                    .find(|sf| sf.name == path_name)
-                    .ok_or_else(|| format_err!("Couldn't find subfolder {}", path_name))?;
+        subfolder.files.insert(name, FileMember { child, order });
+
+        // Fix the Files
+        for file in subfolder.files.values_mut() {
+            if file.order >= order {
+                file.order += 1;
             }
-            folder.files.push(filesystem_path);
-        } else {
-            folder.files.push(filesystem_path);
+        }
+
+        // Fix the Folders
+        for folder in subfolder.folders.values_mut() {
+            if folder.order >= order {
+                folder.order += 1;
+            }
         }
 
         Ok(())
@@ -280,7 +329,7 @@ impl YypBoss {
         self.dirty = true;
     }
 
-    pub fn serialize(&mut self) -> Result<()> {
+    pub fn serialize(&mut self) -> AnyResult<()> {
         if self.dirty {
             // self.yyp
             //     .resources
@@ -331,12 +380,12 @@ impl YypBoss {
                     path_name
                 };
 
-                folder = folder
-                    .subfolders
-                    .iter()
-                    .find(|sf| sf.name == path_name)
+                folder = &folder
+                    .folders
+                    .get(path_name.as_ref())
                     .ok_or_else(|| format_err!("Couldn't find subfolder {}", path_name))
-                    .ok()?;
+                    .ok()?
+                    .child;
             }
             Some(folder.clone())
         } else {
@@ -347,7 +396,7 @@ impl YypBoss {
 
 /// Utilities
 impl YypBoss {
-    fn deserialize_yyfile<T>(&self, path: &Path) -> Result<T>
+    fn deserialize_yyfile<T>(&self, path: &Path) -> AnyResult<T>
     where
         for<'de> T: serde::Deserialize<'de>,
     {
@@ -419,7 +468,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         );
     }
 
-    pub fn serialize(&mut self, project_path: &Path) -> Result<()> {
+    pub fn serialize(&mut self, project_path: &Path) -> AnyResult<()> {
         if self.dirty {
             while let Some(dirty_resource) = self.dirty_resources.pop() {
                 let resource = self
@@ -445,7 +494,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     }
 }
 
-fn serialize(absolute_path: &Path, data: &impl serde::Serialize) -> Result<()> {
+fn serialize(absolute_path: &Path, data: &impl serde::Serialize) -> AnyResult<()> {
     let data = serde_json::to_string_pretty(data)?;
     fs::write(absolute_path, data)?;
     Ok(())

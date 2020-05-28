@@ -4,6 +4,15 @@ version = "0.1.0"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2018"
 
+[lib]
+name = "yy_boss"
+path = "src/lib.rs"
+
+[[bin]]
+name = "yy-boss"
+path = "src/bin.rs"
+
+
 [dependencies]
 yy-typings = { path = "../yy-typings" }
 serde = { version = "1.0", features = ["derive"] }
@@ -17,7 +26,8 @@ strum = "0.18"
 strum_macros = "0.18"
 thiserror = "1"
 maplit = "1"
-console = "0.11.3"
 
 [dev-dependencies]
 include_dir = { version = "0.6", features = ["search"]}
+pretty_assertions = "0.6.1"
+console = "0.11.3"
