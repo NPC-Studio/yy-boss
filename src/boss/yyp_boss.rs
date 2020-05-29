@@ -211,7 +211,7 @@ impl YypBoss {
 
         self.yyp.folders.push(YypFolder {
             folder_path: path.clone(),
-            order: 0,
+            order,
             name: name.clone(),
             ..YypFolder::default()
         });
