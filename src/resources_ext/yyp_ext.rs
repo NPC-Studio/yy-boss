@@ -91,8 +91,6 @@ impl YypSerialization for YypResource {
 
 impl YypSerialization for YypConfig {
     fn yyp_serialization(&self, mut indentation: usize) -> String {
-        let mut output = String::with_capacity(MEMBER_NUMBER);
-
         fn inner_config_print(string: &mut String, config: &YypConfig, indentation: &mut usize) {
             print_indentation(string, *indentation);
             string.push_str(&format!(r#"{{"name":"{}","children":["#, config.name));
@@ -113,13 +111,20 @@ impl YypSerialization for YypConfig {
                     );
                 }
 
+                *indentation -= 1;
                 print_indentation(string, *indentation);
+                string.push_str("],},");
+                string.push_str("\r\n");
+                *indentation -= 1;
+            } else {
+                string.push_str("],},");
+                string.push_str("\r\n");
             }
-            string.push_str("],},");
-            *indentation -= 1;
-            string.push_str("\r\n");
         }
 
+        let mut output = String::with_capacity(MEMBER_NUMBER);
+
+        // Outer Config
         output.push_str("{\r\n");
         indentation += 1;
         print_indentation(&mut output, indentation);
@@ -127,11 +132,11 @@ impl YypSerialization for YypConfig {
 
         output.push_str("\r\n");
         print_indentation(&mut output, indentation);
+        let old_indentation = indentation;
 
         output.push_str(&format!(r#""children": ["#));
         if self.children.is_empty() == false {
             output.push_str("\r\n");
-            let old_indentation = indentation;
 
             indentation += 1;
 
@@ -139,13 +144,14 @@ impl YypSerialization for YypConfig {
                 inner_config_print(&mut output, child, &mut indentation);
             }
 
-            assert_eq!(
-                old_indentation, indentation,
-                "Child config stack must be balanced"
-            );
-
+            indentation -= 1;
             print_indentation(&mut output, indentation);
         }
+
+        assert_eq!(
+            old_indentation, indentation,
+            "Child config stack must be balanced"
+        );
 
         output.push_str("],\r\n");
         indentation -= 1;
