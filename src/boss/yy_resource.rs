@@ -24,6 +24,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
         &self,
         project_directory: &Path,
     ) -> Result<Option<Self::AssociatedData>>;
+
     fn serialize_associated_data(
         &self,
         directory_path: &Path,

@@ -146,6 +146,14 @@ impl YypBoss {
         self.sprites.add_new(sprite, associated_data);
     }
 
+    /// For the shared data in a sprite. a little messy!
+    pub fn mark_sprite_with_path(&mut self, sprite_id: FilesystemPath, ase_name: String) {
+        let shared_data = self.sprites.shared_data.get_or_insert(Default::default());
+        shared_data.insert(ase_name, sprite_id);
+        self.sprites.dirty = true;
+        self.dirty = true;
+    }
+
     /// This gets the data on a given Sprite with a given name. If no Sprite by that name exists,
     /// then a None is returned. It does not return a handle on the Associated Data of the Sprite.
     pub fn get_sprite(&self, sprite_name: &str) -> Option<&Sprite> {
@@ -168,6 +176,10 @@ impl YypBoss {
                 .get(path)
                 .map(|sprite_resource| &sprite_resource.yy_resource)
         })
+    }
+
+    pub fn get_sprite_data(&self) -> Option<<Sprite as YyResource>::SharedData> {
+        self.sprites.shared_data.clone()
     }
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:

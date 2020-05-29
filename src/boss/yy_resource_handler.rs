@@ -6,7 +6,7 @@ use std::{collections::HashMap, fs, path::Path};
 pub struct YyResourceHandler<T: YyResource> {
     pub dirty: bool,
     pub resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    pub shared_resource: Option<T::SharedData>,
+    pub shared_data: Option<T::SharedData>,
     pub dirty_resources: Vec<FilesystemPath>,
 }
 
@@ -16,8 +16,12 @@ impl<T: YyResource> YyResourceHandler<T> {
             dirty: false,
             resources: HashMap::new(),
             dirty_resources: Vec::new(),
-            shared_resource: None,
+            shared_data: None,
         }
+    }
+
+    pub fn shared_data(&self) -> Option<&T::SharedData> {
+        self.shared_data.as_ref()
     }
 
     /// Initialize Shared Data and Associated Data. For a sprite,
@@ -34,8 +38,8 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
 
         // Initialize the shared Data...
-        if self.shared_resource.is_none() {
-            self.shared_resource = T::load_shared_data(project_directory)?;
+        if self.shared_data.is_none() {
+            self.shared_data = T::load_shared_data(project_directory)?;
         }
 
         Ok(())
@@ -53,7 +57,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
 
         // Initialize the shared Data...
-        self.shared_resource = T::load_shared_data(project_directory)?;
+        self.shared_data = T::load_shared_data(project_directory)?;
 
         Ok(())
     }
@@ -98,6 +102,9 @@ impl<T: YyResource> YyResourceHandler<T> {
                 }
 
                 utils::serialize(&yy_path, &resource.yy_resource)?;
+            }
+            if let Some(shared_data) = &self.shared_data {
+                T::serialize_shared_data(project_path, shared_data)?;
             }
         }
 

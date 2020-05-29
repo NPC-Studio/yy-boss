@@ -247,7 +247,7 @@ use anyhow::Context;
 
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
-    type SharedData = std::collections::BTreeMap<String, std::path::PathBuf>;
+    type SharedData = std::collections::BTreeMap<String, FilesystemPath>;
 
     fn name(&self) -> &str {
         &self.name
@@ -402,6 +402,26 @@ pub enum OriginUtility {
     Custom { x: isize, y: isize },
 }
 
+impl OriginUtility {
+    pub fn from_origin(o: Origin, origin_pos: (isize, isize)) -> OriginUtility {
+        match o {
+            Origin::TopLeft => OriginUtility::TopLeft,
+            Origin::TopCenter => OriginUtility::TopCenter,
+            Origin::TopRight => OriginUtility::TopRight,
+            Origin::MiddleLeft => OriginUtility::MiddleLeft,
+            Origin::MiddleCenter => OriginUtility::MiddleCenter,
+            Origin::MiddleRight => OriginUtility::MiddleRight,
+            Origin::BottomLeft => OriginUtility::BottomLeft,
+            Origin::BottomCenter => OriginUtility::BottomCenter,
+            Origin::BottomRight => OriginUtility::BottomRight,
+            Origin::Custom => OriginUtility::Custom {
+                x: origin_pos.0,
+                y: origin_pos.1,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display)]
 pub enum BboxModeUtility {
     Automatic(Bbox),
@@ -415,6 +435,28 @@ impl From<BboxModeUtility> for BBoxMode {
             BboxModeUtility::Automatic(_) => BBoxMode::Automatic,
             BboxModeUtility::FullImage => BBoxMode::FullImage,
             BboxModeUtility::Manual(_) => BBoxMode::Manual,
+        }
+    }
+}
+
+impl BboxModeUtility {
+    pub fn from_bbox_data(
+        bbox_mode: BBoxMode,
+        left: isize,
+        top: isize,
+        right: isize,
+        bottom: isize,
+    ) -> BboxModeUtility {
+        match bbox_mode {
+            BBoxMode::Automatic => BboxModeUtility::Automatic(Bbox {
+                top_left: (top, left),
+                bottom_right: (bottom, right),
+            }),
+            BBoxMode::FullImage => BboxModeUtility::FullImage,
+            BBoxMode::Manual => BboxModeUtility::Manual(Bbox {
+                top_left: (top, left),
+                bottom_right: (bottom, right),
+            }),
         }
     }
 }
