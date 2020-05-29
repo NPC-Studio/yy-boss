@@ -66,7 +66,6 @@ impl YypBoss {
             .iter()
             .filter(|value| value.id.path.starts_with("sprites"))
         {
-            let sprite_resource: &YypResource = sprite_resource;
             let sprite_path = yyp_boss
                 .absolute_path
                 .parent()
@@ -162,6 +161,30 @@ impl YypBoss {
 
         // Add to our own Sprite Tracking
         self.sprites.add_new(sprite, associated_data);
+    }
+
+    /// This gets the data on a given Sprite with a given name. If no Sprite by that name exists,
+    /// then a None is returned. It does not return a handle on the Associated Data of the Sprite.
+    pub fn get_sprite(&self, sprite_name: &str) -> Option<&Sprite> {
+        if self.resource_names.contains(sprite_name) == false {
+            return None;
+        }
+
+        // Get the path
+        let path = self.yyp.resources.iter().find_map(|yypr| {
+            if yypr.id.name == sprite_name {
+                Some(&yypr.id)
+            } else {
+                None
+            }
+        });
+
+        path.and_then(|path| {
+            self.sprites
+                .resources
+                .get(path)
+                .map(|sprite_resource| &sprite_resource.yy_resource)
+        })
     }
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:

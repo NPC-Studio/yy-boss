@@ -15,11 +15,17 @@ fn add_sprite_to_yyp() {
     const PROOF_PATH: &'static str = "tests/examples/proofs/sprite_add_proof/test_proj.yyp";
 
     let mut yyp_boss = YypBoss::new(Path::new(PATH_TO_TEST_PROJ)).unwrap();
+    assert!(
+        yyp_boss.get_sprite("spr_test").is_none(),
+        "The sprite we're trying to add is already in the project!"
+    );
+
     let new_view = yyp_boss
         .add_folder_to_end(yyp_boss.root_path(), "Sprites".to_string())
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");
+
     let sprite = Sprite::with_layer(
         "spr_test",
         "Default",
@@ -38,7 +44,17 @@ fn add_sprite_to_yyp() {
     .bbox_mode(|_, _| yy_boss::BboxModeUtility::FullImage);
 
     let frame_buffer = image::open(IMAGE_PATH).unwrap().to_rgba();
-    yyp_boss.add_sprite(sprite, vec![(single_frame_id, frame_buffer)]);
+    yyp_boss.add_sprite(sprite.clone(), vec![(single_frame_id, frame_buffer)]);
+
+    assert!(
+        yyp_boss.get_sprite("spr_test").is_some(),
+        "We didn't add, or couldn't find, the sprite we just tried to add!"
+    );
+    assert_eq!(
+        yyp_boss.get_sprite("spr_test").unwrap().clone(),
+        sprite,
+        "We mangled this sprite in the YypBoss!"
+    );
 
     let proof_yyp_boss = YypBoss::new(Path::new(PROOF_PATH)).unwrap();
 
