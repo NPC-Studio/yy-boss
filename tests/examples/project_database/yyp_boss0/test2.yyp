@@ -26,11 +26,11 @@
   "configs": {
     "name": "Default",
     "children": [
-      {"name":"TestConfig","children":[
-          {"name":"SubChild","children":[],},
-          {"name":"NewConfig1","children":[],},
+      {"name":"NewConfig1","children":[
+          {"name":"NewConfig2","children":[],},
+          {"name":"NewConfig3","children":[],},
         ],},
-      {"name":"TestConfig2","children":[],},
+      {"name":"NewConfig4","children":[],},
     ],
   },
   "RoomOrder": [
@@ -66,6 +66,8 @@
     {"CopyToMask":-1,"filePath":"datafiles","resourceVersion":"1.0","name":"main.rtf","resourceType":"GMIncludedFile",},
     {"CopyToMask":-1,"filePath":"datafiles/test","resourceVersion":"1.0","name":"subfolder.rtf","resourceType":"GMIncludedFile",},
     {"CopyToMask":-1,"filePath":"datafiles/test","resourceVersion":"1.0","name":".DS_Store","resourceType":"GMIncludedFile",},
+    {"CopyToMask":-1,"filePath":"datafiles\\test","resourceVersion":"1.0","name":".DS_Store","resourceType":"GMIncludedFile",},
+    {"CopyToMask":-1,"filePath":"datafiles\\test","resourceVersion":"1.0","name":"subfolder.rtf","resourceType":"GMIncludedFile",},
   ],
   "MetaData": {
     "IDEVersion": "23.1.1.141",

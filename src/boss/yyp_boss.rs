@@ -209,7 +209,7 @@ impl YypBoss {
 
         let path = Path::new(&format!("{}/{}.yy", path_name, name.clone())).to_owned();
 
-        self.yyp.folders.insert(YypFolder {
+        self.yyp.folders.push(YypFolder {
             folder_path: path.clone(),
             order: 0,
             name: name.clone(),
@@ -325,7 +325,7 @@ impl YypBoss {
         };
 
         // Update the Resource
-        self.yyp.resources.insert(new_yyp_resource);
+        self.yyp.resources.push(new_yyp_resource);
         self.dirty = true;
     }
 

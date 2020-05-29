@@ -1,4 +1,3 @@
-use console::Style;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use yy_boss::{
@@ -46,47 +45,5 @@ fn add_sprite_to_yyp() {
     // Assert the our YYPs are the Same...
     let our_yyp = yyp_boss.yyp();
     let proof_yyp = proof_yyp_boss.yyp();
-    if our_yyp != proof_yyp {
-        let red = Style::new().red();
-        let green = Style::new().green();
-
-        let mut panic_string = String::with_capacity(100);
-
-        if our_yyp.resources != proof_yyp.resources {
-            panic_string.push_str("Yyp Resources do not Match!\n");
-            let missing = proof_yyp.resources.difference(&our_yyp.resources);
-            if missing.clone().count() > 0 {
-                panic_string.push_str(&format!(
-                    "Missing: \n\
-                {:#?}\n",
-                    red.apply_to(missing)
-                ))
-            }
-
-            let extra = our_yyp.resources.difference(&proof_yyp.resources);
-            if extra.clone().count() > 0 {
-                panic_string.push_str(&format!(
-                    "Additional: \n\
-                {:#?}\n",
-                    green.apply_to(extra)
-                ))
-            }
-
-            panic_string.push('\n');
-        }
-
-        if our_yyp.folders != proof_yyp.folders {
-            panic_string.push_str(&format!(
-                "Yyp was Missing Proof's Folders... Missing Folders: \n\
-            {:#?}\n\n",
-                proof_yyp.folders.difference(&our_yyp.folders)
-            ));
-        }
-
-        if panic_string.is_empty() == false {
-            panic!("\n{}", panic_string);
-        }
-
-        assert_eq!(our_yyp, proof_yyp);
-    }
+    assert_eq!(our_yyp, proof_yyp);
 }

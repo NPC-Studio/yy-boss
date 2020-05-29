@@ -1,4 +1,4 @@
-use super::boss::yy_resource::YyResource;
+use super::YyResource;
 use image::{ImageBuffer, Rgba};
 use std::{num::NonZeroUsize, path::Path};
 use yy_typings::sprite::*;
