@@ -1,6 +1,7 @@
-use super::YyResource;
+use super::{YyResource, YypBoss};
+use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{num::NonZeroUsize, path::Path};
+use std::{fs, num::NonZeroUsize, path::Path};
 use yy_typings::sprite::*;
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -243,8 +244,10 @@ impl SpriteExt for Sprite {
 }
 
 use anyhow::Context;
+
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
+    type SharedData = std::collections::BTreeMap<String, std::path::PathBuf>;
 
     fn name(&self) -> &str {
         &self.name
@@ -283,11 +286,39 @@ impl YyResource for Sprite {
     fn parent_path(&self) -> ViewPath {
         self.parent.clone()
     }
+
+    fn load_associated_data(
+        &self,
+        project_directory: &Path,
+    ) -> AnyResult<Option<Self::AssociatedData>> {
+        let sprite_path = project_directory.join(&self.filesystem_path().path);
+        let output = self
+            .frames
+            .iter()
+            .filter_map(|frame: &Frame| {
+                let path_to_image = sprite_path
+                    .parent()
+                    .unwrap()
+                    .join(Path::new(&frame.name.inner().to_string()).with_extension("png"));
+
+                match image::open(&path_to_image) {
+                    Ok(image) => Some((frame.name, image.to_rgba())),
+                    Err(e) => {
+                        log::error!("We couldn't read {:?} -- {}", path_to_image, e);
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        Ok(Some(output))
+    }
+
     fn serialize_associated_data(
         &self,
         directory_path: &Path,
         data: &Self::AssociatedData,
-    ) -> anyhow::Result<()> {
+    ) -> AnyResult<()> {
         let layers_path = directory_path.join("layers");
         if layers_path.exists() == false {
             std::fs::create_dir(&layers_path)?;
@@ -322,6 +353,30 @@ impl YyResource for Sprite {
                 .save(&final_layer_path)
                 .with_context(|| format!("We couldn't save an Image to {:?}", final_layer_path))?;
         }
+
+        Ok(())
+    }
+
+    fn load_shared_data(project_directory: &Path) -> AnyResult<Option<Self::SharedData>> {
+        YypBoss::ensure_yyboss_data(project_directory)?;
+
+        let our_path = project_directory.join(".yyboss/sprite_paths.json");
+        if our_path.exists() == false {
+            fs::write(&our_path, "{}")?;
+        }
+
+        Ok(Some(serde_json::from_str(&fs::read_to_string(our_path)?)?))
+    }
+
+    fn serialize_shared_data(
+        project_directory: &Path,
+        shared_data: &Self::SharedData,
+    ) -> AnyResult<()> {
+        YypBoss::ensure_yyboss_data(project_directory)?;
+
+        let as_text = serde_json::to_string_pretty(shared_data)?;
+        let our_path = project_directory.join(".yyboss/sprite_paths.json");
+        fs::write(our_path, as_text)?;
 
         Ok(())
     }

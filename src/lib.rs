@@ -7,6 +7,11 @@ mod boss {
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
 
+    mod yy_resource_handler;
+    pub use yy_resource_handler::YyResourceHandler;
+
+    mod utils;
+
     mod folder_graph;
     pub use folder_graph::FolderGraph;
 }

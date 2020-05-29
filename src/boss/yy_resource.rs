@@ -1,10 +1,11 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{fmt::Debug, path::Path};
 use yy_typings::{FilesystemPath, ViewPath};
 
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
-    type AssociatedData: std::fmt::Debug;
+    type AssociatedData: Debug;
+    type SharedData: Debug;
 
     /// Get's the resource's name.
     fn name(&self) -> &str;
@@ -19,11 +20,19 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
 
     fn parent_path(&self) -> ViewPath;
 
-    // fn ensure_associated_data_is_loaded(&mut self);
-
+    fn load_associated_data(
+        &self,
+        project_directory: &Path,
+    ) -> Result<Option<Self::AssociatedData>>;
     fn serialize_associated_data(
         &self,
         directory_path: &Path,
         data: &Self::AssociatedData,
+    ) -> Result<()>;
+
+    fn load_shared_data(project_directory: &Path) -> Result<Option<Self::SharedData>>;
+    fn serialize_shared_data(
+        project_directory: &Path,
+        shared_data: &Self::SharedData,
     ) -> Result<()>;
 }

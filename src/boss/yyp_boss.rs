@@ -1,7 +1,9 @@
-use super::{folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource};
+use super::{
+    folder_graph::*, utils, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler,
+};
 use anyhow::{format_err, Context, Result as AnyResult};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     fs,
     path::{Path, PathBuf},
 };
@@ -77,25 +79,6 @@ impl YypBoss {
                     format!("Error deserializing sprite with Path {:#?}", sprite_path)
                 })?;
 
-            let frame_buffers: Vec<_> = sprite_yy
-                .frames
-                .iter()
-                .filter_map(|frame: &Frame| {
-                    let path_to_image = sprite_path
-                        .parent()
-                        .unwrap()
-                        .join(Path::new(&frame.name.inner().to_string()).with_extension("png"));
-
-                    match image::open(&path_to_image) {
-                        Ok(image) => Some((frame.name, image.to_rgba())),
-                        Err(e) => {
-                            log::error!("We couldn't read {:?} -- {}", path_to_image, e);
-                            None
-                        }
-                    }
-                })
-                .collect();
-
             // Add to the folder graph
             yyp_boss
                 .folder_graph
@@ -110,7 +93,7 @@ impl YypBoss {
                 );
 
             yyp_boss.resource_names.insert(sprite_yy.name.clone());
-            yyp_boss.sprites.add_new_startup(sprite_yy, frame_buffers);
+            yyp_boss.sprites.add_new_startup(sprite_yy, None);
         }
 
         Ok(yyp_boss)
@@ -362,7 +345,7 @@ impl YypBoss {
             self.sprites
                 .serialize(&self.absolute_path.parent().unwrap())?;
             // Serialize Ourselves:
-            serialize(&self.absolute_path, &self.yyp)?;
+            utils::serialize(&self.absolute_path, &self.yyp)?;
 
             self.dirty = false;
         }
@@ -427,6 +410,15 @@ impl YypBoss {
         let data = serde_json::from_str(&self.tcu.clear_trailing_comma(&file_string))?;
         Ok(data)
     }
+
+    pub fn ensure_yyboss_data(path: &Path) -> AnyResult<()> {
+        let subdir = path.join(".yyboss");
+        if subdir.exists() == false {
+            std::fs::create_dir(subdir)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Into<Yyp> for YypBoss {
@@ -440,91 +432,3 @@ impl PartialEq for YypBoss {
         self.yyp == other.yyp
     }
 }
-
-#[derive(Default)]
-pub struct YyResourceData<T: YyResource> {
-    pub yy_resource: T,
-    pub associated_data: T::AssociatedData,
-}
-
-impl<T: YyResource + std::fmt::Debug> std::fmt::Debug for YyResourceData<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?} !!**ASSOCIATED DATA IS NOT PRINTED IN DEBUG OUTPUT**!!",
-            self.yy_resource
-        )
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct YyResourceHandler<T: YyResource> {
-    dirty: bool,
-    resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    dirty_resources: Vec<FilesystemPath>,
-}
-
-impl<T: YyResource> YyResourceHandler<T> {
-    pub fn new() -> Self {
-        Self {
-            dirty: false,
-            resources: HashMap::new(),
-            dirty_resources: Vec::new(),
-        }
-    }
-
-    pub fn add_new(&mut self, value: T, associated_data: T::AssociatedData) {
-        self.dirty_resources.push(value.filesystem_path());
-        self.dirty = true;
-        self.add_new_startup(value, associated_data);
-    }
-
-    /// This is the same as `add_new` but it doesn't dirty the resource. It is used
-    /// for startup operations, where we're loading in assets from disk.
-    fn add_new_startup(&mut self, value: T, associated_data: T::AssociatedData) {
-        self.resources.insert(
-            value.filesystem_path(),
-            YyResourceData {
-                yy_resource: value,
-                associated_data,
-            },
-        );
-    }
-
-    pub fn serialize(&mut self, project_path: &Path) -> AnyResult<()> {
-        if self.dirty {
-            while let Some(dirty_resource) = self.dirty_resources.pop() {
-                let resource = self
-                    .resources
-                    .get(&dirty_resource)
-                    .expect("This should always be valid.");
-
-                let yy_path = project_path.join(&resource.yy_resource.filesystem_path().path);
-
-                if let Some(parent_dir) = yy_path.parent() {
-                    fs::create_dir_all(parent_dir)?;
-                    T::serialize_associated_data(
-                        &resource.yy_resource,
-                        parent_dir,
-                        &resource.associated_data,
-                    )?;
-                }
-                serialize(&yy_path, &resource.yy_resource)?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-fn serialize(absolute_path: &Path, data: &impl serde::Serialize) -> AnyResult<()> {
-    let data = serde_json::to_string_pretty(data)?;
-    fs::write(absolute_path, data)?;
-    Ok(())
-}
-
-// fn deserialize_json(path: &Path) -> Result<serde_json::Value> {
-//     let file_string = fs::read_to_string(path)?;
-//     let data = serde_json::from_str(&file_string)?;
-//     Ok(data)
-// }
