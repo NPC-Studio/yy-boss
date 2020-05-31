@@ -358,11 +358,12 @@ impl YyResource for Sprite {
     }
 
     fn load_shared_data(project_directory: &Path) -> AnyResult<Option<Self::SharedData>> {
-        YypBoss::ensure_yyboss_data(project_directory)?;
+        YypBoss::ensure_yyboss_data(project_directory)
+            .with_context(|| "couldn't ensure the .yyboss directory")?;
 
-        let our_path = project_directory.join(".yyboss/sprite_paths.json");
+        let our_path = project_directory.join("/.yyboss/sprite_paths.json");
         if our_path.exists() == false {
-            fs::write(&our_path, "{}")?;
+            fs::write(&our_path, "{}").with_context(|| "writing to the sprite shared data file")?;
         }
 
         Ok(Some(serde_json::from_str(&fs::read_to_string(our_path)?)?))

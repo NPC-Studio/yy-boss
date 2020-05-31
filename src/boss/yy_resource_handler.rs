@@ -1,5 +1,5 @@
 use super::{utils, FilesystemPath, YyResource};
-use anyhow::Result as AnyResult;
+use anyhow::{bail, Result as AnyResult};
 use std::{collections::HashMap, fs, path::Path};
 
 #[derive(Debug, Default)]
@@ -62,22 +62,40 @@ impl<T: YyResource> YyResourceHandler<T> {
         Ok(())
     }
 
-    pub fn add_new(&mut self, value: T, associated_data: T::AssociatedData) {
+    pub fn add_new(
+        &mut self,
+        value: T,
+        associated_data: T::AssociatedData,
+    ) -> Option<YyResourceData<T>> {
         self.dirty_resources.push(value.filesystem_path());
         self.dirty = true;
-        self.add_new_startup(value, Some(associated_data));
+        self.add_new_startup(value, Some(associated_data))
+    }
+
+    /// Returns an error if the given resource did not exist.
+    pub fn overwrite(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
+        if self.resources.contains_key(&value.filesystem_path()) == false {
+            bail!("We didn't have an original resource!");
+        }
+        self.add_new(value, associated_data);
+
+        Ok(())
     }
 
     /// This is the same as `add_new` but it doesn't dirty the resource. It is used
     /// for startup operations, where we're loading in assets from disk.
-    pub fn add_new_startup(&mut self, value: T, associated_data: Option<T::AssociatedData>) {
+    pub fn add_new_startup(
+        &mut self,
+        value: T,
+        associated_data: Option<T::AssociatedData>,
+    ) -> Option<YyResourceData<T>> {
         self.resources.insert(
             value.filesystem_path(),
             YyResourceData {
                 yy_resource: value,
                 associated_data,
             },
-        );
+        )
     }
 
     pub fn serialize(&mut self, project_path: &Path) -> AnyResult<()> {

@@ -1,7 +1,7 @@
-use super::{
-    folder_graph::*, utils, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler,
-};
+use super::{folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler};
+use crate::YypSerialization;
 use anyhow::{format_err, Context, Result as AnyResult};
+use log::info;
 use std::{
     collections::HashSet,
     fs,
@@ -26,7 +26,8 @@ impl YypBoss {
         let tcu = TrailingCommaUtility::new();
         let yyp_file = fs::read_to_string(&path_to_yyp)
             .with_context(|| format!("Path given: {:?}", path_to_yyp))?;
-        let yyp: Yyp = serde_json::from_str(&tcu.clear_trailing_comma(&yyp_file))?;
+        let yyp: Yyp = serde_json::from_str(&tcu.clear_trailing_comma(&yyp_file))
+            .with_context(|| "on the Yyp itself")?;
 
         let mut yyp_boss = Self {
             yyp,
@@ -60,8 +61,11 @@ impl YypBoss {
                 folder_graph = &mut new_member.child;
             }
         }
+        info!("Loading in Sprites...");
 
         // Load in Sprites
+        yyp_boss.sprites.shared_data = Sprite::load_shared_data(&yyp_boss.absolute_path)
+            .with_context(|| "loading the sprite shared data")?;
         for sprite_resource in yyp_boss
             .yyp
             .resources
@@ -103,6 +107,15 @@ impl YypBoss {
         &self.absolute_path
     }
 
+    /// Add a sprite into the YYP Boss. If the sprite doesn't exist, throws an error!
+    pub fn overwrite_sprite(
+        &mut self,
+        sprite: Sprite,
+        associated_data: Vec<(FrameId, SpriteImageBuffer)>,
+    ) -> AnyResult<()> {
+        self.sprites.overwrite(sprite, associated_data)
+    }
+
     /// Add a sprite into the YYP Boss. It is not immediately serialized,
     /// but will be serialized the next time the entire YYP Boss is.
     ///
@@ -112,38 +125,37 @@ impl YypBoss {
         mut sprite: Sprite,
         associated_data: Vec<(FrameId, SpriteImageBuffer)>,
     ) {
-        // Add to the YYP
-        self.add_new_resource(&mut sprite);
-
-        // Add to the Views...
-        if let Err(e) = self.add_file_at_end(
+        match self.add_file_at_end(
             sprite.parent_path(),
             sprite.name.clone(),
             sprite.filesystem_path(),
         ) {
-            log::error!(
-                        "Couldn't add Sprite {}. It reported a parent path of {:#?}, and an FS path of {:#?}.\n\
-                    Error was: {:}",
-                        sprite.name,
-                        sprite.parent_path(),
-                        sprite.filesystem_path(),
-                        e
-                    );
-
-            if let Err(e) = self.add_file_at_end(
-                self.root_path(),
-                sprite.name.clone(),
-                sprite.filesystem_path(),
-            ) {
+            Ok(order) => {
+                self.add_new_resource(&mut sprite, order);
+                self.sprites.add_new(sprite, associated_data);
+            }
+            Err(e) => {
                 log::error!(
-                    "And we couldn't even add to root! {:}. Aborting operation...",
+                    "Couldn't add Sprite {}. It reported a parent path of {:#?}, and an FS path of {:#?}.\n\
+                Error was: {:}",
+                    sprite.name,
+                    sprite.parent_path(),
+                    sprite.filesystem_path(),
                     e
                 );
+
+                if let Err(e) = self.add_file_at_end(
+                    self.root_path(),
+                    sprite.name.clone(),
+                    sprite.filesystem_path(),
+                ) {
+                    log::error!(
+                        "And we couldn't even add to root! {:}. Aborting operation...",
+                        e
+                    );
+                }
             }
         }
-
-        // Add to our own Sprite Tracking
-        self.sprites.add_new(sprite, associated_data);
     }
 
     /// For the shared data in a sprite. a little messy!
@@ -225,7 +237,7 @@ impl YypBoss {
         let path_name = parent_path.path.to_string_lossy();
         let path_name = path_name.trim_end_matches(".yy");
 
-        let path = Path::new(&format!("{}/{}.yy", path_name, name.clone())).to_owned();
+        let path = Path::new(&format!("{}/{}.yy", path_name, name)).to_owned();
 
         self.yyp.folders.push(YypFolder {
             folder_path: path.clone(),
@@ -259,7 +271,7 @@ impl YypBoss {
         parent_path: ViewPath,
         name: String,
         child: FilesystemPath,
-    ) -> Result<(), FolderGraphError> {
+    ) -> Result<usize, FolderGraphError> {
         let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
         let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
         if subfolder.files.contains_key(&name) {
@@ -267,7 +279,7 @@ impl YypBoss {
         }
 
         subfolder.files.insert(name, FileMember { child, order });
-        Ok(())
+        Ok(order)
     }
 
     /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
@@ -325,21 +337,11 @@ impl YypBoss {
     /// This might include serializing sprites or sprite frames for Sprites, or `.gml`
     /// files for scripts or objects.
     #[allow(dead_code)]
-    fn add_new_resource(&mut self, new_resource: &mut impl YyResource) {
-        let mut iteration_count = 0;
-        let mut name = new_resource.name().to_owned();
-        while self.resource_names.contains(&name) {
-            name = format!("{}_{}", name, iteration_count);
-            iteration_count += 1;
-        }
-        if name != new_resource.name() {
-            new_resource.set_name(name.clone());
-        }
-
-        self.resource_names.insert(name);
+    fn add_new_resource(&mut self, new_resource: &impl YyResource, order: usize) {
+        self.resource_names.insert(new_resource.name().to_string());
         let new_yyp_resource = YypResource {
             id: new_resource.filesystem_path(),
-            order: 0,
+            order,
         };
 
         // Update the Resource
@@ -349,15 +351,12 @@ impl YypBoss {
 
     pub fn serialize(&mut self) -> AnyResult<()> {
         if self.dirty {
-            // self.yyp
-            //     .resources
-            //     .sort_by(|lr, rr| lr.key.inner().cmp(&rr.key.inner()));
-
             // Check if Sprite is Dirty and Serialize that:
             self.sprites
                 .serialize(&self.absolute_path.parent().unwrap())?;
             // Serialize Ourselves:
-            utils::serialize(&self.absolute_path, &self.yyp)?;
+            let string = self.yyp.yyp_serialization(0);
+            fs::write(&self.absolute_path, &string)?;
 
             self.dirty = false;
         }
@@ -424,7 +423,7 @@ impl YypBoss {
     }
 
     pub fn ensure_yyboss_data(path: &Path) -> AnyResult<()> {
-        let subdir = path.join(".yyboss");
+        let subdir = path.join("/.yyboss");
         if subdir.exists() == false {
             std::fs::create_dir(subdir)?;
         }
