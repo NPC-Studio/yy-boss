@@ -2,19 +2,24 @@
 
 ## Major Tasks
 
-1. Add unit tests to the Sprite Add Function
-2. Add back in Trailing Commas on Serialization.
-3. Add template strings for new Yyp files
-4. Add template strings for new Yy files
+- [ ] Add unit tests to the Folder Functions
+  - [x] Add Folder at Order
+  - [x] Add Folder at End
+  - [ ] Change Order
+  - [ ] Change Folder Path
+  - [ ] Delete Folder
+  - [ ] Delete Folder Recursively
+- [ ] Add unit tests to the Sprite Functions
+- [ ] Add template strings for new Yy files
 
 ## Minor Tasks
 
-1. Add `clippy` to project.
-2. Add typings for the versioning numbers for the YY files.
-3. Type the blendmode of each layer in GMS2 Sprite Editor
-4. Add Doc Linting Level
-5. Camelcasing of `backdrop_y_offset` and the like
+- [ ] Add `clippy` to project.
+- [ ] Add typings for the versioning numbers for the YY files.
+- [ ] Type the blendmode of each layer in GMS2 Sprite Editor
+- [ ] Add Doc Linting Level
+- [ ] Camelcasing of `backdrop_y_offset` and the like
 
 ## Future Tasks
 
-1. Support alternative collision masks
+- [ ] Support alternative collision masks

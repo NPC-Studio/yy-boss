@@ -1,7 +1,9 @@
-use super::{folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler};
-use crate::YypSerialization;
+use super::{
+    folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler,
+    YypSerialization,
+};
 use anyhow::{format_err, Context, Result as AnyResult};
-use log::info;
+use log::{error, info};
 use std::{
     collections::HashSet,
     fs,
@@ -105,6 +107,15 @@ impl YypBoss {
 
     pub fn absolute_path(&self) -> &Path {
         &self.absolute_path
+    }
+
+    /// Gets an unordered HashSet of currently used resource names.
+    ///
+    /// In a project
+    /// with a sprite `spr_player` and an object `obj_player`, this HashSet would contain
+    /// `"spr_player"` and `"obj_player"`.
+    pub fn current_resource_names(&self) -> &HashSet<String> {
+        &self.resource_names
     }
 
     /// Add a sprite into the YYP Boss. If the sprite doesn't exist, throws an error!
@@ -250,6 +261,93 @@ impl YypBoss {
         Ok(ViewPath { path, name })
     }
 
+    /// Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
+    ///
+    ///```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - OtherSprites/
+    ///     - spr_enemy
+    /// ```
+    ///
+    /// and user adds a folder with name `Items` to the `Sprites` folder with an order of 1,
+    /// then the output tree will be:
+    ///
+    /// ```norun
+    /// Sprites/
+    ///     - spr_player
+    ///     - Items/
+    ///     - OtherSprites/
+    ///     - spr_enemy
+    ///```
+    ///
+    /// `add_folder_with_order` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
+    /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
+    pub fn add_folder_with_order(
+        &mut self,
+        parent_path: ViewPath,
+        name: String,
+        order: usize,
+    ) -> Result<ViewPath, FolderGraphError> {
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+
+        if subfolder.folders.contains_key(&name) {
+            return Err(FolderGraphError::FolderAlreadyPresent);
+        }
+
+        // Add the Subfolder View:
+        subfolder.folders.insert(
+            name.clone(),
+            SubfolderMember {
+                child: FolderGraph::new(name.clone(), parent_path.clone()),
+                order,
+            },
+        );
+
+        let path_name = parent_path.path.to_string_lossy();
+        let path_name = path_name.trim_end_matches(".yy");
+        let path = Path::new(&format!("{}/{}.yy", path_name, name)).to_owned();
+
+        self.yyp.folders.push(YypFolder {
+            folder_path: path.clone(),
+            order,
+            name: name.clone(),
+            ..YypFolder::default()
+        });
+        self.dirty = true;
+
+        // Fix the other Orders:
+        for (folder_name, folder) in subfolder.folders.iter_mut() {
+            if folder.order <= order {
+                folder.order += 1;
+
+                if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
+                    error!(
+                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+                    This may become a hard error in the future. E: {1}",
+                    folder_name, e
+                    )
+                }
+            }
+        }
+
+        for (file_name, file) in subfolder.files.iter_mut() {
+            if file.order <= order {
+                file.order += 1;
+
+                if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
+                    error!(
+                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+                    This may become a hard error in the future. E: {1}",
+                    file_name, e
+                    )
+                }
+            }
+        }
+
+        Ok(ViewPath { path, name })
+    }
+
     /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
     ///
     ///```norun
@@ -315,16 +413,31 @@ impl YypBoss {
         subfolder.files.insert(name, FileMember { child, order });
 
         // Fix the Files
-        for file in subfolder.files.values_mut() {
+        for (file_name, file) in subfolder.files.iter_mut() {
             if file.order >= order {
                 file.order += 1;
+                if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
+                    error!(
+                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+                    This may become a hard error in the future. E: {1}",
+                    file_name, e
+                    )
+                }
             }
         }
 
         // Fix the Folders
-        for folder in subfolder.folders.values_mut() {
+        for (folder_name, folder) in subfolder.folders.iter_mut() {
             if folder.order >= order {
                 folder.order += 1;
+
+                if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
+                    error!(
+                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+                    This may become a hard error in the future. E: {1}",
+                    folder_name, e
+                    )
+                }
             }
         }
 
@@ -441,5 +554,7 @@ impl Into<Yyp> for YypBoss {
 impl PartialEq for YypBoss {
     fn eq(&self, other: &Self) -> bool {
         self.yyp == other.yyp
+            && self.folder_graph == other.folder_graph
+            && self.resource_names == other.resource_names
     }
 }
