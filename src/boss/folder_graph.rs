@@ -1,8 +1,9 @@
+use super::ViewPathLocationExt;
 use log::error;
 use maplit::hashmap;
-use std::{collections::HashMap, hash::Hash, path::Path};
+use std::{collections::HashMap, hash::Hash};
 use thiserror::Error;
-use yy_typings::{FilesystemPath, ViewPath, YypFolder, YypResource};
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolderGraph {
@@ -48,10 +49,9 @@ impl FolderGraph {
     pub fn view_path(&self) -> ViewPath {
         ViewPath {
             name: self.name.to_string(),
-            path: if let Some(parent_path) = &self.path_to_parent {
-                parent_path.path.join(&self.name)
-            } else {
-                Path::new("folders").to_owned()
+            path: match &self.path_to_parent {
+                Some(parent_path) => parent_path.path.join(&self.name),
+                None => ViewPathLocation::root(),
             },
         }
     }
@@ -65,13 +65,10 @@ impl FolderGraph {
         } else {
             let mut folder = self;
 
-            for path in view_path.path.iter().skip(1) {
-                let path_name = path.to_string_lossy();
-                let path_name = path_name.trim_end_matches(".yy");
-
+            for path in view_path.path.component_paths() {
                 folder = &mut folder
                     .folders
-                    .get_mut(path_name)
+                    .get_mut(path)
                     .ok_or(FolderGraphError::PathNotFound)?
                     .child;
             }

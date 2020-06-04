@@ -2,14 +2,14 @@ use super::{YyResource, YypBoss};
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
 use std::{fs, num::NonZeroUsize, path::Path};
-use yy_typings::sprite::*;
+use yy_typings::{sprite::*, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 pub trait SpriteExt {
     fn with(self, edit: impl Fn(&mut Self)) -> Self;
-    fn new(name: &str, texture_group_id: &str) -> Sprite;
-    fn with_layer(name: &str, texture_group_id: &str, layer: Layer) -> Sprite;
+    fn new(name: &str, texture_group_id: TexturePath) -> Sprite;
+    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite;
     fn parent(self, parent: ViewPath) -> Sprite;
     fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
@@ -25,13 +25,10 @@ impl SpriteExt for Sprite {
         self
     }
 
-    fn with_layer(name: &str, texture_group_id: &str, layer: Layer) -> Sprite {
+    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite {
         Sprite {
             name: name.to_string(),
-            texture_group_id: TextureGroupPath {
-                path: Path::new(&format!("texturegroups/{}", texture_group_id)).to_owned(),
-                name: texture_group_id.to_string(),
-            },
+            texture_group_id,
             sequence: SpriteSequence {
                 sprite_id: FilesystemPath {
                     name: name.to_string(),
@@ -57,7 +54,7 @@ impl SpriteExt for Sprite {
         }
     }
 
-    fn new(name: &str, texture_group_id: &str) -> Sprite {
+    fn new(name: &str, texture_group_id: TexturePath) -> Sprite {
         Sprite::with_layer(
             name,
             texture_group_id,

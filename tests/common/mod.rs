@@ -20,6 +20,9 @@ pub fn load_proof(proof_name: &str) -> AnyResult<YypBoss> {
 }
 
 pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
+    println!("target: {:#?}", ours.absolute_path());
+    println!("proof: {:#?}", proof.absolute_path());
+
     match yypboss_neq(ours, proof) {
         Ok(()) => {}
         Err(neq) => match neq {
@@ -34,11 +37,9 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                 );
             }
             YypBossNeq::FolderGraph => {
-                assert_eq!(
-                    ours.root_folder(),
-                    proof.root_folder(),
-                    "target folder graph and proof folder graph were not equal"
-                );
+                println!("target: {:#?}", ours.root_folder());
+                println!("proof: {:#?}", proof.root_folder());
+                panic!("target folder graph and proof folder graph were not equal");
             }
             YypBossNeq::ResourceNames => {
                 assert_eq!(

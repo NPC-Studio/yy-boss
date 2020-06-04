@@ -21,14 +21,15 @@ fn add_sprite_to_yyp() {
     );
 
     let new_view = yyp_boss
-        .add_folder_to_end(yyp_boss.root_path(), "Sprites".to_string())
+        .add_folder_to_end(&yyp_boss.root_path(), "Sprites".to_string())
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");
+    let default_texture_group = yyp_boss.default_texture_path().unwrap();
 
     let sprite = Sprite::with_layer(
         "spr_test",
-        "Default",
+        default_texture_group,
         Layer {
             name: LayerId::with_string("17463651-1c81-4dea-a381-8f4a7635b32e"),
             ..Layer::default()

@@ -21,6 +21,9 @@ mod resources_ext {
     mod sprite_ext;
     pub use sprite_ext::*;
 
+    mod paths_ext;
+    pub use paths_ext::*;
+
     mod yyp_ext;
     pub use yyp_ext::*;
 

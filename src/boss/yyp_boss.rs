@@ -1,9 +1,9 @@
 use super::{
-    folder_graph::*, FolderGraph, SpriteImageBuffer, YyResource, YyResourceHandler,
-    YypSerialization,
+    folder_graph::*, FolderGraph, PathStrExt, SpriteImageBuffer, ViewPathLocationExt, YyResource,
+    YyResourceHandler, YypSerialization,
 };
 use anyhow::{format_err, Context, Result as AnyResult};
-use log::{error, info};
+use log::*;
 use std::{
     collections::HashSet,
     fs,
@@ -45,25 +45,19 @@ impl YypBoss {
         for new_folder in yyp_boss.yyp.folders.iter() {
             let mut folder_graph = &mut yyp_boss.folder_graph;
 
-            for section in new_folder.folder_path.iter().skip(1) {
-                let section_name = section.to_string_lossy();
-                let section_name = if section_name.ends_with(".yy") {
-                    new_folder.name.clone()
-                } else {
-                    section_name.to_string()
-                };
-
+            for section in new_folder.folder_path.component_paths() {
                 let parent_path = folder_graph.view_path();
-                let entry = folder_graph.folders.entry(section_name.clone());
+                let section = section.trim_yy().to_owned();
+                let entry = folder_graph.folders.entry(section.clone());
+
                 let new_member = entry.or_insert(SubfolderMember {
-                    child: FolderGraph::new(section_name, parent_path),
+                    child: FolderGraph::new(section, parent_path),
                     order: new_folder.order,
                 });
 
                 folder_graph = &mut new_member.child;
             }
         }
-        info!("Loading in Sprites...");
 
         // Load in Sprites
         yyp_boss.sprites.shared_data = Sprite::load_shared_data(&yyp_boss.absolute_path)
@@ -108,6 +102,26 @@ impl YypBoss {
     pub fn absolute_path(&self) -> &Path {
         &self.absolute_path
     }
+
+    /// Gets the default texture path, if it exists. The "Default" group simply
+    /// has the name `"Default"`.
+    pub fn default_texture_path(&self) -> Option<TexturePath> {
+        self.yyp
+            .texture_groups
+            .iter()
+            .find(|tex| tex.name == "Default")
+            .map(|texture_group| texture_group.into())
+    }
+
+    // /// Creates a texture group with the given name and rename preference.
+    // /// If it does exist, it returns an error.
+    // pub fn create_texture_group(&self) -> Option<TexturePath> {
+    //     self.yyp
+    //         .texture_groups
+    //         .iter()
+    //         .find(|tex| tex.name == "Default")
+    //         .map(|texture_group| texture_group.into())
+    // }
 
     /// Gets an unordered HashSet of currently used resource names.
     ///
@@ -226,29 +240,35 @@ impl YypBoss {
     /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
     pub fn add_folder_to_end(
         &mut self,
-        parent_path: ViewPath,
+        parent_path: &ViewPath,
         name: String,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
-        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
+        let subfolder = self.folder_graph.find_subfolder_mut(parent_path)?;
+
+        // Incredibly idiotic, but Gms2 appears to use 1 for empty folders.
+        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or(1);
 
         if subfolder.folders.contains_key(&name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
+        // Create our Path...
+        let path = parent_path.path.join(&name);
+
         // Add the Subfolder View:
+        let final_pathname = path
+            .component_paths()
+            .last()
+            .unwrap_or_else(|| "folders")
+            .to_string();
+
         subfolder.folders.insert(
-            name.clone(),
+            final_pathname.clone(),
             SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.clone()),
+                child: FolderGraph::new(final_pathname, parent_path.clone()),
                 order,
             },
         );
-
-        let path_name = parent_path.path.to_string_lossy();
-        let path_name = path_name.trim_end_matches(".yy");
-
-        let path = Path::new(&format!("{}/{}.yy", path_name, name)).to_owned();
 
         self.yyp.folders.push(YypFolder {
             folder_path: path.clone(),
@@ -304,9 +324,7 @@ impl YypBoss {
             },
         );
 
-        let path_name = parent_path.path.to_string_lossy();
-        let path_name = path_name.trim_end_matches(".yy");
-        let path = Path::new(&format!("{}/{}.yy", path_name, name)).to_owned();
+        let path = parent_path.path.join(&name);
 
         self.yyp.folders.push(YypFolder {
             folder_path: path.clone(),
@@ -345,7 +363,7 @@ impl YypBoss {
             }
         }
 
-        Ok(ViewPath { path, name })
+        Ok(ViewPath { path: path, name })
     }
 
     /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
@@ -482,7 +500,7 @@ impl YypBoss {
     pub fn root_path(&self) -> ViewPath {
         ViewPath {
             name: "folders".to_string(),
-            path: Path::new("folders").to_owned(),
+            path: ViewPathLocation("folders".to_string()),
         }
     }
 
@@ -492,9 +510,9 @@ impl YypBoss {
         &self.yyp
     }
 
-    /// This could be a very hefty allocation!
-    pub fn root_folder(&self) -> FolderGraph {
-        self.folder_graph.clone()
+    /// Gives a reference to the current FolderGraph.
+    pub fn root_folder(&self) -> &FolderGraph {
+        &self.folder_graph
     }
 
     /// This could be a very hefty allocation!
@@ -502,18 +520,11 @@ impl YypBoss {
         if view_path.name != self.folder_graph.name {
             let mut folder = &self.folder_graph;
 
-            for path in view_path.path.iter().skip(1) {
-                let path_name = path.to_string_lossy();
-                let path_name = if let Some(pos) = path_name.find(".yy") {
-                    std::borrow::Cow::Borrowed(&path_name[..pos])
-                } else {
-                    path_name
-                };
-
+            for path in view_path.path.component_paths() {
                 folder = &folder
                     .folders
-                    .get(path_name.as_ref())
-                    .ok_or_else(|| format_err!("Couldn't find subfolder {}", path_name))
+                    .get(path)
+                    .ok_or_else(|| format_err!("Couldn't find subfolder {}", path))
                     .ok()?
                     .child;
             }
