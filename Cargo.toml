@@ -3,6 +3,10 @@ name = "yy-boss"
 version = "0.1.0"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "A collection of typings for GameMaker Studio 2 YY and YYP files"
+repository = "https://github.com/NPC-Studio/yy-boss"
+readme = "README.md"
 
 [lib]
 name = "yy_boss"
@@ -12,9 +16,8 @@ path = "src/lib.rs"
 name = "yy-boss"
 path = "src/bin.rs"
 
-
 [dependencies]
-yy-typings = { path = "../yy-typings" }
+yy-typings = { path = "../yy-typings", version = "0.1" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
