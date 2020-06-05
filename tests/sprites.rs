@@ -1,20 +1,17 @@
 use pretty_assertions::assert_eq;
-use std::path::Path;
 use yy_boss::{
     yy_typings::sprite::{
         FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
     },
-    SpriteExt, YypBoss,
+    SpriteExt,
 };
-
-const PATH_TO_TEST_PROJ: &'static str = "tests/examples/test_proj/test_proj.yyp";
+mod common;
 
 #[test]
 fn add_sprite_to_yyp() {
     const IMAGE_PATH: &'static str = "tests/examples/test_spr_add.png";
-    const PROOF_PATH: &'static str = "tests/examples/proofs/sprite_add_proof/test_proj.yyp";
 
-    let mut yyp_boss = YypBoss::new(Path::new(PATH_TO_TEST_PROJ)).unwrap();
+    let mut yyp_boss = common::setup_blank_project().unwrap();
     assert!(
         yyp_boss.get_sprite("spr_test").is_none(),
         "The sprite we're trying to add is already in the project!"
@@ -57,10 +54,8 @@ fn add_sprite_to_yyp() {
         "We mangled this sprite in the YypBoss!"
     );
 
-    let proof_yyp_boss = YypBoss::new(Path::new(PROOF_PATH)).unwrap();
+    let proof_yyp_boss = common::load_proof("sprite_add_proof").unwrap();
 
-    // Assert the our YYPs are the Same...
-    let our_yyp = yyp_boss.yyp();
-    let proof_yyp = proof_yyp_boss.yyp();
-    assert_eq!(our_yyp, proof_yyp);
+    // // Assert the our YYPs are the Same...
+    common::assert_yypboss_eq(&yyp_boss, &proof_yyp_boss);
 }

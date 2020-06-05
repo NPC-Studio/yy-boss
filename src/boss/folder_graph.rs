@@ -1,4 +1,4 @@
-use super::ViewPathLocationExt;
+use super::{PathStrExt, ViewPathLocationExt};
 use log::error;
 use maplit::hashmap;
 use std::{collections::HashMap, hash::Hash};
@@ -66,6 +66,7 @@ impl FolderGraph {
             let mut folder = self;
 
             for path in view_path.path.component_paths() {
+                let path = path.trim_yy();
                 folder = &mut folder
                     .folders
                     .get_mut(path)

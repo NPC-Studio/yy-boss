@@ -29,6 +29,7 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
             YypBossNeq::Yyp => {
                 let mut our_yyp = ours.yyp().clone();
                 let proof_yyp = proof.yyp();
+                // We have to equalize the names here to prevent trivial mismatches...
                 our_yyp.name = proof_yyp.name.clone();
 
                 assert_eq!(
@@ -52,6 +53,7 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
     }
 }
 
+#[allow(dead_code)]
 pub fn assert_yypboss_neq(ours: &YypBoss, proof: &YypBoss) {
     match yypboss_neq(ours, proof) {
         Ok(()) => {

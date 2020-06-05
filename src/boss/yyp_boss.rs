@@ -245,8 +245,9 @@ impl YypBoss {
     ) -> Result<ViewPath, FolderGraphError> {
         let subfolder = self.folder_graph.find_subfolder_mut(parent_path)?;
 
-        // Incredibly idiotic, but Gms2 appears to use 1 for empty folders.
-        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or(1);
+        // Sometimes Gms2 uses 1 for the default order of folders. This is chaos.
+        // No clue what's up with that.
+        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
 
         if subfolder.folders.contains_key(&name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
@@ -255,17 +256,10 @@ impl YypBoss {
         // Create our Path...
         let path = parent_path.path.join(&name);
 
-        // Add the Subfolder View:
-        let final_pathname = path
-            .component_paths()
-            .last()
-            .unwrap_or_else(|| "folders")
-            .to_string();
-
         subfolder.folders.insert(
-            final_pathname.clone(),
+            name.clone(),
             SubfolderMember {
-                child: FolderGraph::new(final_pathname, parent_path.clone()),
+                child: FolderGraph::new(name.clone(), parent_path.clone()),
                 order,
             },
         );
