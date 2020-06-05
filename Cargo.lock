@@ -795,7 +795,7 @@ dependencies = [
 
 [[package]]
 name = "yy-typings"
-version = "0.1.1"
+version = "0.1.0"
 dependencies = [
  "regex",
  "serde",
