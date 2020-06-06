@@ -1,7 +1,7 @@
 use super::{YyResource, YypBoss};
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{fs, num::NonZeroUsize, path::Path};
+use std::{collections::BTreeMap, fs, num::NonZeroUsize, path::Path};
 use yy_typings::{sprite::*, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -241,14 +241,15 @@ impl SpriteExt for Sprite {
 }
 
 use anyhow::Context;
-
+type SpriteName = String;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
-    type SharedData = std::collections::BTreeMap<String, FilesystemPath>;
+    type SharedData = BTreeMap<SpriteName, FilesystemPath>;
 
     fn name(&self) -> &str {
         &self.name
     }
+
     fn set_name(&mut self, name: String) {
         self.name = name.clone();
         let new_path = format!("sprites/{0}/{0}.yy", name);
@@ -355,9 +356,6 @@ impl YyResource for Sprite {
     }
 
     fn load_shared_data(project_directory: &Path) -> AnyResult<Option<Self::SharedData>> {
-        YypBoss::ensure_yyboss_data(project_directory)
-            .with_context(|| "couldn't ensure the .yyboss directory")?;
-
         let our_path = project_directory.join("/.yyboss/sprite_paths.json");
         if our_path.exists() == false {
             fs::write(&our_path, "{}").with_context(|| "writing to the sprite shared data file")?;
