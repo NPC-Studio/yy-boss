@@ -5,7 +5,6 @@ use yy_typings::{FilesystemPath, ViewPath};
 
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
     type AssociatedData: Debug;
-    type SharedData: Debug;
 
     /// Get's the resource's name.
     fn name(&self) -> &str;
@@ -29,11 +28,5 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
         &self,
         directory_path: &Path,
         data: &Self::AssociatedData,
-    ) -> Result<()>;
-
-    fn load_shared_data(project_directory: &Path) -> Result<Option<Self::SharedData>>;
-    fn serialize_shared_data(
-        project_directory: &Path,
-        shared_data: &Self::SharedData,
     ) -> Result<()>;
 }

@@ -1,6 +1,6 @@
 use super::{
-    folder_graph::*, FolderGraph, PathStrExt, SpriteImageBuffer, ViewPathLocationExt, YyResource,
-    YyResourceHandler, YypSerialization,
+    folder_graph::*, pipelines::Pipelines, utils, FolderGraph, PathStrExt, SpriteImageBuffer,
+    ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
 };
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
@@ -19,6 +19,7 @@ pub struct YypBoss {
     folder_graph: FolderGraph,
     resource_names: HashSet<String>,
     tcu: TrailingCommaUtility,
+    pipelines: Pipelines,
     dirty: bool,
 }
 
@@ -26,10 +27,7 @@ impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new(path_to_yyp: &Path) -> AnyResult<YypBoss> {
         let tcu = TrailingCommaUtility::new();
-        let yyp_file = fs::read_to_string(&path_to_yyp)
-            .with_context(|| format!("Path given: {:?}", path_to_yyp))?;
-        let yyp: Yyp = serde_json::from_str(&tcu.clear_trailing_comma(&yyp_file))
-            .with_context(|| "on the Yyp itself")?;
+        let yyp = utils::deserialize(path_to_yyp, Some(&tcu)).with_context(|| "on the yyp")?;
 
         let mut yyp_boss = Self {
             yyp,
@@ -39,6 +37,7 @@ impl YypBoss {
             folder_graph: FolderGraph::root(),
             resource_names: HashSet::new(),
             tcu,
+            pipelines: Pipelines::new(&path_to_yyp.parent().unwrap().join(&Self::YYBOSS_DIR))?,
         };
 
         // Load in Folders
@@ -60,8 +59,6 @@ impl YypBoss {
         }
 
         // Load in Sprites
-        yyp_boss.sprites.shared_data = Sprite::load_shared_data(&yyp_boss.absolute_path)
-            .with_context(|| "loading the sprite shared data")?;
         for sprite_resource in yyp_boss
             .yyp
             .resources
@@ -74,10 +71,7 @@ impl YypBoss {
                 .unwrap()
                 .join(&sprite_resource.id.path);
 
-            let sprite_yy: Sprite =
-                yyp_boss.deserialize_yyfile(&sprite_path).with_context(|| {
-                    format!("Error deserializing sprite with Path {:#?}", sprite_path)
-                })?;
+            let sprite_yy: Sprite = utils::deserialize(&sprite_path, Some(&yyp_boss.tcu))?;
 
             // Add to the folder graph
             yyp_boss
@@ -95,6 +89,9 @@ impl YypBoss {
             yyp_boss.resource_names.insert(sprite_yy.name.clone());
             yyp_boss.sprites.add_new_startup(sprite_yy, None);
         }
+
+        // Ensure the directory
+        Self::ensure_yyboss_data(&yyp_boss.absolute_path)?;
 
         Ok(yyp_boss)
     }
@@ -183,16 +180,7 @@ impl YypBoss {
         }
     }
 
-    /// For the shared data in a sprite. a little messy!
-    pub fn mark_sprite_with_path(&mut self, sprite_id: FilesystemPath, ase_name: String) {
-        let shared_data = self.sprites.shared_data.get_or_insert(Default::default());
-        shared_data.insert(ase_name, sprite_id);
-        self.sprites.dirty = true;
-        self.dirty = true;
-    }
-
-    /// This gets the data on a given Sprite with a given name. If no Sprite by that name exists,
-    /// then a None is returned. It does not return a handle on the Associated Data of the Sprite.
+    /// This gets the data on a given Sprite with a given name, if it exists.
     pub fn get_sprite(&self, sprite_name: &str) -> Option<&Sprite> {
         if self.resource_names.contains(sprite_name) == false {
             return None;
@@ -213,10 +201,6 @@ impl YypBoss {
                 .get(path)
                 .map(|sprite_resource| &sprite_resource.yy_resource)
         })
-    }
-
-    pub fn get_sprite_data(&self) -> Option<<Sprite as YyResource>::SharedData> {
-        self.sprites.shared_data.clone()
     }
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
@@ -531,17 +515,15 @@ impl YypBoss {
 
 /// Utilities
 impl YypBoss {
-    fn deserialize_yyfile<T>(&self, path: &Path) -> AnyResult<T>
-    where
-        for<'de> T: serde::Deserialize<'de>,
-    {
-        let file_string = fs::read_to_string(path)?;
-        let data = serde_json::from_str(&self.tcu.clear_trailing_comma(&file_string))?;
-        Ok(data)
+    const YYBOSS_DIR: &'static str = ".boss";
+
+    pub fn yyboss_path(&self, fname: &str) -> PathBuf {
+        self.absolute_path
+            .join(format!("/{}/{}", Self::YYBOSS_DIR, fname))
     }
 
     pub fn ensure_yyboss_data(path: &Path) -> AnyResult<()> {
-        let subdir = path.join("/.yyboss");
+        let subdir = path.join(format!("/{}", Self::YYBOSS_DIR));
         if subdir.exists() == false {
             std::fs::create_dir(subdir)?;
         }

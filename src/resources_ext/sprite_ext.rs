@@ -1,7 +1,7 @@
-use super::{YyResource, YypBoss};
+use super::YyResource;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{collections::BTreeMap, fs, num::NonZeroUsize, path::Path};
+use std::{num::NonZeroUsize, path::Path};
 use yy_typings::{sprite::*, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -241,10 +241,8 @@ impl SpriteExt for Sprite {
 }
 
 use anyhow::Context;
-type SpriteName = String;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
-    type SharedData = BTreeMap<SpriteName, FilesystemPath>;
 
     fn name(&self) -> &str {
         &self.name
@@ -351,28 +349,6 @@ impl YyResource for Sprite {
                 .save(&final_layer_path)
                 .with_context(|| format!("We couldn't save an Image to {:?}", final_layer_path))?;
         }
-
-        Ok(())
-    }
-
-    fn load_shared_data(project_directory: &Path) -> AnyResult<Option<Self::SharedData>> {
-        let our_path = project_directory.join("/.yyboss/sprite_paths.json");
-        if our_path.exists() == false {
-            fs::write(&our_path, "{}").with_context(|| "writing to the sprite shared data file")?;
-        }
-
-        Ok(Some(serde_json::from_str(&fs::read_to_string(our_path)?)?))
-    }
-
-    fn serialize_shared_data(
-        project_directory: &Path,
-        shared_data: &Self::SharedData,
-    ) -> AnyResult<()> {
-        YypBoss::ensure_yyboss_data(project_directory)?;
-
-        let as_text = serde_json::to_string_pretty(shared_data)?;
-        let our_path = project_directory.join(".yyboss/sprite_paths.json");
-        fs::write(our_path, as_text)?;
 
         Ok(())
     }

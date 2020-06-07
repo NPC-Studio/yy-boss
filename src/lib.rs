@@ -12,6 +12,8 @@ mod boss {
 
     mod utils;
 
+    mod pipelines;
+
     mod folder_graph;
     pub use folder_graph::FolderGraph;
 }
