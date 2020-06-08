@@ -1,6 +1,7 @@
 use super::{
-    folder_graph::*, pipelines::Pipelines, utils, FolderGraph, PathStrExt, SpriteImageBuffer,
-    ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
+    directory_manager::DirectoryManager, folder_graph::*, pipelines::PipelineManager, utils,
+    FolderGraph, PathStrExt, SpriteImageBuffer, ViewPathLocationExt, YyResource, YyResourceHandler,
+    YypSerialization,
 };
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
@@ -14,12 +15,12 @@ use yy_typings::{sprite::*, utils::TrailingCommaUtility, Yyp};
 #[derive(Debug)]
 pub struct YypBoss {
     yyp: Yyp,
-    absolute_path: PathBuf,
+    directory_manager: DirectoryManager,
     sprites: YyResourceHandler<Sprite>,
     folder_graph: FolderGraph,
     resource_names: HashSet<String>,
     tcu: TrailingCommaUtility,
-    pub pipelines: Pipelines,
+    pub pipelines: PipelineManager,
     dirty: bool,
 }
 
@@ -31,13 +32,15 @@ impl YypBoss {
 
         let mut yyp_boss = Self {
             yyp,
-            absolute_path: path_to_yyp.to_owned(),
+            directory_manager: DirectoryManager::new(path_to_yyp)?,
             dirty: false,
             sprites: YyResourceHandler::new(),
             folder_graph: FolderGraph::root(),
             resource_names: HashSet::new(),
             tcu,
-            pipelines: Pipelines::new(&path_to_yyp.parent().unwrap().join(&Self::YYBOSS_DIR))?,
+            pipelines: PipelineManager::new(
+                &path_to_yyp.parent().unwrap().join(&Self::YYBOSS_DIR),
+            )?,
         };
 
         // Load in Folders
@@ -66,9 +69,8 @@ impl YypBoss {
             .filter(|value| value.id.path.starts_with("sprites"))
         {
             let sprite_path = yyp_boss
-                .absolute_path
-                .parent()
-                .unwrap()
+                .directory_manager
+                .root_directory()
                 .join(&sprite_resource.id.path);
 
             let sprite_yy: Sprite = utils::deserialize(&sprite_path, Some(&yyp_boss.tcu))?;
@@ -91,13 +93,14 @@ impl YypBoss {
         }
 
         // Ensure the directory
-        Self::ensure_yyboss_data(&yyp_boss.absolute_path)?;
+        Self::ensure_yyboss_data()
+        Self::ensure_yyboss_data(&yyp_boss.directory_manager)?;
 
         Ok(yyp_boss)
     }
 
     pub fn absolute_path(&self) -> &Path {
-        &self.absolute_path
+        &self.directory_manager
     }
 
     /// Gets the default texture path, if it exists. The "Default" group simply
@@ -462,15 +465,20 @@ impl YypBoss {
         if self.dirty {
             // Check if Sprite is Dirty and Serialize that:
             self.sprites
-                .serialize(&self.absolute_path.parent().unwrap())?;
+                .serialize(&self.directory_manager.parent().unwrap())?;
 
             // serialize the pipeline manifests
-            self.pipelines
-                .serialize(&self.absolute_path.parent().unwrap().join(&Self::YYBOSS_DIR))?;
+            self.pipelines.serialize(
+                &self
+                    .directory_manager
+                    .parent()
+                    .unwrap()
+                    .join(&Self::YYBOSS_DIR),
+            )?;
 
             // Serialize Ourselves:
             let string = self.yyp.yyp_serialization(0);
-            fs::write(&self.absolute_path, &string)?;
+            fs::write(&self.directory_manager, &string)?;
 
             self.dirty = false;
         }
@@ -515,25 +523,6 @@ impl YypBoss {
         } else {
             Some(self.folder_graph.clone())
         }
-    }
-}
-
-/// Utilities
-impl YypBoss {
-    const YYBOSS_DIR: &'static str = ".boss";
-
-    pub fn yyboss_path(&self, fname: &str) -> PathBuf {
-        self.absolute_path
-            .join(format!("/{}/{}", Self::YYBOSS_DIR, fname))
-    }
-
-    pub fn ensure_yyboss_data(path: &Path) -> AnyResult<()> {
-        let subdir = path.join(format!("/{}", Self::YYBOSS_DIR));
-        if subdir.exists() == false {
-            std::fs::create_dir(subdir)?;
-        }
-
-        Ok(())
     }
 }
 

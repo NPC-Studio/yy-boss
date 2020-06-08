@@ -10,9 +10,9 @@ mod boss {
     mod yy_resource_handler;
     pub use yy_resource_handler::YyResourceHandler;
 
-    mod utils;
-
+    mod directory_manager;
     mod pipelines;
+    mod utils;
 
     mod folder_graph;
     pub use folder_graph::FolderGraph;

@@ -11,15 +11,15 @@ pub type PipelineDesinations = BTreeSet<FilesystemPath>;
 type PipelineResult = Result<(), PipelineError>;
 
 #[derive(Debug, Default, Clone, Eq)]
-pub struct Pipelines {
+pub struct PipelineManager {
     pipelines: BTreeMap<String, Pipeline>,
     dirty: bool,
 }
 
-impl Pipelines {
+impl PipelineManager {
     const PIPELINE_MANIFEST: &'static str = "pipeline_manifest.json";
 
-    pub(crate) fn new(boss_dir: &Path) -> AnyResult<Pipelines> {
+    pub(crate) fn new(boss_dir: &Path) -> AnyResult<PipelineManager> {
         let pipeline_manifest_path = boss_dir.join(Self::PIPELINE_MANIFEST);
 
         // If there's no pipeline manifest file, then no worries,
@@ -295,7 +295,7 @@ impl Ord for Pipeline {
     }
 }
 
-impl PartialEq for Pipelines {
+impl PartialEq for PipelineManager {
     fn eq(&self, other: &Self) -> bool {
         self.pipelines == other.pipelines
     }
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn trivial() {
-        let mut pipelines = Pipelines::default();
+        let mut pipelines = PipelineManager::default();
         pipelines.add_pipeline("sprites").unwrap();
         pipelines
             .add_source_to_pipeline("sprites", "spr_source_sprite")
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn errors() {
-        let mut pipelines = Pipelines::default();
+        let mut pipelines = PipelineManager::default();
 
         let destination = FilesystemPath {
             name: "spr_destination".to_string(),
@@ -416,12 +416,12 @@ mod tests {
     }
 
     #[test]
-    fn symetry() {
+    fn symmetry() {
         fn harness(
-            mut pipeline: Pipelines,
-            add_function: impl Fn(&mut Pipelines) -> PipelineResult,
-            remove_function: impl Fn(&mut Pipelines) -> PipelineResult,
-        ) -> Pipelines {
+            mut pipeline: PipelineManager,
+            add_function: impl Fn(&mut PipelineManager) -> PipelineResult,
+            remove_function: impl Fn(&mut PipelineManager) -> PipelineResult,
+        ) -> PipelineManager {
             let mut original_clone = pipeline.clone();
             println!("Original...{:#?}", original_clone);
 
@@ -440,7 +440,7 @@ mod tests {
         }
 
         let p = harness(
-            Pipelines::default(),
+            PipelineManager::default(),
             |p| p.add_pipeline("sprites"),
             |p| p.remove_pipeline("sprites"),
         );
