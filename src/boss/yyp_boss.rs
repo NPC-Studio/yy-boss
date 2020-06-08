@@ -16,7 +16,7 @@ pub struct YypBoss {
     folder_graph: FolderGraph,
     resource_names: HashSet<String>,
     tcu: TrailingCommaUtility,
-    pub pipelines: PipelineManager,
+    pub pipeline_manager: PipelineManager,
     dirty: bool,
 }
 
@@ -35,7 +35,7 @@ impl YypBoss {
             folder_graph: FolderGraph::root(),
             resource_names: HashSet::new(),
             tcu,
-            pipelines: PipelineManager::new(&directory_manager)?,
+            pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager: DirectoryManager::new(path_to_yyp)?,
         };
 
@@ -459,7 +459,7 @@ impl YypBoss {
                 .serialize(self.directory_manager.root_directory())?;
 
             // serialize the pipeline manifests
-            self.pipelines.serialize(&self.directory_manager)?;
+            self.pipeline_manager.serialize(&self.directory_manager)?;
 
             // Serialize Ourselves:
             let string = self.yyp.yyp_serialization(0);

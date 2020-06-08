@@ -4,5 +4,5 @@ mod common;
 fn sanity_check() {
     let proof = common::load_proof("pipelines_proof").unwrap();
     
-    println!("{:#?}", proof.pipelines);
+    println!("{:#?}", proof.pipeline_manager);
 }
