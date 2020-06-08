@@ -34,7 +34,7 @@ impl DirectoryManager {
         &self.yyp
     }
 
-    pub fn boss_directory(&self) -> &Path {
-        &self.boss_directory
+    pub fn boss_file(&self, relative_path: &Path) -> PathBuf {
+        self.boss_directory.join(relative_path)
     }
 }

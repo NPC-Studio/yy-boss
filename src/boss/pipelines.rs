@@ -1,4 +1,4 @@
-use super::{utils, FilesystemPath};
+use super::{directory_manager::DirectoryManager, utils, FilesystemPath};
 use anyhow::Result as AnyResult;
 use log::{error, info, trace};
 use serde::{Deserialize, Serialize};
@@ -19,8 +19,9 @@ pub struct PipelineManager {
 impl PipelineManager {
     const PIPELINE_MANIFEST: &'static str = "pipeline_manifest.json";
 
-    pub(crate) fn new(boss_dir: &Path) -> AnyResult<PipelineManager> {
-        let pipeline_manifest_path = boss_dir.join(Self::PIPELINE_MANIFEST);
+    pub(crate) fn new(directory_manager: &DirectoryManager) -> AnyResult<PipelineManager> {
+        let pipeline_manifest_path =
+            directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
 
         // If there's no pipeline manifest file, then no worries,
         // just return. Users might not want to make a manifest!
@@ -40,7 +41,7 @@ impl PipelineManager {
                 .clone()
                 .into_iter()
                 .filter(|path| {
-                    let mut joint_path = boss_dir.join(path);
+                    let mut joint_path = directory_manager.boss_file(path);
                     joint_path.set_extension("json");
 
                     if joint_path.exists() {
@@ -84,10 +85,11 @@ impl PipelineManager {
         }
     }
 
-    pub(crate) fn serialize(&mut self, boss_dir: &Path) -> AnyResult<()> {
+    pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         if self.dirty {
             // Serialize Manifest...
-            let pipeline_manifest_path = boss_dir.join(Self::PIPELINE_MANIFEST);
+            let pipeline_manifest_path =
+                directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
             let pipeline_manifest = self
                 .pipelines
                 .keys()
@@ -99,7 +101,7 @@ impl PipelineManager {
             // Serialize each Pipeline..
             for pipeline in self.pipelines.values_mut() {
                 if pipeline.dirty {
-                    let pipeline_path = boss_dir.join(Path::new(&pipeline.name));
+                    let pipeline_path = directory_manager.boss_file(Path::new(&pipeline.name));
 
                     utils::serialize(&pipeline_path, &pipeline)?;
                     pipeline.dirty = false;

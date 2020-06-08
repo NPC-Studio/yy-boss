@@ -24,8 +24,8 @@ pub fn load_proof(proof_name: &str) -> AnyResult<YypBoss> {
 
 #[allow(dead_code)]
 pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
-    println!("target: {:#?}", ours.absolute_path());
-    println!("proof: {:#?}", proof.absolute_path());
+    println!("target: {:#?}", ours.directory_manager.yyp());
+    println!("proof: {:#?}", proof.directory_manager.yyp());
 
     match yypboss_neq(ours, proof) {
         Ok(()) => {}
