@@ -19,7 +19,7 @@ pub struct YypBoss {
     folder_graph: FolderGraph,
     resource_names: HashSet<String>,
     tcu: TrailingCommaUtility,
-    pipelines: Pipelines,
+    pub pipelines: Pipelines,
     dirty: bool,
 }
 
@@ -463,6 +463,11 @@ impl YypBoss {
             // Check if Sprite is Dirty and Serialize that:
             self.sprites
                 .serialize(&self.absolute_path.parent().unwrap())?;
+
+            // serialize the pipeline manifests
+            self.pipelines
+                .serialize(&self.absolute_path.parent().unwrap().join(&Self::YYBOSS_DIR))?;
+
             // Serialize Ourselves:
             let string = self.yyp.yyp_serialization(0);
             fs::write(&self.absolute_path, &string)?;
