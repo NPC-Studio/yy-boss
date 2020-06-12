@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub type PipelineDesinations = BTreeSet<FilesystemPath>;
+pub type PipelineDesinations = Vec<FilesystemPath>;
 type PipelineResult = Result<(), PipelineError>;
 
 #[derive(Debug, Default, Clone, Eq)]
@@ -197,7 +197,7 @@ impl PipelineManager {
                     if destinations.contains(&destination) {
                         Err(PipelineError::PipelineDestinationAlreadyExistsOnSource)
                     } else {
-                        destinations.insert(destination);
+                        destinations.push(destination);
                         pipeline.dirty = true;
                         Ok(())
                     }
@@ -263,7 +263,8 @@ impl PipelineManager {
             .get_mut(&source_name.into())
             .ok_or(PipelineError::PipelineSourceDoesNotExist)?;
 
-        if destinations.remove(destination) {
+        if let Some(pos) = destinations.iter().position(|m| m == destination) {
+            destinations.remove(pos);
             Ok(())
         } else {
             Err(PipelineError::PipelineDestinationDoesNotExist)
