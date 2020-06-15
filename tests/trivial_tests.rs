@@ -19,7 +19,6 @@ fn no_mangle_yyp() {
         match yyps {
             DirEntry::File(file) => {
                 let path = root_path.join(file.path);
-                println!("Testing Path...{:#?}", path);
                 let parsed_yyp = YypBoss::new(&path).unwrap().yyp().clone();
 
                 let original = std::str::from_utf8(file.contents).unwrap();

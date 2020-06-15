@@ -7,7 +7,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub type PipelineDesinations = Vec<FilesystemPath>;
 type PipelineResult = Result<(), PipelineError>;
 
 #[derive(Debug, Default, Clone, Eq)]
@@ -189,15 +188,17 @@ impl PipelineManager {
         &mut self,
         pipeline_name: impl Into<String>,
         source_name: impl Into<String>,
-        destination: FilesystemPath,
+        destination_key: impl Into<String>,
+        destination_value: FilesystemPath,
     ) -> PipelineResult {
+        let destination_key = destination_key.into();
         match self.pipelines.get_mut(&pipeline_name.into()) {
             Some(pipeline) => match pipeline.source_destinations.get_mut(&source_name.into()) {
                 Some(destinations) => {
-                    if destinations.contains(&destination) {
+                    if destinations.contains_key(&destination_key) {
                         Err(PipelineError::PipelineDestinationAlreadyExistsOnSource)
                     } else {
-                        destinations.push(destination);
+                        destinations.insert(destination_key, destination_value);
                         pipeline.dirty = true;
                         Ok(())
                     }
@@ -251,7 +252,7 @@ impl PipelineManager {
         &mut self,
         pipeline_name: impl Into<String>,
         source_name: impl Into<String>,
-        destination: &FilesystemPath,
+        destination_name: &str,
     ) -> PipelineResult {
         let pipeline = self
             .pipelines
@@ -263,14 +264,15 @@ impl PipelineManager {
             .get_mut(&source_name.into())
             .ok_or(PipelineError::PipelineSourceDoesNotExist)?;
 
-        if let Some(pos) = destinations.iter().position(|m| m == destination) {
-            destinations.remove(pos);
+        if destinations.remove(destination_name).is_some() {
             Ok(())
         } else {
             Err(PipelineError::PipelineDestinationDoesNotExist)
         }
     }
 }
+
+pub type PipelineDesinations = BTreeMap<String, FilesystemPath>;
 
 #[derive(Debug, Eq, Serialize, Deserialize, Hash, Clone)]
 pub struct Pipeline {
@@ -337,6 +339,7 @@ mod tests {
             .add_destination_to_source(
                 "sprites",
                 "spr_source_sprite",
+                "spr_source_sprite",
                 FilesystemPath {
                     name: "spr_destination".to_string(),
                     path: Path::new("sprites/spr_destination/spr_destination.yy").to_owned(),
@@ -348,12 +351,12 @@ mod tests {
         let raw_pipeline = r#"{
             "name": "sprites",
             "source_destinations": {
-                "spr_source_sprite": [
-                    {
+                "spr_source_sprite": {
+                    "spr_source_sprite": {
                         "name": "spr_destination",
                         "path": "sprites/spr_destination/spr_destination.yy"
                     }
-                ]
+                }
             }
         }"#;
 
@@ -376,13 +379,23 @@ mod tests {
             Err(PipelineError::PipelineDoesNotExist)
         );
         assert_eq!(
-            pipelines.add_destination_to_source("sprites", "spr_source", destination.clone()),
+            pipelines.add_destination_to_source(
+                "sprites",
+                "spr_source",
+                "spr_source",
+                destination.clone()
+            ),
             Err(PipelineError::PipelineDoesNotExist)
         );
 
         pipelines.add_pipeline("sprites").unwrap();
         assert_eq!(
-            pipelines.add_destination_to_source("sprites", "spr_source", destination.clone()),
+            pipelines.add_destination_to_source(
+                "sprites",
+                "spr_source",
+                "spr_source",
+                destination.clone()
+            ),
             Err(PipelineError::PipelineSourceDoesNotExist)
         );
 
@@ -401,19 +414,24 @@ mod tests {
         );
 
         pipelines
-            .add_destination_to_source("sprites", "spr_source", destination.clone())
+            .add_destination_to_source("sprites", "spr_source", "spr_source", destination.clone())
             .unwrap();
         assert_eq!(
-            pipelines.add_destination_to_source("sprites", "spr_source", destination.clone()),
+            pipelines.add_destination_to_source(
+                "sprites",
+                "spr_source",
+                "spr_source",
+                destination.clone()
+            ),
             Err(PipelineError::PipelineDestinationAlreadyExistsOnSource)
         );
 
         pipelines
-            .remove_destination_from_source("sprites", "spr_source", &destination)
+            .remove_destination_from_source("sprites", "spr_source", "spr_source")
             .unwrap();
 
         assert_eq!(
-            pipelines.remove_destination_from_source("sprites", "spr_source", &destination),
+            pipelines.remove_destination_from_source("sprites", "spr_source", "spr_source"),
             Err(PipelineError::PipelineDestinationDoesNotExist)
         );
     }
@@ -442,27 +460,19 @@ mod tests {
             original_clone
         }
 
+        println!("Adding pipeline...");
         let p = harness(
             PipelineManager::default(),
             |p| p.add_pipeline("sprites"),
             |p| p.remove_pipeline("sprites"),
         );
 
+        println!("Adding source...");
         let p = harness(
             p,
             |p| p.add_source_to_pipeline("sprites", "spr_source"),
             |p| p.remove_source_from_pipeline("sprites", "spr_source"),
         );
-
-        let destination0 = FilesystemPath {
-            name: "spr_destination".to_string(),
-            path: Path::new("sprites/spr_destination0/spr_destination0.yy").to_owned(),
-        };
-
-        let destination1 = FilesystemPath {
-            name: "spr_destination".to_string(),
-            path: Path::new("sprites/spr_destination1/spr_destination1.yy").to_owned(),
-        };
 
         let destination0c = FilesystemPath {
             name: "spr_destination".to_string(),
@@ -474,17 +484,28 @@ mod tests {
             path: Path::new("sprites/spr_destination1/spr_destination1.yy").to_owned(),
         };
 
+        println!("Adding destination and source...");
         harness(
             p,
             move |p| {
-                p.add_destination_to_source("sprites", "spr_source", destination0c.clone())
-                    .unwrap();
-                p.add_destination_to_source("sprites", "spr_source", destination1c.clone())
+                p.add_destination_to_source(
+                    "sprites",
+                    "spr_source",
+                    "spr_destination0",
+                    destination0c.clone(),
+                )
+                .unwrap();
+                p.add_destination_to_source(
+                    "sprites",
+                    "spr_source",
+                    "spr_destination1",
+                    destination1c.clone(),
+                )
             },
             |p| {
-                p.remove_destination_from_source("sprites", "spr_source", &destination0)
+                p.remove_destination_from_source("sprites", "spr_source", "spr_destination0")
                     .unwrap();
-                p.remove_destination_from_source("sprites", "spr_source", &destination1)
+                p.remove_destination_from_source("sprites", "spr_source", "spr_destination1")
             },
         );
     }
