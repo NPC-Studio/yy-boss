@@ -354,13 +354,13 @@ impl YyResource for Sprite {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub struct Bbox {
     pub top_left: (isize, isize),
     pub bottom_right: (isize, isize),
 }
 
-#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display)]
+#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display, PartialEq, Eq)]
 pub enum OriginUtility {
     TopLeft,
     TopCenter,
@@ -394,7 +394,7 @@ impl OriginUtility {
     }
 }
 
-#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display)]
+#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display, PartialEq, Eq)]
 pub enum BboxModeUtility {
     Automatic(Bbox),
     FullImage,
