@@ -452,16 +452,18 @@ impl YypBoss {
         self.dirty = true;
     }
 
+    /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
+        self.sprites
+            .serialize(self.directory_manager.root_directory())?;
+
+        // serialize the pipeline manifests
+        self.pipeline_manager
+            .serialize(&self.directory_manager)
+            .context("serializing pipelines")?;
+
+        // Serialize Ourselves:
         if self.dirty {
-            // Check if Sprite is Dirty and Serialize that:
-            self.sprites
-                .serialize(self.directory_manager.root_directory())?;
-
-            // serialize the pipeline manifests
-            self.pipeline_manager.serialize(&self.directory_manager)?;
-
-            // Serialize Ourselves:
             let string = self.yyp.yyp_serialization(0);
             fs::write(&self.directory_manager.yyp(), &string)?;
 

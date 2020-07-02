@@ -11,9 +11,11 @@ mod boss {
     pub use yy_resource_handler::YyResourceHandler;
 
     mod directory_manager;
-    mod pipelines;
     mod utils;
-
+    
+    mod pipelines;
+    pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
+    
     mod folder_graph;
     pub use folder_graph::FolderGraph;
 }

@@ -168,7 +168,7 @@ impl YypSerialization for YypFolder {
     fn yyp_serialization(&self, indentation: usize) -> String {
         format!(
             r#"{{"folderPath":"{}","order":{},"resourceVersion":"{}","name":"{}","tags":{},"resourceType":"GMFolder",}}"#,
-            self.folder_path,
+            self.folder_path.inner(),
             self.order,
             self.resource_version,
             self.name,

@@ -87,22 +87,22 @@ impl PipelineManager {
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         if self.dirty {
             // Serialize Manifest...
-            let pipeline_manifest_path =
-                directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
             let pipeline_manifest = self
                 .pipelines
                 .keys()
                 .map(|name| Path::new(name).to_owned())
                 .collect::<BTreeSet<_>>();
 
-            utils::serialize(&pipeline_manifest_path, &pipeline_manifest)?;
+            directory_manager
+                .serialize_boss_file(Path::new(Self::PIPELINE_MANIFEST), &pipeline_manifest)?;
 
             // Serialize each Pipeline..
             for pipeline in self.pipelines.values_mut() {
                 if pipeline.dirty {
-                    let pipeline_path = directory_manager.boss_file(Path::new(&pipeline.name));
-
-                    utils::serialize(&pipeline_path, &pipeline)?;
+                    directory_manager.serialize_boss_file(
+                        &Path::new(&pipeline.name).with_extension("json"),
+                        &pipeline,
+                    )?;
                     pipeline.dirty = false;
                 }
             }
@@ -148,9 +148,10 @@ impl PipelineManager {
                 Pipeline {
                     name,
                     source_destinations: Default::default(),
-                    dirty: false,
+                    dirty: true,
                 },
             );
+            self.dirty = true;
             Ok(())
         }
     }
@@ -173,6 +174,7 @@ impl PipelineManager {
                         .source_destinations
                         .insert(source_name, Default::default());
                     pipeline.dirty = true;
+                    self.dirty = true;
                     Ok(())
                 }
             }
@@ -184,11 +186,11 @@ impl PipelineManager {
     ///
     /// If the pipeline doesn't exist or the source doesn't exist on the pipeline,
     /// an error is returned.
-    pub fn add_destination_to_source(
+    pub fn add_destination_to_source<S: Into<String>>(
         &mut self,
-        pipeline_name: impl Into<String>,
-        source_name: impl Into<String>,
-        destination_key: impl Into<String>,
+        pipeline_name: S,
+        source_name: S,
+        destination_key: S,
         destination_value: FilesystemPath,
     ) -> PipelineResult {
         let destination_key = destination_key.into();
@@ -200,6 +202,7 @@ impl PipelineManager {
                     } else {
                         destinations.insert(destination_key, destination_value);
                         pipeline.dirty = true;
+                        self.dirty = true;
                         Ok(())
                     }
                 }
@@ -207,6 +210,29 @@ impl PipelineManager {
             },
             None => Err(PipelineError::PipelineDoesNotExist),
         }
+    }
+
+    /// Adds a destination to a given source on a given pipeline.
+    ///
+    /// **If any elements do not exist,
+    /// they will be created. If a destination exists on a source/pipeline which already exists, it will
+    /// be replaced and lost.**
+    pub fn add_destination_to_source_rf<S: Into<String>>(
+        &mut self,
+        pipeline_name: S,
+        source_name: S,
+        destination_key: S,
+        destination_value: FilesystemPath,
+    ) {
+        let destination_key = destination_key.into();
+        let pipeline = self.pipelines.entry(pipeline_name.into()).or_default();
+        let destinations = pipeline
+            .source_destinations
+            .entry(source_name.into())
+            .or_default();
+        destinations.insert(destination_key, destination_value);
+        pipeline.dirty = true;
+        self.dirty = true;
     }
 
     /// Removes a given **pipeline** from the manager. If any data is on the pipeline,
@@ -274,11 +300,11 @@ impl PipelineManager {
 
 pub type PipelineDesinations = BTreeMap<String, FilesystemPath>;
 
-#[derive(Debug, Eq, Serialize, Deserialize, Hash, Clone)]
+#[derive(Debug, Eq, Serialize, Deserialize, Hash, Clone, Default)]
 pub struct Pipeline {
     pub name: String,
     pub source_destinations: BTreeMap<String, PipelineDesinations>,
-    #[serde(default)]
+    #[serde(skip)]
     dirty: bool,
 }
 
@@ -508,5 +534,36 @@ mod tests {
                 p.remove_destination_from_source("sprites", "spr_source", "spr_destination1")
             },
         );
+    }
+
+    #[test]
+    fn dirty() {
+        let mut p = PipelineManager::default();
+        p.add_pipeline("s").unwrap();
+        assert!(p.dirty);
+        assert!(p.pipelines["s"].dirty);
+
+        p.dirty = false;
+        p.pipelines.get_mut("s").unwrap().dirty = false;
+
+        p.add_source_to_pipeline("s", "so").unwrap();
+        assert!(p.dirty);
+        assert!(p.pipelines["s"].dirty);
+
+        p.dirty = false;
+        p.pipelines.get_mut("s").unwrap().dirty = false;
+
+        p.add_destination_to_source("s", "so", "d", Default::default())
+            .unwrap();
+        assert!(p.dirty);
+        assert!(p.pipelines["s"].dirty);
+
+        p.dirty = false;
+        p.pipelines.get_mut("s").unwrap().dirty = false;
+
+        p.add_destination_to_source_rf("new", "so", "d", Default::default());
+        assert!(p.dirty);
+        assert!(p.pipelines["s"].dirty == false);
+        assert!(p.pipelines["new"].dirty);
     }
 }

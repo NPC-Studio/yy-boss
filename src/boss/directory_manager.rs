@@ -1,3 +1,4 @@
+use super::utils;
 use anyhow::{anyhow, Result as AnyResult};
 use std::path::{Path, PathBuf};
 
@@ -17,8 +18,14 @@ impl DirectoryManager {
             .ok_or(anyhow!("couldn't get parent"))?
             .to_owned();
 
+        let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));
+
+        if boss_directory.exists() == false {
+            std::fs::create_dir(&boss_directory)?;
+        }
+
         let output = DirectoryManager {
-            boss_directory: root_directory.join(Path::new(Self::YYBOSS_DIR)),
+            boss_directory,
             root_directory,
             yyp: yyp.to_owned(),
         };
@@ -36,5 +43,13 @@ impl DirectoryManager {
 
     pub fn boss_file(&self, relative_path: &Path) -> PathBuf {
         self.boss_directory.join(relative_path)
+    }
+
+    pub fn serialize_boss_file(
+        &self,
+        relative_path: &Path,
+        value: &impl serde::Serialize,
+    ) -> AnyResult<()> {
+        utils::serialize(&self.boss_file(relative_path), value)
     }
 }
