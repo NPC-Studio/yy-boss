@@ -69,7 +69,8 @@ impl YypBoss {
                 .root_directory()
                 .join(&sprite_resource.id.path);
 
-            let sprite_yy: Sprite = utils::deserialize(&sprite_path, Some(&yyp_boss.tcu))?;
+            let sprite_yy: Sprite = utils::deserialize(&sprite_path, Some(&yyp_boss.tcu))
+                .with_context(|| format!("on sprite {:?}", sprite_path))?;
 
             // Add to the folder graph
             yyp_boss

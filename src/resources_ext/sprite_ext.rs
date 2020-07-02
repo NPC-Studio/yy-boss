@@ -161,9 +161,6 @@ impl SpriteExt for Sprite {
     fn collision_kind(self, collision_kind: CollisionKind) -> Self {
         self.with(|me| {
             me.collision_kind = collision_kind;
-            if me.collision_kind != CollisionKind::Precise {
-                me.separate_masks = false;
-            }
         })
     }
     fn origin(self, origin: OriginUtility, locked: bool) -> Self {
