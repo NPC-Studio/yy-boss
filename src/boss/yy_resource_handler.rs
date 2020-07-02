@@ -50,14 +50,22 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// Replaces a sprite which already existed. If that sprite doesn't exist, it will return
     /// an error instead. Use `YyResourceHandler::add_new` instead.
     pub fn overwrite(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
-        if self.resources.remove(&value.filesystem_path()).is_none() {
+        if self.remove(&value.filesystem_path()).is_none() {
             bail!("We didn't have an original sprite!");
         }
 
-        self.resources_to_remove.push(value.filesystem_path());
         self.add_new(value, associated_data)?;
-
         Ok(())
+    }
+
+    /// Attempts to remove the resource. Returns the data if it was present.
+    pub fn remove(&mut self, value: &FilesystemPath) -> Option<YyResourceData<T>> {
+        if let Some(res) = self.resources.remove(&value) {
+            self.resources_to_remove.push(value.clone());
+            Some(res)
+        } else {
+            None
+        }
     }
 
     /// This is the same as `add_new` but it doesn't dirty the resource. It is used
@@ -117,6 +125,12 @@ impl<T: YyResource> YyResourceHandler<T> {
 pub struct YyResourceData<T: YyResource> {
     pub yy_resource: T,
     pub associated_data: Option<T::AssociatedData>,
+}
+
+impl<T: YyResource> Into<(T, Option<T::AssociatedData>)> for YyResourceData<T> {
+    fn into(self) -> (T, Option<T::AssociatedData>) {
+        (self.yy_resource, self.associated_data)
+    }
 }
 
 impl<T: YyResource + std::fmt::Debug> std::fmt::Debug for YyResourceData<T> {

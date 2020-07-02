@@ -179,6 +179,16 @@ impl YypBoss {
         }
     }
 
+    /// Removes a given sprite from the game. If the sprite existed, a `YyResourceData<Sprite>`
+    /// will be returned.
+    pub fn remove_sprite(
+        &mut self,
+        sprite: FilesystemPath,
+    ) -> Option<(Sprite, Option<<Sprite as YyResource>::AssociatedData>)> {
+        self.remove_resource(&sprite);
+        self.sprites.remove(&sprite).map(|i| i.into())
+    }
+
     /// This gets the data on a given Sprite with a given name, if it exists.
     pub fn get_sprite(&self, sprite_name: &str) -> Option<&Sprite> {
         if self.resource_names.contains(sprite_name) == false {
@@ -444,7 +454,6 @@ impl YypBoss {
     ///
     /// This might include serializing sprites or sprite frames for Sprites, or `.gml`
     /// files for scripts or objects.
-    #[allow(dead_code)]
     fn add_new_resource(&mut self, new_resource: &impl YyResource, order: usize) {
         self.resource_names.insert(new_resource.name().to_string());
         let new_yyp_resource = YypResource {
@@ -454,6 +463,16 @@ impl YypBoss {
 
         // Update the Resource
         self.yyp.resources.push(new_yyp_resource);
+        self.dirty = true;
+    }
+
+    /// Removes the resource. Does not error if the resource was not found!
+    fn remove_resource(&mut self, resource: &FilesystemPath) {
+        self.resource_names.remove(&resource.name);
+        if let Some(pos) = self.yyp.resources.iter().position(|p| &p.id == resource) {
+            self.yyp.resources.remove(pos);
+        }
+
         self.dirty = true;
     }
 
