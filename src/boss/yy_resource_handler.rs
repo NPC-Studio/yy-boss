@@ -1,26 +1,27 @@
-use super::{utils, FilesystemPath, YyResource};
+use super::{directory_manager::DirectoryManager, utils, FilesystemPath, YyResource};
 use anyhow::{bail, Result as AnyResult};
 use std::{collections::HashMap, fs, path::Path};
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
-    pub dirty: bool,
     pub resources: HashMap<FilesystemPath, YyResourceData<T>>,
     pub dirty_resources: Vec<FilesystemPath>,
+    pub resources_to_remove: Vec<FilesystemPath>,
+    pub folders_to_be_deleted: Vec<FilesystemPath>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
     pub fn new() -> Self {
         Self {
-            dirty: false,
             resources: HashMap::new(),
             dirty_resources: Vec::new(),
+            resources_to_remove: Vec::new(),
+            folders_to_be_deleted: Vec::new(),
         }
     }
 
     /// Initialize Shared Data and Associated Data. For a sprite,
-    /// for example, this will include loading all `pngs` and loading
-    /// the Shared Import Data.
+    /// for example, this will include loading all `pngs`.
     pub fn load_data(&mut self, project_directory: &Path) -> AnyResult<()> {
         // initialize the associated data for each sprite...
         for resource in self.resources.values_mut() {
@@ -34,36 +35,27 @@ impl<T: YyResource> YyResourceHandler<T> {
         Ok(())
     }
 
-    /// This loads or reloads data for each Associated Data and the Shared Data. In other words,
-    /// this will OVERWRITE the current data for any resource which has a `Some(_)` Associated Data.
-    /// If you just want to just load Associated Data for any Resources with `None`, use `load_data`.
-    pub fn force_load_data(&mut self, project_directory: &Path) -> AnyResult<()> {
-        // initialize the associated data for each sprite...
-        for resource in self.resources.values_mut() {
-            resource.associated_data = resource
-                .yy_resource
-                .load_associated_data(project_directory)?;
+    /// Adds a new sprite! If that sprite already exists, it will error instead. To replace
+    /// a sprite, please use `YyResourceHandler::overwrite` instead.
+    pub fn add_new(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
+        if self.resources.contains_key(&value.filesystem_path()) {
+            bail!("That sprite already existed!");
         }
+        self.dirty_resources.push(value.filesystem_path());
+        self.add_new_startup(value, Some(associated_data));
 
         Ok(())
     }
 
-    pub fn add_new(
-        &mut self,
-        value: T,
-        associated_data: T::AssociatedData,
-    ) -> Option<YyResourceData<T>> {
-        self.dirty_resources.push(value.filesystem_path());
-        self.dirty = true;
-        self.add_new_startup(value, Some(associated_data))
-    }
-
-    /// Returns an error if the given resource did not exist.
+    /// Replaces a sprite which already existed. If that sprite doesn't exist, it will return
+    /// an error instead. Use `YyResourceHandler::add_new` instead.
     pub fn overwrite(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
-        if self.resources.contains_key(&value.filesystem_path()) == false {
-            bail!("We didn't have an original resource!");
+        if self.resources.remove(&value.filesystem_path()).is_none() {
+            bail!("We didn't have an original sprite!");
         }
-        self.add_new(value, associated_data);
+
+        self.resources_to_remove.push(value.filesystem_path());
+        self.add_new(value, associated_data)?;
 
         Ok(())
     }
@@ -84,15 +76,23 @@ impl<T: YyResource> YyResourceHandler<T> {
         )
     }
 
-    pub fn serialize(&mut self, project_path: &Path) -> AnyResult<()> {
-        if self.dirty {
+    pub fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
+        if self.resources_to_remove.is_empty() == false {
+            while let Some(resource_to_remove) = self.resources_to_remove.pop() {
+                let yy_path = directory_manager.resource_file(&resource_to_remove.path);
+                fs::remove_dir_all(yy_path.parent().unwrap())?;
+            }
+        }
+
+        if self.dirty_resources.is_empty() == false {
             while let Some(dirty_resource) = self.dirty_resources.pop() {
                 let resource = self
                     .resources
                     .get(&dirty_resource)
                     .expect("This should always be valid.");
 
-                let yy_path = project_path.join(&resource.yy_resource.filesystem_path().path);
+                let yy_path =
+                    directory_manager.resource_file(&resource.yy_resource.filesystem_path().path);
 
                 if let Some(parent_dir) = yy_path.parent() {
                     fs::create_dir_all(parent_dir)?;

@@ -45,6 +45,10 @@ impl DirectoryManager {
         self.boss_directory.join(relative_path)
     }
 
+    pub fn resource_file(&self, relative_path: &Path) -> PathBuf {
+        self.root_directory.join(&relative_path)
+    }
+
     pub fn serialize_boss_file(
         &self,
         relative_path: &Path,

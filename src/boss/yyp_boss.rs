@@ -125,7 +125,7 @@ impl YypBoss {
     }
 
     /// Add a sprite into the YYP Boss. If the sprite doesn't exist, throws an error!
-    pub fn overwrite_sprite(
+    pub fn replace_sprite(
         &mut self,
         sprite: Sprite,
         associated_data: Vec<(FrameId, SpriteImageBuffer)>,
@@ -141,7 +141,7 @@ impl YypBoss {
         &mut self,
         mut sprite: Sprite,
         associated_data: Vec<(FrameId, SpriteImageBuffer)>,
-    ) {
+    ) -> AnyResult<()> {
         match self.add_file_at_end(
             sprite.parent_path(),
             sprite.name.clone(),
@@ -149,7 +149,9 @@ impl YypBoss {
         ) {
             Ok(order) => {
                 self.add_new_resource(&mut sprite, order);
-                self.sprites.add_new(sprite, associated_data);
+                self.sprites.add_new(sprite, associated_data)?;
+
+                Ok(())
             }
             Err(e) => {
                 log::error!(
@@ -171,6 +173,8 @@ impl YypBoss {
                         e
                     );
                 }
+
+                Err(e.into())
             }
         }
     }
@@ -455,8 +459,7 @@ impl YypBoss {
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
-        self.sprites
-            .serialize(self.directory_manager.root_directory())?;
+        self.sprites.serialize(&self.directory_manager)?;
 
         // serialize the pipeline manifests
         self.pipeline_manager

@@ -14,9 +14,20 @@ pub trait SpriteExt {
     fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
     fn frame(self, frame_id: FrameId) -> Self;
+    /// Clears all of the frames from the given image. Generally speaking,
+    /// a sprite should have at least one frame when imported into GMS2, but this
+    /// function will leave it entirely bare.
+    ///
+    /// Builder version.
+    fn clear_all_frames(self) -> Self;
     fn origin(self, origin: OriginUtility, locked: bool) -> Self;
     fn playback_speed(self, pback_speed: PlaybackSpeed, speed: f64) -> Self;
     fn dimensions(self, width: NonZeroUsize, height: NonZeroUsize) -> Self;
+    
+    /// Clears all of the frames from the given image. Generally speaking,
+    /// a sprite should have at least one frame when imported into GMS2, but this
+    /// function will leave it entirely bare.
+    fn set_clear_all_frames(&mut self);
 }
 
 impl SpriteExt for Sprite {
@@ -158,6 +169,21 @@ impl SpriteExt for Sprite {
             me.sequence.length = me.frames.len() as f64;
         })
     }
+
+    /// Test
+    fn clear_all_frames(self) -> Self {
+        self.with(Self::set_clear_all_frames)
+    }
+
+    /// Another test
+    fn set_clear_all_frames(&mut self) {
+        self.frames.clear();
+
+        self.sequence.length = 0.0;
+        let track: &mut Track = &mut self.sequence.tracks[0];
+        track.keyframes.keyframes.clear();
+    }
+
     fn collision_kind(self, collision_kind: CollisionKind) -> Self {
         self.with(|me| {
             me.collision_kind = collision_kind;
