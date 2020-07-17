@@ -7,15 +7,20 @@ mod boss {
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
 
+    mod sprite_manager;
+    pub use sprite_manager::SpriteManager;
+
+    mod resource_handler;
+    
     mod yy_resource_handler;
     pub use yy_resource_handler::YyResourceHandler;
 
     mod directory_manager;
     mod utils;
-    
+
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
-    
+
     mod folder_graph;
     pub use folder_graph::FolderGraph;
 }

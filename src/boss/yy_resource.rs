@@ -30,3 +30,6 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
         data: &Self::AssociatedData,
     ) -> Result<()>;
 }
+
+#[derive(Serialize, Deserialize, Default, Debug, Eq, PartialEq, Clone, Hash, Ord, PartialOrd)]
+pub struct CreatedResource(pub(crate) FilesystemPath, pub(crate) usize);

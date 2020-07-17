@@ -1,7 +1,7 @@
 use super::{
-    directory_manager::DirectoryManager, folder_graph::*, pipelines::PipelineManager, utils,
-    FolderGraph, PathStrExt, SpriteImageBuffer, ViewPathLocationExt, YyResource, YyResourceHandler,
-    YypSerialization,
+    directory_manager::DirectoryManager, folder_graph::*, pipelines::PipelineManager,
+    resource_handler::ResourceHandler, utils, FolderGraph, PathStrExt, SpriteImageBuffer,
+    SpriteManager, ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
 };
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
@@ -10,13 +10,13 @@ use yy_typings::{sprite::*, utils::TrailingCommaUtility, Yyp};
 
 #[derive(Debug)]
 pub struct YypBoss {
-    yyp: Yyp,
     pub directory_manager: DirectoryManager,
-    sprites: YyResourceHandler<Sprite>,
+    pub pipeline_manager: PipelineManager,
+    pub sprite_manager: SpriteManager,
+    yyp: Yyp,
     folder_graph: FolderGraph,
     resource_names: HashSet<String>,
     tcu: TrailingCommaUtility,
-    pub pipeline_manager: PipelineManager,
     dirty: bool,
 }
 
@@ -31,10 +31,10 @@ impl YypBoss {
         let mut yyp_boss = Self {
             yyp,
             dirty: false,
-            sprites: YyResourceHandler::new(),
             folder_graph: FolderGraph::root(),
             resource_names: HashSet::new(),
             tcu,
+            sprite_manager: SpriteManager::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager: DirectoryManager::new(path_to_yyp)?,
         };
@@ -86,7 +86,7 @@ impl YypBoss {
                 );
 
             yyp_boss.resource_names.insert(sprite_yy.name.clone());
-            yyp_boss.sprites.add_new_startup(sprite_yy, None);
+            yyp_boss.sprite_manager.load_in(sprite_yy);
         }
 
         // Ensure the directory
@@ -122,94 +122,6 @@ impl YypBoss {
     /// `"spr_player"` and `"obj_player"`.
     pub fn current_resource_names(&self) -> &HashSet<String> {
         &self.resource_names
-    }
-
-    /// Add a sprite into the YYP Boss. If the sprite doesn't exist, throws an error!
-    pub fn replace_sprite(
-        &mut self,
-        sprite: Sprite,
-        associated_data: Vec<(FrameId, SpriteImageBuffer)>,
-    ) -> AnyResult<()> {
-        self.sprites.overwrite(sprite, associated_data)
-    }
-
-    /// Add a sprite into the YYP Boss. It is not immediately serialized,
-    /// but will be serialized the next time the entire YYP Boss is.
-    ///
-    /// Please note -- the name of the Sprite MIGHT change if that name already exists!
-    pub fn add_sprite(
-        &mut self,
-        mut sprite: Sprite,
-        associated_data: Vec<(FrameId, SpriteImageBuffer)>,
-    ) -> AnyResult<()> {
-        match self.add_file_at_end(
-            sprite.parent_path(),
-            sprite.name.clone(),
-            sprite.filesystem_path(),
-        ) {
-            Ok(order) => {
-                self.add_new_resource(&mut sprite, order);
-                self.sprites.add_new(sprite, associated_data)?;
-
-                Ok(())
-            }
-            Err(e) => {
-                log::error!(
-                    "Couldn't add Sprite {}. It reported a parent path of {:#?}, and an FS path of {:#?}.\n\
-                Error was: {:}",
-                    sprite.name,
-                    sprite.parent_path(),
-                    sprite.filesystem_path(),
-                    e
-                );
-
-                if let Err(e) = self.add_file_at_end(
-                    self.root_path(),
-                    sprite.name.clone(),
-                    sprite.filesystem_path(),
-                ) {
-                    log::error!(
-                        "And we couldn't even add to root! {:}. Aborting operation...",
-                        e
-                    );
-                }
-
-                Err(e.into())
-            }
-        }
-    }
-
-    /// Removes a given sprite from the game. If the sprite existed, a `YyResourceData<Sprite>`
-    /// will be returned.
-    pub fn remove_sprite(
-        &mut self,
-        sprite: FilesystemPath,
-    ) -> Option<(Sprite, Option<<Sprite as YyResource>::AssociatedData>)> {
-        self.remove_resource(&sprite);
-        self.sprites.remove(&sprite).map(|i| i.into())
-    }
-
-    /// This gets the data on a given Sprite with a given name, if it exists.
-    pub fn get_sprite(&self, sprite_name: &str) -> Option<&Sprite> {
-        if self.resource_names.contains(sprite_name) == false {
-            return None;
-        }
-
-        // Get the path
-        let path = self.yyp.resources.iter().find_map(|yypr| {
-            if yypr.id.name == sprite_name {
-                Some(&yypr.id)
-            } else {
-                None
-            }
-        });
-
-        path.and_then(|path| {
-            self.sprites
-                .resources
-                .get(path)
-                .map(|sprite_resource| &sprite_resource.yy_resource)
-        })
     }
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
@@ -369,7 +281,7 @@ impl YypBoss {
     ///     - spr_enemy
     ///     - spr_item
     ///```
-    pub fn add_file_at_end(
+    fn add_file_at_end(
         &mut self,
         parent_path: ViewPath,
         name: String,
@@ -454,12 +366,9 @@ impl YypBoss {
     ///
     /// This might include serializing sprites or sprite frames for Sprites, or `.gml`
     /// files for scripts or objects.
-    fn add_new_resource(&mut self, new_resource: &impl YyResource, order: usize) {
-        self.resource_names.insert(new_resource.name().to_string());
-        let new_yyp_resource = YypResource {
-            id: new_resource.filesystem_path(),
-            order,
-        };
+    fn add_new_resource(&mut self, id: FilesystemPath, order: usize) {
+        self.resource_names.insert(id.name.clone());
+        let new_yyp_resource = YypResource { id, order };
 
         // Update the Resource
         self.yyp.resources.push(new_yyp_resource);
@@ -478,7 +387,7 @@ impl YypBoss {
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
-        self.sprites.serialize(&self.directory_manager)?;
+        self.sprite_manager.serialize(&self.directory_manager)?;
 
         // serialize the pipeline manifests
         self.pipeline_manager
