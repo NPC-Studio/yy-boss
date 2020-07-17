@@ -32,4 +32,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Eq, PartialEq, Clone, Hash, Ord, PartialOrd)]
-pub struct CreatedResource(pub(crate) FilesystemPath, pub(crate) usize);
+pub struct CreatedEmptyResource(pub(crate) FilesystemPath, pub(crate) usize);
+
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Ord, PartialOrd)]
+pub struct FilledResourceToken;

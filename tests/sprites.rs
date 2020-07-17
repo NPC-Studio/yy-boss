@@ -13,7 +13,7 @@ fn add_sprite_to_yyp() {
 
     let mut yyp_boss = common::setup_blank_project().unwrap();
     assert!(
-        yyp_boss.get_sprite("spr_test").is_none(),
+        yyp_boss.sprite_manager.get_sprite("spr_test").is_none(),
         "The sprite we're trying to add is already in the project!"
     );
 

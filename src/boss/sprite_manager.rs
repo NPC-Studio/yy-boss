@@ -1,10 +1,14 @@
 use super::{
-    directory_manager::DirectoryManager, resource_handler::ResourceHandler,
-    yy_resource::CreatedResource,
+    directory_manager::DirectoryManager,
+    resource_handler::ResourceHandler,
+    yy_resource::{CreatedEmptyResource, FilledResourceToken},
 };
 use crate::{SpriteImageBuffer, YyResourceHandler};
 use anyhow::Result as AnyResult;
-use yy_typings::sprite::{FrameId, Sprite};
+use yy_typings::{
+    sprite::{FrameId, Sprite},
+    FilesystemPath,
+};
 
 #[derive(Debug)]
 pub struct SpriteManager {
@@ -33,12 +37,11 @@ impl SpriteManager {
     pub fn add_sprite(
         &mut self,
         sprite: Sprite,
-        created_resource: CreatedResource,
         associated_data: Vec<(FrameId, SpriteImageBuffer)>,
+        _filled_resource: FilledResourceToken,
     ) {
-        self.sprites.add_new(sprite, associated_data)?;
-
-        Ok(())
+        let x = "hey jack let's remove this unwrap";
+        self.sprites.add_new(sprite, associated_data).unwrap();
 
         // match self.add_file_at_end(
         //     sprite.parent_path(),
@@ -105,6 +108,14 @@ impl SpriteManager {
     //             .map(|sprite_resource| &sprite_resource.yy_resource)
     //     })
     // }
+
+    /// This gets the data on a given Sprite with a given name, if it exists.
+    pub fn get_sprite(&self, path: FilesystemPath) -> Option<&Sprite> {
+        self.sprites
+            .resources
+            .get(&path)
+            .map(|sprite_resource| &sprite_resource.yy_resource)
+    }
 }
 
 impl ResourceHandler for SpriteManager {
