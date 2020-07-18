@@ -28,7 +28,7 @@ impl YypSerialization for Yyp {
         print_yyp_line(output_ptr, "isEcma", self.is_ecma.to_string());
         // We need to do this here because Rust doesn't like empty strings
         if self.tutorial_path.is_empty() {
-            output_ptr.push_str("\"tutorialPath\": \"\",\r\n");
+            output_ptr.push_str(&format!("\"tutorialPath\": \"\",{}", Self::LINE_ENDING));
             print_indentation(output_ptr, 1);
         } else {
             print_yyp_line(output_ptr, "tutorialPath", self.tutorial_path.to_string());
@@ -66,12 +66,16 @@ impl YypSerialization for Yyp {
         print_yyp_line(output_ptr, "tags", self.tags.yyp_serialization(1));
         output_ptr.push_str("\"resourceType\": \"GMProject\",");
 
-        format!("{{\r\n{}\r\n}}", output)
+        format!(
+            "{{{line}{output}{line}}}",
+            line = Self::LINE_ENDING,
+            output = output
+        )
     }
 }
 
 fn print_yyp_line(string: &mut String, label: &str, value: String) {
-    string.push_str(&format!("\"{}\": {},\r\n", label, value));
+    string.push_str(&format!("\"{}\": {},{}", label, value, Yyp::LINE_ENDING));
     print_indentation(string, 1);
 }
 
@@ -104,7 +108,7 @@ impl YypSerialization for YypConfig {
             if config.children.is_empty() == false {
                 // Get us to the write line...
                 *indentation += 2;
-                string.push_str("\r\n");
+                string.push_str(YypConfig::LINE_ENDING);
 
                 for child in config.children.iter() {
                     println!("Config child: {:#?}", child);
@@ -120,29 +124,29 @@ impl YypSerialization for YypConfig {
                 *indentation -= 1;
                 print_indentation(string, *indentation);
                 string.push_str("],},");
-                string.push_str("\r\n");
+                string.push_str(YypConfig::LINE_ENDING);
                 *indentation -= 1;
             } else {
                 string.push_str("],},");
-                string.push_str("\r\n");
+                string.push_str(YypConfig::LINE_ENDING);
             }
         }
 
         let mut output = String::with_capacity(MEMBER_NUMBER);
 
         // Outer Config
-        output.push_str("{\r\n");
+        output.push_str(&format!("{{{}", Self::LINE_ENDING));
         indentation += 1;
         print_indentation(&mut output, indentation);
         output.push_str(&format!(r#""name": "{}","#, self.name));
 
-        output.push_str("\r\n");
+        output.push_str(YypConfig::LINE_ENDING);
         print_indentation(&mut output, indentation);
         let old_indentation = indentation;
 
         output.push_str(&format!(r#""children": ["#));
         if self.children.is_empty() == false {
-            output.push_str("\r\n");
+            output.push_str(Self::LINE_ENDING);
 
             indentation += 1;
 
@@ -159,7 +163,7 @@ impl YypSerialization for YypConfig {
             "Child config stack must be balanced"
         );
 
-        output.push_str("],\r\n");
+        output.push_str(&format!("],{}", YypConfig::LINE_ENDING));
         indentation -= 1;
 
         assert_eq!(1, indentation, "Stack must be down to 1 indent.");
@@ -204,8 +208,10 @@ impl YypSerialization for YypIncludedFile {
 impl YypSerialization for YypMetaData {
     fn yyp_serialization(&self, _: usize) -> String {
         format!(
-            "{{\r\n{}{}\"IDEVersion\": \"{}\",\r\n{}}}",
-            TWO_SPACES, TWO_SPACES, self.ide_version, TWO_SPACES
+            "{{{line}{two}{two}\"IDEVersion\": \"{ide}\",{line}{two}}}",
+            two = TWO_SPACES,
+            ide = self.ide_version,
+            line = Self::LINE_ENDING
         )
     }
 }
@@ -225,12 +231,16 @@ impl<T: YypSerialization> YypSerialization for Vec<T> {
         } else {
             let mut output = String::with_capacity(MEMBER_NUMBER);
 
-            output.push_str("[\r\n");
+            output.push_str(&format!("[{}", Self::LINE_ENDING));
             indentation += 1;
 
             for value in self.iter() {
                 print_indentation(&mut output, indentation);
-                output.push_str(&format!("{},\r\n", value.yyp_serialization(indentation)));
+                output.push_str(&format!(
+                    "{},{}",
+                    value.yyp_serialization(indentation),
+                    Self::LINE_ENDING
+                ));
             }
             indentation -= 1;
 

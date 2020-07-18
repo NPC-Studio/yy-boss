@@ -18,6 +18,7 @@ fn no_mangle_yyp() {
     for yyps in all_yyps.find("**/*.yyp").unwrap() {
         match yyps {
             DirEntry::File(file) => {
+                println!("{}", file.path);
                 let path = root_path.join(file.path);
                 let parsed_yyp = YypBoss::new(&path).unwrap().yyp().clone();
 
