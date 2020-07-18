@@ -37,25 +37,18 @@ impl<T: YyResource> YyResourceHandler<T> {
 
     /// Adds a new sprite! If that sprite already exists, it will error instead. To replace
     /// a sprite, please use `YyResourceHandler::overwrite` instead.
-    pub fn add_new(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
+    pub fn add_new(
+        &mut self,
+        value: T,
+        associated_data: T::AssociatedData,
+    ) -> Option<YyResourceData<T>> {
         if self.resources.contains_key(&value.filesystem_path()) {
             bail!("That sprite already existed!");
         }
         self.dirty_resources.push(value.filesystem_path());
-        self.add_new_startup(value, Some(associated_data));
+        self.insert_resource(value, Some(associated_data));
 
-        Ok(())
-    }
-
-    /// Replaces a sprite which already existed. If that sprite doesn't exist, it will return
-    /// an error instead. Use `YyResourceHandler::add_new` instead.
-    pub fn overwrite(&mut self, value: T, associated_data: T::AssociatedData) -> AnyResult<()> {
-        if self.remove(&value.filesystem_path()).is_none() {
-            bail!("We didn't have an original sprite!");
-        }
-
-        self.add_new(value, associated_data)?;
-        Ok(())
+        Some()
     }
 
     /// Attempts to remove the resource. Returns the data if it was present.
@@ -70,7 +63,7 @@ impl<T: YyResource> YyResourceHandler<T> {
 
     /// This is the same as `add_new` but it doesn't dirty the resource. It is used
     /// for startup operations, where we're loading in assets from disk.
-    pub fn add_new_startup(
+    pub fn insert_resource(
         &mut self,
         value: T,
         associated_data: Option<T::AssociatedData>,

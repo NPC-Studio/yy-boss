@@ -18,23 +18,14 @@ pub struct SpriteManager {
 impl SpriteManager {
     /// Loads a sprite in on startup.
     pub(crate) fn load_in(&mut self, sprite_yy: Sprite) {
-        self.sprites.add_new_startup(sprite_yy, None);
-    }
-
-    /// Add a sprite into the YYP Boss. If the sprite doesn't exist, returns an error.
-    pub fn replace_sprite(
-        &mut self,
-        sprite: Sprite,
-        associated_data: Vec<(FrameId, SpriteImageBuffer)>,
-    ) -> AnyResult<()> {
-        self.sprites.overwrite(sprite, associated_data)
+        self.sprites.insert_resource(sprite_yy, None);
     }
 
     /// Add a sprite into the YYP Boss. It is not immediately serialized,
     /// but will be serialized the next time the entire YYP Boss is.
     ///
     /// Please note -- the name of the Sprite MIGHT change if that name already exists!
-    pub fn add_sprite(
+    pub fn set_sprite(
         &mut self,
         sprite: Sprite,
         associated_data: Vec<(FrameId, SpriteImageBuffer)>,
