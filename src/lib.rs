@@ -31,8 +31,8 @@ mod resources_ext {
     mod paths_ext;
     pub use paths_ext::*;
 
-    mod yyp_ext;
-    pub use yyp_ext::*;
+    mod yyp_serialization;
+    pub use yyp_serialization::*;
 
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
