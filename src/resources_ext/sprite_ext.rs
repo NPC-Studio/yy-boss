@@ -23,7 +23,7 @@ pub trait SpriteExt {
     fn origin(self, origin: OriginUtility, locked: bool) -> Self;
     fn playback_speed(self, pback_speed: PlaybackSpeed, speed: f64) -> Self;
     fn dimensions(self, width: NonZeroUsize, height: NonZeroUsize) -> Self;
-    
+
     /// Clears all of the frames from the given image. Generally speaking,
     /// a sprite should have at least one frame when imported into GMS2, but this
     /// function will leave it entirely bare.
@@ -266,6 +266,7 @@ impl SpriteExt for Sprite {
 use anyhow::Context;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
+    const SUBPATH_NAME: &'static str = "sprites";
 
     fn name(&self) -> &str {
         &self.name
@@ -273,7 +274,11 @@ impl YyResource for Sprite {
 
     fn set_name(&mut self, name: String) {
         self.name = name.clone();
-        let new_path = format!("sprites/{0}/{0}.yy", name);
+        let new_path = format!(
+            "{base}/{name}/{name}.yy",
+            base = Self::SUBPATH_NAME,
+            name = name
+        );
         let new_path = Path::new(&new_path);
         for frame in &mut self.frames {
             frame.parent = FilesystemPath {
@@ -296,12 +301,6 @@ impl YyResource for Sprite {
             kf.channels.zero.id.path = new_path.to_owned();
         }
     }
-    fn filesystem_path(&self) -> FilesystemPath {
-        FilesystemPath {
-            name: self.name.clone(),
-            path: Path::new(&format!("sprites/{0}/{0}.yy", self.name)).to_owned(),
-        }
-    }
     fn parent_path(&self) -> ViewPath {
         self.parent.clone()
     }
@@ -310,7 +309,8 @@ impl YyResource for Sprite {
         &self,
         project_directory: &Path,
     ) -> AnyResult<Option<Self::AssociatedData>> {
-        let sprite_path = project_directory.join(&self.filesystem_path().path);
+        let sprite_path =
+            project_directory.join(&FilesystemPath::new(Self::SUBPATH_NAME, &self.name).path);
         let output = self
             .frames
             .iter()

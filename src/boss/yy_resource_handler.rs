@@ -1,58 +1,64 @@
-use super::{directory_manager::DirectoryManager, utils, FilesystemPath, YyResource};
-use anyhow::{bail, Result as AnyResult};
-use std::{collections::HashMap, fs, path::Path};
+use super::{
+    directory_manager::DirectoryManager,
+    resources::{CreatedResource, RemovedResource},
+    utils, FilesystemPath, YyResource,
+};
+use anyhow::Result as AnyResult;
+use std::{collections::HashMap, fs};
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
     pub resources: HashMap<FilesystemPath, YyResourceData<T>>,
     pub dirty_resources: Vec<FilesystemPath>,
     pub resources_to_remove: Vec<FilesystemPath>,
-    pub folders_to_be_deleted: Vec<FilesystemPath>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             resources: HashMap::new(),
             dirty_resources: Vec::new(),
             resources_to_remove: Vec::new(),
-            folders_to_be_deleted: Vec::new(),
+            // folders_to_be_deleted: Vec::new(),
         }
     }
 
-    /// Initialize Shared Data and Associated Data. For a sprite,
-    /// for example, this will include loading all `pngs`.
-    pub fn load_data(&mut self, project_directory: &Path) -> AnyResult<()> {
-        // initialize the associated data for each sprite...
-        for resource in self.resources.values_mut() {
-            if resource.associated_data.is_none() {
-                resource.associated_data = resource
-                    .yy_resource
-                    .load_associated_data(project_directory)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Adds a new sprite! If that sprite already exists, it will error instead. To replace
-    /// a sprite, please use `YyResourceHandler::overwrite` instead.
-    pub fn add_new(
+    /// Adds a new sprite into the game. It requires a `CreatedResource`,
+    /// which is created from the `YypBoss`, which guarantees that the resource
+    /// has been created in the Yyp.
+    ///
+    /// This operation is used to `add` or to `replace` the resource. If it is used
+    /// to replace a resource, the resource will be returned.
+    pub fn set(
         &mut self,
         value: T,
         associated_data: T::AssociatedData,
+        _frt: CreatedResource,
     ) -> Option<YyResourceData<T>> {
-        if self.resources.contains_key(&value.filesystem_path()) {
-            bail!("That sprite already existed!");
-        }
-        self.dirty_resources.push(value.filesystem_path());
-        self.insert_resource(value, Some(associated_data));
-
-        Some()
+        self.dirty_resources
+            .push(FilesystemPath::new(T::SUBPATH_NAME, value.name()));
+        self.insert_resource(value, Some(associated_data))
     }
 
-    /// Attempts to remove the resource. Returns the data if it was present.
-    pub fn remove(&mut self, value: &FilesystemPath) -> Option<YyResourceData<T>> {
+    /// Returns the data on the sprite yy, if it exists.
+    ///
+    /// In general, this will return a `Some`, but if users add
+    /// a resource, without using the `FilledResource`token, then this will return a `None`.
+    ///
+    /// You can check if this is possible beforehand by checking the `YypBoss`'s prunable state.
+    pub fn get(&self, name: &str, _crt: CreatedResource) -> Option<T> {
+        self.resources
+            .get(&FilesystemPath::new(T::SUBPATH_NAME, name))
+            .map(|v| v.yy_resource.clone())
+    }
+
+    /// Removes the resource out of the handler. If that resource was being used,
+    /// then this will return that resource.
+    pub fn remove(
+        &mut self,
+        value: &FilesystemPath,
+        _rrt: RemovedResource,
+    ) -> Option<YyResourceData<T>> {
         if let Some(res) = self.resources.remove(&value) {
             self.resources_to_remove.push(value.clone());
             Some(res)
@@ -61,23 +67,14 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
     }
 
-    /// This is the same as `add_new` but it doesn't dirty the resource. It is used
-    /// for startup operations, where we're loading in assets from disk.
-    pub fn insert_resource(
-        &mut self,
-        value: T,
-        associated_data: Option<T::AssociatedData>,
-    ) -> Option<YyResourceData<T>> {
-        self.resources.insert(
-            value.filesystem_path(),
-            YyResourceData {
-                yy_resource: value,
-                associated_data,
-            },
-        )
+    /// Loads the resource in on startup. We don't track associated data by default,
+    /// and we don't mark the resource as dirty.
+    pub(crate) fn load_on_startup(&mut self, value: T) {
+        self.insert_resource(value, None);
     }
 
-    pub fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
+    /// Writes all of the resources to disk.
+    pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         if self.resources_to_remove.is_empty() == false {
             while let Some(resource_to_remove) = self.resources_to_remove.pop() {
                 let yy_path = directory_manager.resource_file(&resource_to_remove.path);
@@ -92,8 +89,9 @@ impl<T: YyResource> YyResourceHandler<T> {
                     .get(&dirty_resource)
                     .expect("This should always be valid.");
 
-                let yy_path =
-                    directory_manager.resource_file(&resource.yy_resource.filesystem_path().path);
+                let yy_path = directory_manager.resource_file(
+                    &FilesystemPath::new(T::SUBPATH_NAME, resource.yy_resource.name()).path,
+                );
 
                 if let Some(parent_dir) = yy_path.parent() {
                     fs::create_dir_all(parent_dir)?;
@@ -111,6 +109,21 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
 
         Ok(())
+    }
+
+    /// Wrapper around inserting the resource into `self.resources`.
+    pub(crate) fn insert_resource(
+        &mut self,
+        value: T,
+        associated_data: Option<T::AssociatedData>,
+    ) -> Option<YyResourceData<T>> {
+        self.resources.insert(
+            FilesystemPath::new(T::SUBPATH_NAME, value.name()),
+            YyResourceData {
+                yy_resource: value,
+                associated_data,
+            },
+        )
     }
 }
 

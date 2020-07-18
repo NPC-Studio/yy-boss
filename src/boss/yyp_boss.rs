@@ -1,21 +1,22 @@
 use super::{
     directory_manager::DirectoryManager, folder_graph::*, pipelines::PipelineManager,
-    resource_handler::ResourceHandler, utils, FolderGraph, PathStrExt, SpriteImageBuffer,
-    SpriteManager, ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
+    resources::CreatedResource, utils, FolderGraph, PathStrExt, ViewPathLocationExt, YyResource,
+    YyResourceHandler, YypSerialization,
 };
+use crate::Resource;
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
-use std::{collections::HashSet, fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 use yy_typings::{sprite::*, utils::TrailingCommaUtility, Yyp};
 
 #[derive(Debug)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
     pub pipeline_manager: PipelineManager,
-    pub sprite_manager: SpriteManager,
+    pub sprites: YyResourceHandler<Sprite>,
     yyp: Yyp,
     folder_graph: FolderGraph,
-    resource_names: HashSet<String>,
+    resource_names: HashMap<String, Resource>,
     tcu: TrailingCommaUtility,
     dirty: bool,
 }
@@ -32,9 +33,9 @@ impl YypBoss {
             yyp,
             dirty: false,
             folder_graph: FolderGraph::root(),
-            resource_names: HashSet::new(),
+            resource_names: HashMap::new(),
             tcu,
-            sprite_manager: SpriteManager::new(),
+            sprites: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager: DirectoryManager::new(path_to_yyp)?,
         };
@@ -80,13 +81,15 @@ impl YypBoss {
                 .insert(
                     sprite_yy.name.clone(),
                     FileMember {
-                        child: sprite_yy.filesystem_path(),
+                        child: FilesystemPath::new(Sprite::SUBPATH_NAME, &sprite_yy.name),
                         order: sprite_resource.order,
                     },
                 );
 
-            yyp_boss.resource_names.insert(sprite_yy.name.clone());
-            yyp_boss.sprite_manager.load_in(sprite_yy);
+            yyp_boss
+                .resource_names
+                .insert(sprite_yy.name.clone(), Resource::Sprite);
+            yyp_boss.sprites.load_on_startup(sprite_yy);
         }
 
         // Ensure the directory
@@ -115,13 +118,13 @@ impl YypBoss {
     //         .map(|texture_group| texture_group.into())
     // }
 
-    /// Gets an unordered HashSet of currently used resource names.
+    /// Returns a list of resource names already being used by the system.
     ///
     /// In a project
     /// with a sprite `spr_player` and an object `obj_player`, this HashSet would contain
     /// `"spr_player"` and `"obj_player"`.
-    pub fn current_resource_names(&self) -> &HashSet<String> {
-        &self.resource_names
+    pub fn current_resource_names(&self) -> Vec<(String, Resource)> {
+        self.resource_names.clone().into_iter().collect()
     }
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
@@ -143,7 +146,7 @@ impl YypBoss {
     ///
     /// `add_folder_to_end` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
     /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    pub fn add_folder_to_end(
+    pub fn new_folder_end(
         &mut self,
         parent_path: &ViewPath,
         name: String,
@@ -202,7 +205,10 @@ impl YypBoss {
     ///
     /// `add_folder_with_order` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
     /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    pub fn add_folder_with_order(
+    ///
+    /// **Nb:** when users have Gms2 in "Alphabetical" sort order, the `order` value here is largely ignored by the IDE.
+    /// This can make for odd and unexpected results.
+    pub fn new_folder_order(
         &mut self,
         parent_path: ViewPath,
         name: String,
@@ -262,7 +268,7 @@ impl YypBoss {
             }
         }
 
-        Ok(ViewPath { path: path, name })
+        Ok(ViewPath { path, name })
     }
 
     /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
@@ -281,20 +287,34 @@ impl YypBoss {
     ///     - spr_enemy
     ///     - spr_item
     ///```
-    fn add_file_at_end(
+    ///
+    /// This function returns a `FilledResourceToken`, which is a required parameter for then assigning the Sprite
+    /// to the Token.
+    pub fn new_resource_entry_end(
         &mut self,
         parent_path: ViewPath,
-        name: String,
-        child: FilesystemPath,
-    ) -> Result<usize, FolderGraphError> {
+        resource_name: &str,
+        resource_kind: Resource,
+    ) -> Result<CreatedResource, FolderGraphError> {
         let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
         let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
-        if subfolder.files.contains_key(&name) {
+        if subfolder.files.contains_key(resource_name) {
             return Err(FolderGraphError::FileAlreadyPresent);
         }
 
-        subfolder.files.insert(name, FileMember { child, order });
-        Ok(order)
+        let child = FilesystemPath::new(resource_kind.base_name(), resource_name);
+        subfolder.files.insert(
+            resource_name.to_owned(),
+            FileMember {
+                child: child.clone(),
+                order,
+            },
+        );
+
+        // add the resource
+        self.add_new_resource(child, order, resource_kind);
+
+        Ok(CreatedResource(resource_kind))
     }
 
     /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
@@ -315,19 +335,20 @@ impl YypBoss {
     ///```
     ///
     /// Additionally, `spr_enemy`'s order will be updated to be `2`.
-    pub fn add_file_with_order(
+    pub fn new_resource_entry_order(
         &mut self,
         parent_path: ViewPath,
-        name: String,
         child: FilesystemPath,
         order: usize,
     ) -> Result<(), FolderGraphError> {
         let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
-        if subfolder.files.contains_key(&name) {
+        if subfolder.files.contains_key(&child.name) {
             return Err(FolderGraphError::FileAlreadyPresent);
         }
 
-        subfolder.files.insert(name, FileMember { child, order });
+        subfolder
+            .files
+            .insert(child.name.clone(), FileMember { child, order });
 
         // Fix the Files
         for (file_name, file) in subfolder.files.iter_mut() {
@@ -361,13 +382,22 @@ impl YypBoss {
         Ok(())
     }
 
+    /// Checks if a resource with a given name exists. If it does, it will return information
+    /// on that resource in the form of the `CreatedResource` token, which can tell the user
+    /// the type of resource.
+    pub fn get_resource(&self, resource_name: &str) -> Option<CreatedResource> {
+        self.resource_names
+            .get(resource_name)
+            .map(|resource_kind| CreatedResource(*resource_kind))
+    }
+
     /// Adds a new Resource to be tracked by the YYP. The Resource also will
     /// need to serialize themselves and any additional files which they manage.
     ///
     /// This might include serializing sprites or sprite frames for Sprites, or `.gml`
     /// files for scripts or objects.
-    fn add_new_resource(&mut self, id: FilesystemPath, order: usize) {
-        self.resource_names.insert(id.name.clone());
+    fn add_new_resource(&mut self, id: FilesystemPath, order: usize, resource: Resource) {
+        self.resource_names.insert(id.name.clone(), resource);
         let new_yyp_resource = YypResource { id, order };
 
         // Update the Resource
@@ -387,7 +417,7 @@ impl YypBoss {
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
-        self.sprite_manager.serialize(&self.directory_manager)?;
+        self.sprites.serialize(&self.directory_manager)?;
 
         // serialize the pipeline manifests
         self.pipeline_manager

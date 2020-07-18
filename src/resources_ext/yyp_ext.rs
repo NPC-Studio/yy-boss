@@ -14,6 +14,7 @@ pub trait YypSerialization {
 impl YypSerialization for Yyp {
     fn yyp_serialization(&self, _: usize) -> String {
         let mut output = String::with_capacity(BIG_NUMBER);
+
         let output_ptr = &mut output;
         print_indentation(output_ptr, 1);
         print_yyp_line(output_ptr, "resources", self.resources.yyp_serialization(1));

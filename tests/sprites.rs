@@ -3,7 +3,7 @@ use yy_boss::{
     yy_typings::sprite::{
         FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
     },
-    SpriteExt,
+    Resource, SpriteExt,
 };
 mod common;
 
@@ -12,13 +12,11 @@ fn add_sprite_to_yyp() {
     const IMAGE_PATH: &'static str = "tests/examples/test_spr_add.png";
 
     let mut yyp_boss = common::setup_blank_project().unwrap();
-    assert!(
-        yyp_boss.sprite_manager.get_sprite("spr_test").is_none(),
-        "The sprite we're trying to add is already in the project!"
-    );
+    let exists = yyp_boss.get_resource("spr_test");
+    assert!(exists.is_none(), "Impossible");
 
     let new_view = yyp_boss
-        .add_folder_to_end(&yyp_boss.root_path(), "Sprites".to_string())
+        .new_folder_end(&yyp_boss.root_path(), "Sprites".to_string())
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");
@@ -32,7 +30,7 @@ fn add_sprite_to_yyp() {
             ..Layer::default()
         },
     )
-    .parent(new_view)
+    .parent(new_view.clone())
     .frame(single_frame_id)
     .with(|spr| {
         let track: &mut Track = &mut spr.sequence.tracks[0];
@@ -42,14 +40,25 @@ fn add_sprite_to_yyp() {
     .bbox_mode(|_, _| yy_boss::BboxModeUtility::FullImage);
 
     let frame_buffer = image::open(IMAGE_PATH).unwrap().to_rgba();
-    yyp_boss.add_sprite(sprite.clone(), vec![(single_frame_id, frame_buffer)]);
+    let created_resource = yyp_boss
+        .new_resource_entry_end(new_view, &sprite.name, Resource::Sprite)
+        .unwrap();
+    yyp_boss.sprites.set(
+        sprite.clone(),
+        vec![(single_frame_id, frame_buffer)],
+        created_resource,
+    );
 
+    let sprite_exists = yyp_boss.get_resource("spr_test");
     assert!(
-        yyp_boss.get_sprite("spr_test").is_some(),
+        sprite_exists.is_some(),
         "We didn't add, or couldn't find, the sprite we just tried to add!"
     );
     assert_eq!(
-        yyp_boss.get_sprite("spr_test").unwrap().clone(),
+        yyp_boss
+            .sprites
+            .get("spr_test", sprite_exists.unwrap())
+            .unwrap(),
         sprite,
         "We mangled this sprite in the YypBoss!"
     );

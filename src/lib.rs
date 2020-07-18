@@ -7,11 +7,9 @@ mod boss {
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
 
-    mod sprite_manager;
-    pub use sprite_manager::SpriteManager;
+    mod resources;
+    pub use resources::Resource;
 
-    mod resource_handler;
-    
     mod yy_resource_handler;
     pub use yy_resource_handler::YyResourceHandler;
 
