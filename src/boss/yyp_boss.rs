@@ -129,7 +129,7 @@ impl YypBoss {
 
     /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
     ///
-    ///```norun
+    ///```txt
     /// Sprites/
     ///     - spr_player
     ///     - spr_enemy
@@ -137,7 +137,7 @@ impl YypBoss {
     ///
     /// and user adds a folder with name `Items` to the `Sprites` folder, then the output tree will be:
     ///
-    /// ```norun
+    /// ```txt
     /// Sprites/
     ///     - spr_player
     ///     - spr_enemy
@@ -185,7 +185,7 @@ impl YypBoss {
 
     /// Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
     ///
-    ///```norun
+    ///```txt
     /// Sprites/
     ///     - spr_player
     ///     - OtherSprites/
@@ -195,7 +195,7 @@ impl YypBoss {
     /// and user adds a folder with name `Items` to the `Sprites` folder with an order of 1,
     /// then the output tree will be:
     ///
-    /// ```norun
+    /// ```txt
     /// Sprites/
     ///     - spr_player
     ///     - Items/
@@ -273,7 +273,7 @@ impl YypBoss {
 
     /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
     ///
-    ///```norun
+    ///```no run
     /// Sprites/
     ///     - spr_player
     ///     - spr_enemy
@@ -281,7 +281,7 @@ impl YypBoss {
     ///
     /// and user adds a file with name `spr_item` to the `Sprites` folder, then the output tree will be:
     ///
-    /// ```norun
+    /// ```txt
     /// Sprites/
     ///     - spr_player
     ///     - spr_enemy
@@ -319,7 +319,7 @@ impl YypBoss {
 
     /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
     ///
-    ///```norun
+    ///```txt
     /// Sprites/
     ///     - spr_player
     ///     - spr_enemy
@@ -327,7 +327,7 @@ impl YypBoss {
     ///
     /// and user adds a file with name `spr_item` to the `Sprites` folder at order 1, then the output tree will be:
     ///
-    /// ```norun
+    /// ```txt
     /// Sprites/
     ///     - spr_player
     ///     - spr_item

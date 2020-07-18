@@ -83,7 +83,7 @@ impl FolderGraph {
     /// in the Gms2 IDE, order and size are not always directly related.
     ///
     /// Given the folder:
-    /// ```norun
+    /// ```no run
     /// Sprites/
     ///     - spr_player
     ///     - OtherMembers/
