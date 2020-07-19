@@ -8,9 +8,9 @@ use std::{collections::HashMap, fs};
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
-    pub resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    pub dirty_resources: Vec<FilesystemPath>,
-    pub resources_to_remove: Vec<FilesystemPath>,
+    resources: HashMap<FilesystemPath, YyResourceData<T>>,
+    pub(crate) dirty_resources: Vec<FilesystemPath>,
+    pub(crate) resources_to_remove: Vec<FilesystemPath>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {

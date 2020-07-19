@@ -1,7 +1,10 @@
 use super::{
-    directory_manager::DirectoryManager, folder_graph::*, pipelines::PipelineManager,
-    resources::CreatedResource, utils, FolderGraph, PathStrExt, ViewPathLocationExt, YyResource,
-    YyResourceHandler, YypSerialization,
+    directory_manager::DirectoryManager,
+    folder_graph::*,
+    pipelines::PipelineManager,
+    resources::{CreatedResource, RemovedResource},
+    utils, FolderGraph, PathStrExt, ViewPathLocationExt, YyResource, YyResourceHandler,
+    YypSerialization,
 };
 use crate::Resource;
 use anyhow::{format_err, Context, Result as AnyResult};
@@ -290,7 +293,7 @@ impl YypBoss {
     ///
     /// This function returns a `FilledResourceToken`, which is a required parameter for then assigning the Sprite
     /// to the Token.
-    pub fn new_resource_entry_end(
+    pub fn new_resource_end(
         &mut self,
         parent_path: ViewPath,
         resource_name: &str,
@@ -312,74 +315,91 @@ impl YypBoss {
         );
 
         // add the resource
-        self.add_new_resource(child, order, resource_kind);
+        self.add_new_yyp_resource(child, order, resource_kind);
 
         Ok(CreatedResource(resource_kind))
     }
 
-    /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
-    ///
-    ///```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_enemy
-    /// ```
-    ///
-    /// and user adds a file with name `spr_item` to the `Sprites` folder at order 1, then the output tree will be:
-    ///
-    /// ```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_item
-    ///     - spr_enemy
-    ///```
-    ///
-    /// Additionally, `spr_enemy`'s order will be updated to be `2`.
-    pub fn new_resource_entry_order(
+    // /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
+    // ///
+    // ///```txt
+    // /// Sprites/
+    // ///     - spr_player
+    // ///     - spr_enemy
+    // /// ```
+    // ///
+    // /// and user adds a file with name `spr_item` to the `Sprites` folder at order 1, then the output tree will be:
+    // ///
+    // /// ```txt
+    // /// Sprites/
+    // ///     - spr_player
+    // ///     - spr_item
+    // ///     - spr_enemy
+    // ///```
+    // ///
+    // /// Additionally, `spr_enemy`'s order will be updated to be `2`.
+    // pub fn new_resource_order(
+    //     &mut self,
+    //     parent_path: ViewPath,
+    //     child: FilesystemPath,
+    //     order: usize,
+    // ) -> Result<(), FolderGraphError> {
+    //     let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+    //     if subfolder.files.contains_key(&child.name) {
+    //         return Err(FolderGraphError::FileAlreadyPresent);
+    //     }
+
+    //     subfolder
+    //         .files
+    //         .insert(child.name.clone(), FileMember { child, order });
+
+    //     // Fix the Files
+    //     for (file_name, file) in subfolder.files.iter_mut() {
+    //         if file.order >= order {
+    //             file.order += 1;
+    //             if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
+    //                 error!(
+    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+    //                 This may become a hard error in the future. E: {1}",
+    //                 file_name, e
+    //                 )
+    //             }
+    //         }
+    //     }
+
+    //     // Fix the Folders
+    //     for (folder_name, folder) in subfolder.folders.iter_mut() {
+    //         if folder.order >= order {
+    //             folder.order += 1;
+
+    //             if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
+    //                 error!(
+    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+    //                 This may become a hard error in the future. E: {1}",
+    //                 folder_name, e
+    //                 )
+    //             }
+    //         }
+    //     }
+
+    //     Ok(())
+    // }
+
+    pub fn remove_resource(
         &mut self,
-        parent_path: ViewPath,
-        child: FilesystemPath,
-        order: usize,
-    ) -> Result<(), FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
-        if subfolder.files.contains_key(&child.name) {
-            return Err(FolderGraphError::FileAlreadyPresent);
+        resource_name: &str,
+        resource_kind: Resource,
+    ) -> Result<RemovedResource, FolderGraphError> {
+        let fp = FilesystemPath::new(resource_kind.base_name(), resource_name);
+        self.remove_yyp_resource(&fp);
+
+        if let Some(subfolder) = self.folder_graph.find_subfolder_by_file(resource_name) {
+            subfolder.files.remove(resource_name);
+        } else {
+            return Err(FolderGraphError::FolderGraphOutofSyncWithYyp);
         }
 
-        subfolder
-            .files
-            .insert(child.name.clone(), FileMember { child, order });
-
-        // Fix the Files
-        for (file_name, file) in subfolder.files.iter_mut() {
-            if file.order >= order {
-                file.order += 1;
-                if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
-                    error!(
-                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-                    This may become a hard error in the future. E: {1}",
-                    file_name, e
-                    )
-                }
-            }
-        }
-
-        // Fix the Folders
-        for (folder_name, folder) in subfolder.folders.iter_mut() {
-            if folder.order >= order {
-                folder.order += 1;
-
-                if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
-                    error!(
-                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-                    This may become a hard error in the future. E: {1}",
-                    folder_name, e
-                    )
-                }
-            }
-        }
-
-        Ok(())
+        Ok(RemovedResource(resource_kind))
     }
 
     /// Checks if a resource with a given name exists. If it does, it will return information
@@ -391,12 +411,8 @@ impl YypBoss {
             .map(|resource_kind| CreatedResource(*resource_kind))
     }
 
-    /// Adds a new Resource to be tracked by the YYP. The Resource also will
-    /// need to serialize themselves and any additional files which they manage.
-    ///
-    /// This might include serializing sprites or sprite frames for Sprites, or `.gml`
-    /// files for scripts or objects.
-    fn add_new_resource(&mut self, id: FilesystemPath, order: usize, resource: Resource) {
+    /// Adds a new Resource to be tracked by the Yyp.
+    fn add_new_yyp_resource(&mut self, id: FilesystemPath, order: usize, resource: Resource) {
         self.resource_names.insert(id.name.clone(), resource);
         let new_yyp_resource = YypResource { id, order };
 
@@ -406,7 +422,7 @@ impl YypBoss {
     }
 
     /// Removes the resource. Does not error if the resource was not found!
-    fn remove_resource(&mut self, resource: &FilesystemPath) {
+    fn remove_yyp_resource(&mut self, resource: &FilesystemPath) {
         self.resource_names.remove(&resource.name);
         if let Some(pos) = self.yyp.resources.iter().position(|p| &p.id == resource) {
             self.yyp.resources.remove(pos);

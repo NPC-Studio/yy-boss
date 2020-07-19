@@ -41,7 +41,7 @@ fn add_sprite_to_yyp() {
 
     let frame_buffer = image::open(IMAGE_PATH).unwrap().to_rgba();
     let created_resource = yyp_boss
-        .new_resource_entry_end(new_view, &sprite.name, Resource::Sprite)
+        .new_resource_end(new_view, &sprite.name, Resource::Sprite)
         .unwrap();
     yyp_boss.sprites.set(
         sprite.clone(),

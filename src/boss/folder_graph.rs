@@ -78,6 +78,20 @@ impl FolderGraph {
         }
     }
 
+    pub fn find_subfolder_by_file(&mut self, name: &str) -> Option<&mut FolderGraph> {
+        if self.files.contains_key(name) {
+            return Some(self);
+        }
+
+        for subfolder in self.folders.values_mut() {
+            if let Some(found) = subfolder.child.find_subfolder_by_file(name) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
     /// This returns the max_suborder within this Folder. In a sense,
     /// this is the "size" of the folder's children, though due to A-Z sorting
     /// in the Gms2 IDE, order and size are not always directly related.
