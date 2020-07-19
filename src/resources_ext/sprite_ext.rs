@@ -2,7 +2,7 @@ use super::YyResource;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
 use std::{num::NonZeroUsize, path::Path};
-use yy_typings::{sprite::*, TexturePath};
+use yy_typings::{sprite_yy::*, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
@@ -293,7 +293,7 @@ impl YyResource for Sprite {
             }
         }
         self.sequence.sprite_id = FilesystemPath {
-            name: name.clone(),
+            name,
             path: new_path.to_owned(),
         };
         let track: &mut Track = &mut self.sequence.tracks[0];

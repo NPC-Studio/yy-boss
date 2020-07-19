@@ -10,7 +10,7 @@ use crate::Resource;
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
 use std::{collections::HashMap, fs, path::Path};
-use yy_typings::{sprite::*, utils::TrailingCommaUtility, Yyp};
+use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, Yyp};
 
 #[derive(Debug)]
 pub struct YypBoss {

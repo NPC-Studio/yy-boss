@@ -15,7 +15,7 @@ impl DirectoryManager {
     pub fn new(yyp: &Path) -> AnyResult<DirectoryManager> {
         let root_directory = yyp
             .parent()
-            .ok_or(anyhow!("couldn't get parent"))?
+            .ok_or_else(|| anyhow!("couldn't get parent"))?
             .to_owned();
 
         let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));

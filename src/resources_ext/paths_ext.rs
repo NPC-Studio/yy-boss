@@ -5,13 +5,13 @@ use yy_typings::{utils::PathValidator, TexturePathLocation, ViewPathLocation};
 pub trait ViewPathLocationExt {
     /// Iterates over the folder subpaths -- not including the root `folders`.
     /// This can, therefore, be empty.
-    fn component_paths(&self) -> Skip<Split<'_, &str>>;
+    fn component_paths(&self) -> Skip<Split<'_, char>>;
     fn join(&self, other: &str) -> ViewPathLocation;
 }
 
 impl ViewPathLocationExt for ViewPathLocation {
-    fn component_paths(&self) -> Skip<Split<'_, &str>> {
-        self.0.split("/").skip(1)
+    fn component_paths(&self) -> Skip<Split<'_, char>> {
+        self.0.split('/').skip(1)
     }
 
     fn join(&self, other: &str) -> ViewPathLocation {

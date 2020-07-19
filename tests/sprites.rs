@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use yy_boss::{
-    yy_typings::sprite::{
+    yy_typings::sprite_yy::{
         FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
     },
     Resource, SpriteExt,
@@ -9,7 +9,7 @@ mod common;
 
 #[test]
 fn add_sprite_to_yyp() {
-    const IMAGE_PATH: &'static str = "tests/examples/test_spr_add.png";
+    const IMAGE_PATH: &str = "tests/examples/test_spr_add.png";
 
     let mut yyp_boss = common::setup_blank_project().unwrap();
     let exists = yyp_boss.get_resource("spr_test");

@@ -1,5 +1,5 @@
 use super::YyResource;
-use yy_typings::sprite::Sprite;
+use yy_typings::sprite_yy::Sprite;
 
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
 pub enum Resource {

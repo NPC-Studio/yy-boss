@@ -16,20 +16,17 @@ fn no_mangle_yyp() {
     let tcu = TrailingCommaUtility::new();
 
     for yyps in all_yyps.find("**/*.yyp").unwrap() {
-        match yyps {
-            DirEntry::File(file) => {
-                println!("{}", file.path);
-                let path = root_path.join(file.path);
-                let parsed_yyp = YypBoss::new(&path).unwrap().yyp().clone();
+        if let DirEntry::File(file) = yyps {
+            println!("{}", file.path);
+            let path = root_path.join(file.path);
+            let parsed_yyp = YypBoss::new(&path).unwrap().yyp().clone();
 
-                let original = std::str::from_utf8(file.contents).unwrap();
-                let original_pure_parsed_yyp: Yyp =
-                    serde_json::from_str(&tcu.clear_trailing_comma(original)).unwrap();
+            let original = std::str::from_utf8(file.contents).unwrap();
+            let original_pure_parsed_yyp: Yyp =
+                serde_json::from_str(&tcu.clear_trailing_comma(original)).unwrap();
 
-                assert_eq!(original_pure_parsed_yyp, parsed_yyp);
-                assert_eq!(original, parsed_yyp.yyp_serialization(0));
-            }
-            _ => {}
+            assert_eq!(original_pure_parsed_yyp, parsed_yyp);
+            assert_eq!(original, parsed_yyp.yyp_serialization(0));
         }
     }
 }

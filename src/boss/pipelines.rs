@@ -4,6 +4,7 @@ use log::{error, info, trace};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    hash::Hash,
     path::{Path, PathBuf},
 };
 
@@ -198,13 +199,13 @@ impl PipelineManager {
             Some(pipeline) => match pipeline.source_destinations.get_mut(&source_name.into()) {
                 Some(destinations) => {
                     if destinations.contains_key(&destination_key) {
-                        Err(PipelineError::PipelineDestinationAlreadyExistsOnSource)
-                    } else {
-                        destinations.insert(destination_key, destination_value);
-                        pipeline.dirty = true;
-                        self.dirty = true;
-                        Ok(())
+                        return Err(PipelineError::PipelineDestinationAlreadyExistsOnSource);
                     }
+
+                    destinations.insert(destination_key, destination_value);
+                    pipeline.dirty = true;
+                    self.dirty = true;
+                    Ok(())
                 }
                 None => Err(PipelineError::PipelineSourceDoesNotExist),
             },
@@ -300,12 +301,19 @@ impl PipelineManager {
 
 pub type PipelineDesinations = BTreeMap<String, FilesystemPath>;
 
-#[derive(Debug, Eq, Serialize, Deserialize, Hash, Clone, Default)]
+#[derive(Debug, Eq, Serialize, Deserialize, Clone, Default)]
 pub struct Pipeline {
     pub name: String,
     pub source_destinations: BTreeMap<String, PipelineDesinations>,
     #[serde(skip)]
     dirty: bool,
+}
+
+impl Hash for Pipeline {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.source_destinations.hash(state);
+    }
 }
 
 impl PartialEq for Pipeline {
@@ -443,12 +451,7 @@ mod tests {
             .add_destination_to_source("sprites", "spr_source", "spr_source", destination.clone())
             .unwrap();
         assert_eq!(
-            pipelines.add_destination_to_source(
-                "sprites",
-                "spr_source",
-                "spr_source",
-                destination.clone()
-            ),
+            pipelines.add_destination_to_source("sprites", "spr_source", "spr_source", destination),
             Err(PipelineError::PipelineDestinationAlreadyExistsOnSource)
         );
 

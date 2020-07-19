@@ -5,7 +5,7 @@ pub use super::yy_typings::{
 
 const BIG_NUMBER: usize = 2000;
 const MEMBER_NUMBER: usize = 70;
-const TWO_SPACES: &'static str = "  ";
+const TWO_SPACES: &str = "  ";
 
 pub trait YypSerialization {
     #[cfg(windows)]
@@ -144,7 +144,7 @@ impl YypSerialization for YypConfig {
         print_indentation(&mut output, indentation);
         let old_indentation = indentation;
 
-        output.push_str(&format!(r#""children": ["#));
+        output.push_str(&r#""children": ["#);
         if self.children.is_empty() == false {
             output.push_str(Self::LINE_ENDING);
 
@@ -227,7 +227,7 @@ fn json_trailing_comma(t: &impl serde::Serialize) -> String {
 impl<T: YypSerialization> YypSerialization for Vec<T> {
     fn yyp_serialization(&self, mut indentation: usize) -> String {
         if self.is_empty() {
-            format!("[]")
+            "[]".to_owned()
         } else {
             let mut output = String::with_capacity(MEMBER_NUMBER);
 

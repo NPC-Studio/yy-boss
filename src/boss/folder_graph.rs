@@ -5,7 +5,7 @@ use std::{collections::HashMap, hash::Hash};
 use thiserror::Error;
 use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPath>,
@@ -21,6 +21,12 @@ impl Default for FolderGraph {
             files: hashmap![],
             folders: hashmap![],
         }
+    }
+}
+
+impl PartialEq for FolderGraph {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
     }
 }
 

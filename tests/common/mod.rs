@@ -5,7 +5,7 @@ use thiserror::Error;
 use yy_boss::YypBoss;
 
 #[allow(dead_code)]
-const PATH_TO_TEST_PROJ: &'static str = "tests/examples/test_proj/test_proj.yyp";
+const PATH_TO_TEST_PROJ: &str = "tests/examples/test_proj/test_proj.yyp";
 
 #[allow(dead_code)]
 pub fn setup_blank_project() -> AnyResult<YypBoss> {
@@ -59,11 +59,8 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
 
 #[allow(dead_code)]
 pub fn assert_yypboss_neq(ours: &YypBoss, proof: &YypBoss) {
-    match yypboss_neq(ours, proof) {
-        Ok(()) => {
-            panic!("Yyps were equal to each other!");
-        }
-        Err(_) => {}
+    if yypboss_neq(ours, proof).is_ok() {
+        panic!("Yyps were equal to each other!");
     }
 }
 
