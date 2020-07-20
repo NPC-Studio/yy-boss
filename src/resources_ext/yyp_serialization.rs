@@ -1,6 +1,6 @@
 pub use super::yy_typings::{
-    texture_group::TextureGroup, AudioGroup, FilesystemPath, Tags, Yyp, YypConfig, YypFolder,
-    YypIncludedFile, YypMetaData, YypResource,
+    texture_group::TextureGroup, AudioGroup, FilesystemPath, ResourceVersion, Tags, Yyp, YypConfig,
+    YypFolder, YypIncludedFile, YypMetaData, YypResource,
 };
 
 const BIG_NUMBER: usize = 2000;
@@ -213,6 +213,12 @@ impl YypSerialization for YypMetaData {
             ide = self.ide_version,
             line = Self::LINE_ENDING
         )
+    }
+}
+
+impl YypSerialization for ResourceVersion {
+    fn yyp_serialization(&self, _: usize) -> String {
+        serde_json::to_string(self).unwrap()
     }
 }
 

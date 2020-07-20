@@ -75,7 +75,7 @@ impl SpriteExt for Sprite {
                 blend_mode: 0,
                 opacity: 100.0,
                 display_name: "default".to_string(),
-                resource_version: "1.0".to_owned(),
+                resource_version: ResourceVersion::default(),
                 name: LayerId::new(),
                 tags: vec![],
                 resource_type: ConstGmImageLayer::Const,
