@@ -4,6 +4,7 @@ use super::{
     utils, FilesystemPath, YyResource,
 };
 use anyhow::Result as AnyResult;
+use log::info;
 use std::{
     collections::HashMap,
     fs,
@@ -87,32 +88,35 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         // Removes the resources!
         for resource_to_remove in self.resources_to_remove.drain(..) {
+            info!("removing resource {:?}", resource_to_remove.path);
             let yy_path = directory_manager.resource_file(&resource_to_remove.path);
             fs::remove_dir_all(yy_path.parent().unwrap())?;
         }
 
         // Remove folders
         for folder in self.associated_folders_to_cleanup.drain(..) {
-            fs::remove_dir_all(
-                directory_manager
-                    .resource_file(Path::new(T::SUBPATH_NAME))
-                    .join(folder),
-            )?;
+            let path = directory_manager
+                .resource_file(Path::new(T::SUBPATH_NAME))
+                .join(folder);
+            info!("remove folder {:?}", path);
+            fs::remove_dir_all(path)?;
         }
 
         // Remove files
         for file in self.associated_files_to_cleanup.drain(..) {
-            fs::remove_file(
-                directory_manager
-                    .resource_file(Path::new(T::SUBPATH_NAME))
-                    .join(file),
-            )?;
+            let path = directory_manager
+                .resource_file(Path::new(T::SUBPATH_NAME))
+                .join(file);
+            info!("removing path {:?}", path);
+            fs::remove_file(path)?;
         }
 
-        for dirty_resource in self.resources_to_reserialize.drain(..) {
+        // Finally, reserialize resources
+        for resource_to_reserialize in self.resources_to_reserialize.drain(..) {
+            info!("reserializing {:?}", resource_to_reserialize.path);
             let resource = self
                 .resources
-                .get(&dirty_resource)
+                .get(&resource_to_reserialize)
                 .expect("This should always be valid.");
 
             let yy_path = directory_manager.resource_file(

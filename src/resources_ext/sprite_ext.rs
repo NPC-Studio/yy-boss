@@ -381,7 +381,8 @@ impl YyResource for Sprite {
 
     fn cleanup(&self, files_to_delete: &mut Vec<PathBuf>, folders_to_delete: &mut Vec<PathBuf>) {
         // first, clean up the layer folders...
-        let layers_path = Path::new("layers");
+        let base_path = Path::new(&self.name);
+        let layers_path = base_path.join("layers");
 
         // clean up the composite image...
         for frame in self.frames.iter() {
@@ -391,7 +392,7 @@ impl YyResource for Sprite {
 
             let mut file = path.to_owned();
             file.set_extension("png");
-            files_to_delete.push(file);
+            files_to_delete.push(base_path.join(file));
         }
     }
 }
