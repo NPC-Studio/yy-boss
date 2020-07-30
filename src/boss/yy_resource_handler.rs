@@ -4,23 +4,24 @@ use super::{
     utils, FilesystemPath, YyResource,
 };
 use anyhow::Result as AnyResult;
-use std::{collections::HashMap, fs};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
     resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    pub(crate) dirty_resources: Vec<FilesystemPath>,
+    pub(crate) resources_to_reserialize: Vec<FilesystemPath>,
+    pub(crate) associated_files_to_cleanup: Vec<PathBuf>,
+    pub(crate) associated_folders_to_cleanup: Vec<PathBuf>,
     pub(crate) resources_to_remove: Vec<FilesystemPath>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn new() -> Self {
-        Self {
-            resources: HashMap::new(),
-            dirty_resources: Vec::new(),
-            resources_to_remove: Vec::new(),
-            // folders_to_be_deleted: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Adds a new sprite into the game. It requires a `CreatedResource`,
@@ -35,9 +36,18 @@ impl<T: YyResource> YyResourceHandler<T> {
         associated_data: T::AssociatedData,
         _frt: CreatedResource,
     ) -> Option<YyResourceData<T>> {
-        self.dirty_resources
+        self.resources_to_reserialize
             .push(FilesystemPath::new(T::SUBPATH_NAME, value.name()));
-        self.insert_resource(value, Some(associated_data))
+        let ret = self.insert_resource(value, Some(associated_data));
+
+        if let Some(old) = &ret {
+            old.yy_resource.cleanup(
+                &mut self.associated_files_to_cleanup,
+                &mut self.associated_folders_to_cleanup,
+            );
+        }
+
+        ret
     }
 
     /// Returns the data on the sprite yy, if it exists.
@@ -73,39 +83,52 @@ impl<T: YyResource> YyResourceHandler<T> {
         self.insert_resource(value, None);
     }
 
-    /// Writes all of the resources to disk.
+    /// Writes all of the resources to disk, and cleans up excess files.
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
-        if self.resources_to_remove.is_empty() == false {
-            while let Some(resource_to_remove) = self.resources_to_remove.pop() {
-                let yy_path = directory_manager.resource_file(&resource_to_remove.path);
-                fs::remove_dir_all(yy_path.parent().unwrap())?;
-            }
+        // Removes the resources!
+        for resource_to_remove in self.resources_to_remove.drain(..) {
+            let yy_path = directory_manager.resource_file(&resource_to_remove.path);
+            fs::remove_dir_all(yy_path.parent().unwrap())?;
         }
 
-        if self.dirty_resources.is_empty() == false {
-            while let Some(dirty_resource) = self.dirty_resources.pop() {
-                let resource = self
-                    .resources
-                    .get(&dirty_resource)
-                    .expect("This should always be valid.");
+        // Remove folders
+        for folder in self.associated_folders_to_cleanup.drain(..) {
+            fs::remove_dir_all(
+                directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(folder),
+            )?;
+        }
 
-                let yy_path = directory_manager.resource_file(
-                    &FilesystemPath::new(T::SUBPATH_NAME, resource.yy_resource.name()).path,
-                );
+        // Remove files
+        for file in self.associated_files_to_cleanup.drain(..) {
+            fs::remove_file(
+                directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(file),
+            )?;
+        }
 
-                if let Some(parent_dir) = yy_path.parent() {
-                    fs::create_dir_all(parent_dir)?;
-                    if let Some(associated_data) = &resource.associated_data {
-                        T::serialize_associated_data(
-                            &resource.yy_resource,
-                            parent_dir,
-                            associated_data,
-                        )?;
-                    }
+        for dirty_resource in self.resources_to_reserialize.drain(..) {
+            let resource = self
+                .resources
+                .get(&dirty_resource)
+                .expect("This should always be valid.");
+
+            let yy_path = directory_manager.resource_file(
+                &FilesystemPath::new(T::SUBPATH_NAME, resource.yy_resource.name()).path,
+            );
+
+            if let Some(parent_dir) = yy_path.parent() {
+                fs::create_dir_all(parent_dir)?;
+                if let Some(associated_data) = &resource.associated_data {
+                    resource
+                        .yy_resource
+                        .serialize_associated_data(parent_dir, associated_data)?;
                 }
-
-                utils::serialize(&yy_path, &resource.yy_resource)?;
             }
+
+            utils::serialize(&yy_path, &resource.yy_resource)?;
         }
 
         Ok(())

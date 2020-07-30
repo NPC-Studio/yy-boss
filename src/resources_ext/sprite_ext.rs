@@ -1,7 +1,10 @@
 use super::YyResource;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{num::NonZeroUsize, path::Path};
+use std::{
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+};
 use yy_typings::{sprite_yy::*, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -305,7 +308,7 @@ impl YyResource for Sprite {
         self.parent.clone()
     }
 
-    fn load_associated_data(
+    fn deserialize_associated_data(
         &self,
         project_directory: &Path,
     ) -> AnyResult<Option<Self::AssociatedData>> {
@@ -374,6 +377,22 @@ impl YyResource for Sprite {
         }
 
         Ok(())
+    }
+
+    fn cleanup(&self, files_to_delete: &mut Vec<PathBuf>, folders_to_delete: &mut Vec<PathBuf>) {
+        // first, clean up the layer folders...
+        let layers_path = Path::new("layers");
+
+        // clean up the composite image...
+        for frame in self.frames.iter() {
+            let name = frame.name.inner().to_string();
+            let path = Path::new(&name);
+            folders_to_delete.push(layers_path.join(path));
+
+            let mut file = path.to_owned();
+            file.set_extension("png");
+            files_to_delete.push(file);
+        }
     }
 }
 

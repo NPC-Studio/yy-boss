@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct DirectoryManager {
+    /// The Directory which houses the Yyp and the various other folders
+    /// that Gms2 projects need, such as `sprites` or `objects`.
     root_directory: PathBuf,
     yyp: PathBuf,
     boss_directory: PathBuf,
