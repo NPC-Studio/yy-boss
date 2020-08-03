@@ -10,13 +10,14 @@ use crate::Resource;
 use anyhow::{format_err, Context, Result as AnyResult};
 use log::*;
 use std::{collections::HashMap, fs, path::Path};
-use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, Yyp};
+use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
 
 #[derive(Debug)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
     pub pipeline_manager: PipelineManager,
     pub sprites: YyResourceHandler<Sprite>,
+    pub scripts: YyResourceHandler<Script>,
     yyp: Yyp,
     folder_graph: FolderGraph,
     resource_names: HashMap<String, Resource>,
@@ -39,6 +40,7 @@ impl YypBoss {
             resource_names: HashMap::new(),
             tcu,
             sprites: YyResourceHandler::new(),
+            scripts: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager: DirectoryManager::new(path_to_yyp)?,
         };

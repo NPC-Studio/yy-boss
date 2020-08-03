@@ -36,6 +36,9 @@ mod resources_ext {
     mod yyp_serialization;
     pub use yyp_serialization::*;
 
+    mod script_ext;
+    pub use script_ext::*;
+
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
 
