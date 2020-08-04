@@ -1,3 +1,4 @@
+use crate::Resource;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -9,6 +10,7 @@ use yy_typings::ViewPath;
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     type AssociatedData: Debug;
     const SUBPATH_NAME: &'static str;
+    const RESOURCE: Resource;
 
     /// Get's the resource's name.
     fn name(&self) -> &str;

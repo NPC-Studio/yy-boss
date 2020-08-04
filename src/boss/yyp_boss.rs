@@ -63,39 +63,62 @@ impl YypBoss {
             }
         }
 
-        // Load in Sprites
-        for sprite_resource in yyp_boss
-            .yyp
-            .resources
-            .iter()
-            .filter(|value| value.id.path.starts_with("sprites"))
-        {
-            let sprite_path = yyp_boss
-                .directory_manager
-                .root_directory()
-                .join(&sprite_resource.id.path);
+        fn load_in_resource<T: YyResource>(
+            resource: &mut YyResourceHandler<T>,
+            folder_graph: &mut FolderGraph,
+            resource_names: &mut HashMap<String, Resource>,
+            yyp_resources: &[YypResource],
+            directory_manager: &DirectoryManager,
+            tcu: &TrailingCommaUtility,
+        ) -> AnyResult<()> {
+            for yyp_resource in yyp_resources
+                .iter()
+                .filter(|value| value.id.path.starts_with(T::SUBPATH_NAME))
+            {
+                let yy_file_path = directory_manager
+                    .root_directory()
+                    .join(&yyp_resource.id.path);
 
-            let sprite_yy: Sprite = utils::deserialize(&sprite_path, Some(&yyp_boss.tcu))
-                .with_context(|| format!("on sprite {:?}", sprite_path))?;
+                let yy_file: T = utils::deserialize(&yy_file_path, Some(&tcu))
+                    .with_context(|| format!("on resource {:?}", yy_file_path))?;
 
-            // Add to the folder graph
-            yyp_boss
-                .folder_graph
-                .find_subfolder_mut(&sprite_yy.parent)?
-                .files
-                .insert(
-                    sprite_yy.name.clone(),
-                    FileMember {
-                        child: FilesystemPath::new(Sprite::SUBPATH_NAME, &sprite_yy.name),
-                        order: sprite_resource.order,
-                    },
-                );
+                // Add to the folder graph
+                folder_graph
+                    .find_subfolder_mut(&yy_file.parent_path())?
+                    .files
+                    .insert(
+                        yy_file.name().to_owned(),
+                        FileMember {
+                            child: FilesystemPath::new(T::SUBPATH_NAME, &yy_file.name()),
+                            order: yyp_resource.order,
+                        },
+                    );
 
-            yyp_boss
-                .resource_names
-                .insert(sprite_yy.name.clone(), Resource::Sprite);
-            yyp_boss.sprites.load_on_startup(sprite_yy);
+                resource_names.insert(yy_file.name().to_string(), T::RESOURCE);
+                resource.load_on_startup(yy_file);
+            }
+
+            Ok(())
         }
+
+        // Load in our Resources
+        load_in_resource(
+            &mut yyp_boss.sprites,
+            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.resource_names,
+            &yyp_boss.yyp.resources,
+            &yyp_boss.directory_manager,
+            &yyp_boss.tcu,
+        )?;
+
+        load_in_resource(
+            &mut yyp_boss.scripts,
+            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.resource_names,
+            &yyp_boss.yyp.resources,
+            &yyp_boss.directory_manager,
+            &yyp_boss.tcu,
+        )?;
 
         // Ensure the directory
         // Self::ensure_yyboss_data(&yyp_boss.directory_manager)?;

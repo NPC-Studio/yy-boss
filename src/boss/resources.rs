@@ -1,15 +1,17 @@
 use super::YyResource;
-use yy_typings::sprite_yy::Sprite;
+use yy_typings::{script::Script, sprite_yy::Sprite};
 
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
 pub enum Resource {
     Sprite,
+    Script,
 }
 
 impl Resource {
     pub fn base_name(&self) -> &'static str {
         match self {
             Resource::Sprite => Sprite::SUBPATH_NAME,
+            Resource::Script => Script::SUBPATH_NAME,
         }
     }
 }

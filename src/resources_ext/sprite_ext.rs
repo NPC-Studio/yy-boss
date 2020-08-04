@@ -267,9 +267,11 @@ impl SpriteExt for Sprite {
 }
 
 use anyhow::Context;
+use crate::Resource;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
     const SUBPATH_NAME: &'static str = "sprites";
+    const RESOURCE: Resource = Resource::Script;
 
     fn name(&self) -> &str {
         &self.name

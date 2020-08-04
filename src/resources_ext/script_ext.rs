@@ -1,9 +1,10 @@
-use crate::YyResource;
+use crate::{Resource, YyResource};
 use yy_typings::{sprite_yy::script::Script, FilesystemPath, ViewPath};
 
 impl YyResource for Script {
     type AssociatedData = String;
     const SUBPATH_NAME: &'static str = "scripts";
+    const RESOURCE: Resource = Resource::Script;
 
     fn name(&self) -> &str {
         &self.name
@@ -38,10 +39,7 @@ impl YyResource for Script {
 
         Ok(())
     }
-    fn cleanup(
-        &self,
-        files_to_delete: &mut Vec<std::path::PathBuf>,
-        folders_to_delete: &mut Vec<std::path::PathBuf>,
-    ) {
+    fn cleanup(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
+        // not much to clean up here which won't get rewritten by a replace op!
     }
 }
