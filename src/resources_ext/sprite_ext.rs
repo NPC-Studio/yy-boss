@@ -266,8 +266,8 @@ impl SpriteExt for Sprite {
     }
 }
 
-use anyhow::Context;
 use crate::Resource;
+use anyhow::Context;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
     const SUBPATH_NAME: &'static str = "sprites";
@@ -381,7 +381,11 @@ impl YyResource for Sprite {
         Ok(())
     }
 
-    fn cleanup(&self, files_to_delete: &mut Vec<PathBuf>, folders_to_delete: &mut Vec<PathBuf>) {
+    fn cleanup_on_replace(
+        &self,
+        files_to_delete: &mut Vec<PathBuf>,
+        folders_to_delete: &mut Vec<PathBuf>,
+    ) {
         // first, clean up the layer folders...
         let base_path = Path::new(&self.name);
         let layers_path = base_path.join("layers");

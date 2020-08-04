@@ -1,7 +1,7 @@
 use super::{PathStrExt, ViewPathLocationExt};
 use log::error;
-use maplit::hashmap;
-use std::{collections::HashMap, hash::Hash};
+use maplit::btreemap;
+use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
@@ -9,8 +9,8 @@ use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResou
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPath>,
-    pub files: HashMap<String, FileMember>,
-    pub folders: HashMap<String, SubfolderMember>,
+    pub files: BTreeMap<String, FileMember>,
+    pub folders: BTreeMap<String, SubfolderMember>,
 }
 
 impl Default for FolderGraph {
@@ -18,8 +18,8 @@ impl Default for FolderGraph {
         FolderGraph {
             name: String::new(),
             path_to_parent: None,
-            files: hashmap![],
-            folders: hashmap![],
+            files: btreemap![],
+            folders: btreemap![],
         }
     }
 }

@@ -46,6 +46,7 @@ impl YypBoss {
         };
 
         // Load in Folders
+        yyp_boss.yyp.folders.sort();
         for new_folder in yyp_boss.yyp.folders.iter() {
             let mut folder_graph = &mut yyp_boss.folder_graph;
 
@@ -505,7 +506,8 @@ impl YypBoss {
                 folder = &folder
                     .folders
                     .get(path)
-                    .ok_or_else(|| format_err!("Couldn't find subfolder {}", path))
+                    .or_else(|| folder.folders.get(path.trim_yy()))
+                    .ok_or_else(|| error!("Couldn't find subfolder {}", path))
                     .ok()?
                     .child;
             }

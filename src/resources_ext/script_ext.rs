@@ -39,7 +39,7 @@ impl YyResource for Script {
 
         Ok(())
     }
-    fn cleanup(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
+    fn cleanup_on_replace(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
         // not much to clean up here which won't get rewritten by a replace op!
     }
 }

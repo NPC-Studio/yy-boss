@@ -42,7 +42,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         let ret = self.insert_resource(value, Some(associated_data));
 
         if let Some(old) = &ret {
-            old.yy_resource.cleanup(
+            old.yy_resource.cleanup_on_replace(
                 &mut self.associated_files_to_cleanup,
                 &mut self.associated_folders_to_cleanup,
             );
@@ -70,12 +70,12 @@ impl<T: YyResource> YyResourceHandler<T> {
         value: &FilesystemPath,
         _rrt: RemovedResource,
     ) -> Option<YyResourceData<T>> {
-        if let Some(res) = self.resources.remove(&value) {
+        let ret = self.resources.remove(&value);
+        if ret.is_some() {
             self.resources_to_remove.push(value.clone());
-            Some(res)
-        } else {
-            None
         }
+
+        ret
     }
 
     /// Loads the resource in on startup. We don't track associated data by default,

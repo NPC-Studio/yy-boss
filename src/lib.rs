@@ -39,6 +39,9 @@ mod resources_ext {
     mod script_ext;
     pub use script_ext::*;
 
+    mod object_ext;
+    pub use object_ext::*;
+
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
 
