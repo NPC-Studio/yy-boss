@@ -312,17 +312,13 @@ impl YyResource for Sprite {
 
     fn deserialize_associated_data(
         &self,
-        project_directory: &Path,
+        directory_path: &Path,
     ) -> AnyResult<Option<Self::AssociatedData>> {
-        let sprite_path =
-            project_directory.join(&FilesystemPath::new(Self::SUBPATH_NAME, &self.name).path);
         let output = self
             .frames
             .iter()
             .filter_map(|frame: &Frame| {
-                let path_to_image = sprite_path
-                    .parent()
-                    .unwrap()
+                let path_to_image = directory_path
                     .join(Path::new(&frame.name.inner().to_string()).with_extension("png"));
 
                 match image::open(&path_to_image) {

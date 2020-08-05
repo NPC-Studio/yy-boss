@@ -1,11 +1,11 @@
 use super::YyResource;
-use yy_typings::{script::Script, sprite_yy::Sprite};
+use yy_typings::{object_yy::Object, script::Script, sprite_yy::Sprite};
 
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
 pub enum Resource {
     Sprite,
     Script,
-    // Object,
+    Object,
 }
 
 impl Resource {
@@ -13,7 +13,7 @@ impl Resource {
         match self {
             Resource::Sprite => Sprite::SUBPATH_NAME,
             Resource::Script => Script::SUBPATH_NAME,
-            // Resource::Object => Object::SUBPATH_NAME,
+            Resource::Object => Object::SUBPATH_NAME,
         }
     }
 }

@@ -25,7 +25,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     /// this would load the `pngs` into memory.
     fn deserialize_associated_data(
         &self,
-        project_directory: &Path,
+        directory_path: &Path,
     ) -> Result<Option<Self::AssociatedData>>;
 
     /// Serialized the associated data with a given Yy File. In a sprite, for example,

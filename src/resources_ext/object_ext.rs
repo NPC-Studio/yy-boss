@@ -1,54 +1,62 @@
-// use crate::{Resource, YyResource};
-// use std::{collections::HashMap, path::PathBuf};
-// use yy_typings::{sprite_yy::object_yy::*, FilesystemPath, ViewPath};
+use crate::{Resource, YyResource};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+use yy_typings::{sprite_yy::object_yy::*, ViewPath};
 
-// impl YyResource for Object {
-//     type AssociatedData = HashMap<EventType, String>;
-//     const SUBPATH_NAME: &'static str = "objects";
-//     const RESOURCE: Resource = Resource::Object;
+impl YyResource for Object {
+    type AssociatedData = HashMap<EventType, String>;
+    const SUBPATH_NAME: &'static str = "objects";
+    const RESOURCE: Resource = Resource::Object;
 
-//     fn name(&self) -> &str {
-//         &self.name
-//     }
-//     fn set_name(&mut self, name: String) {
-//         self.name = name;
-//     }
-//     fn parent_path(&self) -> ViewPath {
-//         self.parent.clone()
-//     }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+    fn parent_path(&self) -> ViewPath {
+        self.parent.clone()
+    }
 
-//     fn deserialize_associated_data(
-//         &self,
-//         project_directory: &std::path::Path,
-//     ) -> anyhow::Result<Option<Self::AssociatedData>> {
-//         // for event in &self.event_list {
-//         //     let (output, last_number) = event.event_type.filename();
-//         //     compile_error!("Jack, we're taking a god damn stand, and `deserialize` associated data is going to point to the directory, dammit");
-//         // }
+    fn deserialize_associated_data(
+        &self,
+        directory_path: &std::path::Path,
+    ) -> anyhow::Result<Option<Self::AssociatedData>> {
+        let mut value = Self::AssociatedData::new();
 
-//         // Ok(())
+        for event in &self.event_list {
+            let (output, last_number) = event.event_type.filename();
+            let path = directory_path.join(&format!("{}{}", output, last_number));
+            let code = std::fs::read_to_string(&path)?;
 
-//         // let value = std::fs::read_to_string(&script_gml_path)?;
-//         Ok(Some(value))
-//     }
+            value.insert(event.event_type, code);
+        }
 
-//     fn serialize_associated_data(
-//         &self,
-//         directory_path: &std::path::Path,
-//         data: &Self::AssociatedData,
-//     ) -> anyhow::Result<()> {
-//         // let mut file = directory_path.join(&self.name);
-//         // file.set_extension(".gml");
+        Ok(Some(value))
+    }
 
-//         // std::fs::write(file, data)?;
+    fn serialize_associated_data(
+        &self,
+        directory_path: &std::path::Path,
+        data: &Self::AssociatedData,
+    ) -> anyhow::Result<()> {
+        for (event_type, code) in data {
+            let (output, last_number) = event_type.filename();
+            let path = directory_path.join(&format!("{}{}", output, last_number));
 
-//         Ok(())
-//     }
+            std::fs::write(&path, code)?;
+        }
 
-//     fn cleanup_on_replace(
-//         &self,
-//         files_to_delete: &mut Vec<PathBuf>,
-//         folders_to_delete: &mut Vec<PathBuf>,
-//     ) {
-//     }
-// }
+        Ok(())
+    }
+
+    fn cleanup_on_replace(&self, files_to_delete: &mut Vec<PathBuf>, _: &mut Vec<PathBuf>) {
+        for event in self.event_list.iter() {
+            let (output, last_number) = event.event_type.filename();
+            let path = Path::new(&format!("{}{}", output, last_number)).to_path_buf();
+            files_to_delete.push(path);
+        }
+    }
+}

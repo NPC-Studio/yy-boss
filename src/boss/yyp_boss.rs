@@ -7,8 +7,9 @@ use super::{
     YypSerialization,
 };
 use crate::Resource;
-use anyhow::{format_err, Context, Result as AnyResult};
+use anyhow::{Context, Result as AnyResult};
 use log::*;
+use object_yy::Object;
 use std::{collections::HashMap, fs, path::Path};
 use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
 
@@ -18,6 +19,7 @@ pub struct YypBoss {
     pub pipeline_manager: PipelineManager,
     pub sprites: YyResourceHandler<Sprite>,
     pub scripts: YyResourceHandler<Script>,
+    pub objects: YyResourceHandler<Object>,
     yyp: Yyp,
     folder_graph: FolderGraph,
     resource_names: HashMap<String, Resource>,
@@ -41,6 +43,7 @@ impl YypBoss {
             tcu,
             sprites: YyResourceHandler::new(),
             scripts: YyResourceHandler::new(),
+            objects: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager: DirectoryManager::new(path_to_yyp)?,
         };
@@ -111,9 +114,16 @@ impl YypBoss {
             &yyp_boss.directory_manager,
             &yyp_boss.tcu,
         )?;
-
         load_in_resource(
             &mut yyp_boss.scripts,
+            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.resource_names,
+            &yyp_boss.yyp.resources,
+            &yyp_boss.directory_manager,
+            &yyp_boss.tcu,
+        )?;
+        load_in_resource(
+            &mut yyp_boss.objects,
             &mut yyp_boss.folder_graph,
             &mut yyp_boss.resource_names,
             &yyp_boss.yyp.resources,
