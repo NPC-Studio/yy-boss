@@ -129,7 +129,7 @@ impl FolderGraph {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize)]
 pub enum FolderGraphError {
     #[error("path was not found")]
     PathNotFound,

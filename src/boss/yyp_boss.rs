@@ -1,12 +1,12 @@
 use super::{
     directory_manager::DirectoryManager,
+    errors::*,
     folder_graph::*,
     pipelines::PipelineManager,
     resources::{CreatedResource, RemovedResource},
-    utils, FolderGraph, PathStrExt, ViewPathLocationExt, YyResource, YyResourceHandler,
+    utils, FolderGraph, PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler,
     YypSerialization,
 };
-use crate::Resource;
 use anyhow::{Context, Result as AnyResult};
 use log::*;
 use object_yy::Object;
@@ -29,9 +29,9 @@ pub struct YypBoss {
 
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
-    pub fn new(path_to_yyp: &Path) -> AnyResult<YypBoss> {
+    pub fn new(path_to_yyp: &Path) -> Result<YypBoss, StartupError> {
         let tcu = TrailingCommaUtility::new();
-        let yyp = utils::deserialize(path_to_yyp, Some(&tcu)).with_context(|| "on the yyp")?;
+        let yyp = utils::deserialize(path_to_yyp, Some(&tcu))?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp)?;
 
@@ -45,7 +45,7 @@ impl YypBoss {
             scripts: YyResourceHandler::new(),
             objects: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
-            directory_manager: DirectoryManager::new(path_to_yyp)?,
+            directory_manager,
         };
 
         // Load in Folders
@@ -74,7 +74,7 @@ impl YypBoss {
             yyp_resources: &[YypResource],
             directory_manager: &DirectoryManager,
             tcu: &TrailingCommaUtility,
-        ) -> AnyResult<()> {
+        ) -> Result<(), StartupError> {
             for yyp_resource in yyp_resources
                 .iter()
                 .filter(|value| value.id.path.starts_with(T::SUBPATH_NAME))
@@ -83,8 +83,7 @@ impl YypBoss {
                     .root_directory()
                     .join(&yyp_resource.id.path);
 
-                let yy_file: T = utils::deserialize(&yy_file_path, Some(&tcu))
-                    .with_context(|| format!("on resource {:?}", yy_file_path))?;
+                let yy_file: T = utils::deserialize(&yy_file_path, Some(&tcu))?;
 
                 // Add to the folder graph
                 folder_graph

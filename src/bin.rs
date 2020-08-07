@@ -5,22 +5,21 @@ mod cli {
     mod output;
     pub use output::*;
 
+    mod startup;
+    pub use startup::*;
+
     pub mod main_loop;
 }
 
 pub use yy_boss::*;
 
 pub fn main() {
-    let input = cli::parse_inputs();
+    let args = cli::parse_inputs();
 
-    match YypBoss::new(&input.yyp_path) {
-        Ok(yyp_boss) => {
-            cli::main_loop::main_loop(yyp_boss);
-        }
-        Err(e) => {
-            eprintln!("!!Error!!: Could not load Yyp...{:?}", e);
-        }
+    let boss_or = YypBoss::new(&args.yyp_path);
+    if let Some(boss) = cli::Output::startup(boss_or) {
+        cli::main_loop::main_loop(boss);
+
+        println!("Program completed.");
     }
-
-    println!("Program completed.");
 }

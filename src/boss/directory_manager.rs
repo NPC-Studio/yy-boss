@@ -1,5 +1,5 @@
 use super::utils;
-use anyhow::{anyhow, Result as AnyResult};
+use crate::{errors::StartupError, FileSerializationError};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -14,16 +14,18 @@ pub struct DirectoryManager {
 impl DirectoryManager {
     const YYBOSS_DIR: &'static str = ".boss";
 
-    pub fn new(yyp: &Path) -> AnyResult<DirectoryManager> {
+    pub fn new(yyp: &Path) -> Result<Self, StartupError> {
         let root_directory = yyp
             .parent()
-            .ok_or_else(|| anyhow!("couldn't get parent"))?
+            .ok_or_else(|| StartupError::BadPath)?
             .to_owned();
 
         let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));
 
         if boss_directory.exists() == false {
-            std::fs::create_dir(&boss_directory)?;
+            std::fs::create_dir(&boss_directory).map_err(|e| {
+                StartupError::FileSerializationError(FileSerializationError::Io(e.to_string()))
+            })?;
         }
 
         let output = DirectoryManager {
@@ -55,7 +57,7 @@ impl DirectoryManager {
         &self,
         relative_path: &Path,
         value: &impl serde::Serialize,
-    ) -> AnyResult<()> {
+    ) -> Result<(), utils::FileSerializationError> {
         utils::serialize(&self.boss_file(relative_path), value)
     }
 }

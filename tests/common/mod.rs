@@ -1,21 +1,20 @@
-use anyhow::Result as AnyResult;
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use thiserror::Error;
-use yy_boss::YypBoss;
+use yy_boss::{errors::StartupError, YypBoss};
 
 #[allow(dead_code)]
 const PATH_TO_TEST_PROJ: &str = "tests/examples/test_proj/test_proj.yyp";
 
 #[allow(dead_code)]
-pub fn setup_blank_project() -> AnyResult<YypBoss> {
+pub fn setup_blank_project() -> Result<YypBoss, StartupError> {
     YypBoss::new(Path::new(PATH_TO_TEST_PROJ))
 }
 
 /// Loads a yyp boss by the name of the Proof. It must have a YYP of the same name
 /// as the surrounding folder.
 #[allow(dead_code)]
-pub fn load_proof(proof_name: &str) -> AnyResult<YypBoss> {
+pub fn load_proof(proof_name: &str) -> Result<YypBoss, StartupError> {
     YypBoss::new(Path::new(&format!(
         "tests/examples/proofs/{0}/{0}.yyp",
         proof_name,

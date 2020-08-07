@@ -19,7 +19,9 @@ pub struct PipelineManager {
 impl PipelineManager {
     const PIPELINE_MANIFEST: &'static str = "pipeline_manifest.json";
 
-    pub(crate) fn new(directory_manager: &DirectoryManager) -> AnyResult<PipelineManager> {
+    pub(crate) fn new(
+        directory_manager: &DirectoryManager,
+    ) -> Result<PipelineManager, utils::FileSerializationError> {
         let pipeline_manifest_path =
             directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
 

@@ -17,12 +17,13 @@ mod boss {
 
     mod directory_manager;
     mod utils;
+    pub use utils::FileSerializationError;
 
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
     mod folder_graph;
-    pub use folder_graph::FolderGraph;
+    pub use folder_graph::{FolderGraph, FolderGraphError};
 }
 mod resources_ext {
     use super::*;
@@ -43,6 +44,11 @@ mod resources_ext {
     pub use object_ext::*;
 
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
+}
+
+pub mod errors {
+    mod startup;
+    pub use startup::*;
 }
 
 pub use boss::*;
