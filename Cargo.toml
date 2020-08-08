@@ -13,7 +13,7 @@ name = "yy_boss"
 path = "src/lib.rs"
 
 [[bin]]
-name = "yy-boss"
+name = "yy-boss-cli"
 path = "src/bin.rs"
 
 [dependencies]

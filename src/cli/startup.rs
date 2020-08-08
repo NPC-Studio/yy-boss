@@ -1,4 +1,4 @@
-use super::{Output, Startup};
+use super::output::{Output, Startup};
 use clap::{App, Arg};
 use yy_boss::{errors::StartupError, YypBoss};
 

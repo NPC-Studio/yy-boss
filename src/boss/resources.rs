@@ -1,7 +1,9 @@
 use super::YyResource;
 use yy_typings::{object_yy::Object, script::Script, sprite_yy::Sprite};
 
-#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash)]
+#[derive(
+    Debug, PartialEq, Eq, Ord, PartialOrd, Copy, Clone, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub enum Resource {
     Sprite,
     Script,

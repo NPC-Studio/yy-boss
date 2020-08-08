@@ -1,4 +1,7 @@
-use super::{InputCommand, InputResponse, Output};
+use super::{
+    input::InputCommand,
+    output::{InputResponse, Output},
+};
 use std::io;
 use yy_boss::YypBoss;
 
