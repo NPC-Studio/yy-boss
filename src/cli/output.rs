@@ -1,39 +1,16 @@
 use crate::errors::*;
 use serde::{Deserialize, Serialize};
-use yy_boss::YypBoss;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Output {
     Startup(Startup),
+    Input(InputResponse),
     Command(Command),
     Shutdown(Shutdown),
 }
 
 impl Output {
-    pub fn startup(succes: Result<YypBoss, StartupError>) -> Option<YypBoss> {
-        match succes {
-            Ok(yyp) => {
-                Output::Startup(Startup {
-                    success: true,
-                    error: None,
-                })
-                .print();
-
-                Some(yyp)
-            }
-            Err(e) => {
-                Output::Startup(Startup {
-                    success: false,
-                    error: Some(e),
-                })
-                .print();
-
-                None
-            }
-        }
-    }
-
     pub fn print(self) {
         let output = serde_json::to_string_pretty(&self).unwrap();
         println!("{}", output);
@@ -55,6 +32,12 @@ pub struct Command {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Shutdown {
     pub msg: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct InputResponse {
+    pub msg: String,
+    pub fatal: bool,
 }
 
 #[cfg(test)]
