@@ -1,13 +1,20 @@
-pub mod cli {
+mod cli {
+    /// All input which the cli can receive as Json has their Rust forms defined here.
     pub mod input;
-    pub mod main_loop;
+
+    /// All output which the cli can output as Json has their Rust forms defined here.
     pub mod output;
+
+    /// All startup options which the cli can receive as Json has their Rust forms defined here.
     pub mod startup;
+
+    #[doc(hidden)]
+    pub(super) mod main_loop;
 }
 
 pub use yy_boss::*;
 
-pub fn main() {
+fn main() {
     let args = cli::startup::parse_arguments();
 
     let boss_or = YypBoss::new(&args.yyp_path);

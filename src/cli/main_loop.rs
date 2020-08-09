@@ -1,5 +1,5 @@
 use super::{
-    input::Command,
+    input::{Command, ResourceCommandType},
     output::{InputResponse, Output},
 };
 use std::io;
@@ -11,18 +11,17 @@ pub fn main_loop(mut yyp_boss: YypBoss) {
 
     loop {
         match stdin.read_line(&mut command) {
-            Ok(_) => match serde_json::from_str::<Command>(&command) {
-                Ok(command) => {
-                    println!("{:?}", command);
-                }
-                Err(e) => {
-                    Output::Input(InputResponse {
+            Ok(_) => {
+                let output = match serde_json::from_str::<Command>(&command) {
+                    Ok(command) => parse_command(command, &mut yyp_boss),
+                    Err(e) => Output::Input(InputResponse {
                         msg: e.to_string(),
                         fatal: false,
-                    })
-                    .print();
-                }
-            },
+                    }),
+                };
+
+                output.print();
+            }
             Err(e) => {
                 Output::Input(InputResponse {
                     msg: e.to_string(),
@@ -33,5 +32,19 @@ pub fn main_loop(mut yyp_boss: YypBoss) {
         }
 
         command.clear();
+    }
+}
+
+pub fn parse_command(command: Command, yyp_boss: &mut YypBoss) -> Output {
+    match command {
+        Command::Resource(resource_command) => match resource_command.command_type {
+            ResourceCommandType::Add(new_resource) => unimplemented!(),
+            ResourceCommandType::Replace(new_resource) => unimplemented!(),
+            ResourceCommandType::Set(new_resource) => unimplemented!(),
+            ResourceCommandType::Remove { identifier } => unimplemented!(),
+            ResourceCommandType::Get { identifier } => unimplemented!(),
+            ResourceCommandType::Exists { identifier } => unimplemented!(),
+        },
+        Command::VirtualFileSystem(vfs_command) => unimplemented!(),
     }
 }

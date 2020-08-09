@@ -2,6 +2,7 @@ use crate::errors::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[must_use = "this `Output` must be printed"]
 #[serde(tag = "type")]
 pub enum Output {
     Startup(Startup),
