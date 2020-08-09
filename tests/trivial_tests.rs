@@ -1,5 +1,5 @@
 use include_dir::{include_dir, Dir, DirEntry};
-// use pretty_assertions::assert_eq;
+use pretty_assertions::assert_eq;
 use std::path::Path;
 use yy_boss::{
     yy_typings::utils::TrailingCommaUtility, yy_typings::Yyp, YypBoss, YypSerialization,

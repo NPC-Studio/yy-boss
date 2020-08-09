@@ -46,13 +46,10 @@ mod tests {
 
     #[test]
     fn basic_serde() {
-        let output = Output::Startup(Startup {
+        Output::Startup(Startup {
             success: false,
             error: Some(StartupError::BadPath),
-        });
-
-        output.print();
-
-        panic!("Expected");
+        })
+        .print();
     }
 }

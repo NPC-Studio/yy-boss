@@ -1,5 +1,5 @@
 use super::{
-    input::InputCommand,
+    input::Command,
     output::{InputResponse, Output},
 };
 use std::io;
@@ -11,7 +11,7 @@ pub fn main_loop(mut yyp_boss: YypBoss) {
 
     loop {
         match stdin.read_line(&mut command) {
-            Ok(_) => match serde_json::from_str::<InputCommand>(&command) {
+            Ok(_) => match serde_json::from_str::<Command>(&command) {
                 Ok(command) => {
                     println!("{:?}", command);
                 }

@@ -271,7 +271,7 @@ use anyhow::Context;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
     const SUBPATH_NAME: &'static str = "sprites";
-    const RESOURCE: Resource = Resource::Script;
+    const RESOURCE: Resource = Resource::Sprite;
 
     fn name(&self) -> &str {
         &self.name
