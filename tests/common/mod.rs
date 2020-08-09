@@ -35,6 +35,19 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                 // We have to equalize the names here to prevent trivial mismatches...
                 our_yyp.name = proof_yyp.name.clone();
 
+                // and we have to normalize orders
+                for yyp_resource in proof_yyp.folders.iter() {
+                    if let Some(ours) = our_yyp
+                        .folders
+                        .iter_mut()
+                        .find(|f| f.folder_path == yyp_resource.folder_path)
+                    {
+                        ours.order = yyp_resource.order;
+                    } else {
+                        println!("Couldn't find {} in our Yyp...", yyp_resource.name);
+                    }
+                }
+
                 assert_eq!(
                     our_yyp, *proof_yyp,
                     "target yyp and proof yyp were not equal"

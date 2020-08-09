@@ -49,7 +49,6 @@ impl YypBoss {
         };
 
         // Load in Folders
-        yyp_boss.yyp.folders.sort();
         for new_folder in yyp_boss.yyp.folders.iter() {
             let mut folder_graph = &mut yyp_boss.folder_graph;
 
