@@ -1,4 +1,7 @@
-use super::YyResource;
+use crate::{
+    Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+};
+use anyhow::Context;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
 use std::{
@@ -266,8 +269,6 @@ impl SpriteExt for Sprite {
     }
 }
 
-use crate::Resource;
-use anyhow::Context;
 impl YyResource for Sprite {
     type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
     const SUBPATH_NAME: &'static str = "sprites";
@@ -306,32 +307,68 @@ impl YyResource for Sprite {
             kf.channels.zero.id.path = new_path.to_owned();
         }
     }
+
     fn parent_path(&self) -> ViewPath {
         self.parent.clone()
     }
 
+    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+        &mut yyp_boss.sprites
+    }
+
     fn deserialize_associated_data(
         &self,
-        directory_path: &Path,
-    ) -> AnyResult<Option<Self::AssociatedData>> {
-        let output = self
-            .frames
-            .iter()
-            .filter_map(|frame: &Frame| {
-                let path_to_image = directory_path
-                    .join(Path::new(&frame.name.inner().to_string()).with_extension("png"));
+        directory_path: Option<&Path>,
+        data: SerializedData,
+    ) -> anyhow::Result<Self::AssociatedData> {
+        match data {
+            SerializedData::Value { .. } => Err(SerializedDataError::CannotUseValue.into()),
+            SerializedData::Filepath { data } => {
+                if let Some(directory) = directory_path {
+                    let directory_path = directory.join(data);
+                    let output = self
+                        .frames
+                        .iter()
+                        .filter_map(|frame: &Frame| {
+                            let path_to_image = directory_path.join(
+                                Path::new(&frame.name.inner().to_string()).with_extension("png"),
+                            );
 
-                match image::open(&path_to_image) {
-                    Ok(image) => Some((frame.name, image.to_rgba())),
-                    Err(e) => {
-                        log::error!("We couldn't read {:?} -- {}", path_to_image, e);
-                        None
-                    }
+                            match image::open(&path_to_image) {
+                                Ok(image) => Some((frame.name, image.to_rgba())),
+                                Err(e) => {
+                                    log::error!("We couldn't read {:?} -- {}", path_to_image, e);
+                                    None
+                                }
+                            }
+                        })
+                        .collect();
+
+                    Ok(output)
+                } else {
+                    Err(SerializedDataError::NoFileMode.into())
                 }
-            })
-            .collect();
+            }
+            SerializedData::DefaultValue => {
+                let output = self
+                    .frames
+                    .iter()
+                    .map(|frame: &Frame| {
+                        (
+                            frame.name,
+                            SpriteImageBuffer::from_raw(
+                                self.width.get() as u32,
+                                self.height.get() as u32,
+                                vec![0; self.width.get() * self.height.get() * 4],
+                            )
+                            .expect("Jack messed up the math in the Frame Buffer defaults"),
+                        )
+                    })
+                    .collect();
 
-        Ok(Some(output))
+                Ok(output)
+            }
+        }
     }
 
     fn serialize_associated_data(

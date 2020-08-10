@@ -1,5 +1,5 @@
-use super::utils;
-use crate::{errors::StartupError, FileSerializationError};
+use super::{errors::StartupError, utils};
+use crate::FileSerializationError;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -17,7 +17,7 @@ impl DirectoryManager {
     pub fn new(yyp: &Path) -> Result<Self, StartupError> {
         let root_directory = yyp
             .parent()
-            .ok_or_else(|| StartupError::BadPath)?
+            .ok_or_else(|| StartupError::BadYypPath)?
             .to_owned();
 
         let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));

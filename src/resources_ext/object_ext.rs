@@ -1,4 +1,6 @@
-use crate::{Resource, YyResource};
+use crate::{
+    Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -20,21 +22,39 @@ impl YyResource for Object {
         self.parent.clone()
     }
 
+    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+        &mut yyp_boss.objects
+    }
+
     fn deserialize_associated_data(
         &self,
-        directory_path: &std::path::Path,
-    ) -> anyhow::Result<Option<Self::AssociatedData>> {
-        let mut value = Self::AssociatedData::new();
+        directory_path: Option<&Path>,
+        data: SerializedData,
+    ) -> anyhow::Result<Self::AssociatedData> {
+        let deserialized = match data {
+            SerializedData::Value { data } => serde_json::from_str(&data)?,
+            SerializedData::Filepath { data } => {
+                if let Some(directory_path) = directory_path {
+                    let directory_path = directory_path.join(data);
+                    let mut value = Self::AssociatedData::new();
 
-        for event in &self.event_list {
-            let (output, last_number) = event.event_type.filename();
-            let path = directory_path.join(&format!("{}{}", output, last_number));
-            let code = std::fs::read_to_string(&path)?;
+                    for event in &self.event_list {
+                        let (output, last_number) = event.event_type.filename();
+                        let path = directory_path.join(&format!("{}{}", output, last_number));
+                        let code = std::fs::read_to_string(&path)?;
 
-            value.insert(event.event_type, code);
-        }
+                        value.insert(event.event_type, code);
+                    }
 
-        Ok(Some(value))
+                    value
+                } else {
+                    return Err(SerializedDataError::NoFileMode.into());
+                }
+            }
+            SerializedData::DefaultValue => Self::AssociatedData::new(),
+        };
+
+        Ok(deserialized)
     }
 
     fn serialize_associated_data(

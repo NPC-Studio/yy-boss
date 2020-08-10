@@ -1,4 +1,5 @@
-use crate::{Resource, YyResource};
+use crate::{Resource, SerializedData, YyResource, YyResourceHandler, YypBoss};
+use std::path::Path;
 use yy_typings::{sprite_yy::script::Script, ViewPath};
 
 impl YyResource for Script {
@@ -16,15 +17,19 @@ impl YyResource for Script {
         self.parent.clone()
     }
 
+    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+        &mut yyp_boss.scripts
+    }
+
     fn deserialize_associated_data(
         &self,
-        directory_path: &std::path::Path,
-    ) -> anyhow::Result<Option<Self::AssociatedData>> {
-        let file = directory_path.join(&self.name).with_extension("gml");
-        let value = std::fs::read_to_string(&file)?;
-
-        Ok(Some(value))
+        directory_path: Option<&Path>,
+        data: SerializedData,
+    ) -> anyhow::Result<Self::AssociatedData> {
+        let data = data.read_data_as_file(directory_path)?;
+        Ok(data)
     }
+
     fn serialize_associated_data(
         &self,
         directory_path: &std::path::Path,

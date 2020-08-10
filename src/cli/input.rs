@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf};
-use yy_boss::Resource;
+use yy_boss::{Resource, SerializedData};
 use yy_typings::ViewPath;
 
 /// The type of command to give, pertaining to each of the general areas the YyBoss can give.
@@ -141,16 +140,16 @@ pub enum ResourceCommandType {
 /// This struct describes the new data needed to [`Add`], [`Replace`], or [`Set`] a resource
 /// in the [`ResourceCommandType`].
 ///
-/// The types of the Data required for [`new_resource`] and [`associated_data`] are given by the
-/// table below:
+/// The types of the Data required for [`new_resource`] and [`associated_data`] are written in the table
+/// below for convenience, but for the absolute answer, look in the [`resources_ext`] module.
 ///
-/// ## Types of Optional Fields
-///|   Resource Type  |   NewResourceType     | AssociatedData Key   |  AssociatedData Value    |
-///|------------------|-----------------------|----------------------|--------------------------|
-///| [`Sprite`]       |  [`Sprite Yy File`]   | [`Frame Uuid`]       |  Image Data (Png Format) |
-///| [`Object`]       |  [`Object Yy File`]   | [`EventType`]        |  String (Gml)            |
-///| [`Script`]       |  [`Script Yy File`]   | *Single-Void*        |  String (Gml)            |
-///| [`Shader`]       |  [`Shader Yy File`]   | [`ShaderScriptType`] |  String (Shader Language)|
+/// ## Types of Each Field
+///|   Resource Type  |   new_resource     | associated_data   |
+///|------------------|-----------------------|----------------------|
+///| [`Sprite`]       |  [`Sprite Yy File`]   | [`HashMap`]<[`Frame Uuid`], [`SpriteImageBuffer`]>  |
+///| [`Object`]       |  [`Object Yy File`]   | [`HashMap`]<[`EventType`], [`String`]>              |
+///| [`Script`]       |  [`Script Yy File`]   | String                                       |
+///| [`Shader`]       |  [`Shader Yy File`]   | [`ShaderScriptType`] |
 ///
 /// **NB:** Above, "Single-Void" means that a given Map must have only one key (if multiple are present,
 /// the command will abort with an error), and the contents of the key do not matter. Using `data` might
@@ -173,6 +172,7 @@ pub enum ResourceCommandType {
 /// [`Frame Uuid`]: ../../yy_typings/sprite_yy/struct.Frame.html#structfield.name
 /// [`EventType`]: ../../yy_typings/sprite_yy/object_yy/enum.EventType.html
 /// [`ShaderScriptType`]: ./error.html
+/// [`HashMap`]: ../../../std/collects/struct.HashMap.html
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct NewResource {
     /// This field must contain the Data of a Yy File to add for the given resource.
@@ -180,7 +180,7 @@ pub struct NewResource {
     /// See the chart in [`NewResource`] above for more details.
     ///
     /// [`NewResource`]: ./struct.NewResource.html
-    pub new_resource: Data,
+    pub new_resource: SerializedData,
 
     /// This fields must contain the Associated Data of a given Yy File.
     ///
@@ -188,7 +188,7 @@ pub struct NewResource {
     /// types of associated data are expected.
     ///
     /// [`NewResource`]: ./struct.NewResource.html
-    pub associated_data: HashMap<String, Data>,
+    pub associated_data: SerializedData,
 }
 
 /// The Virtual File System command type to run.
@@ -239,44 +239,10 @@ pub enum VfsCommand {
     GetPathType(ViewPath),
 }
 
-/// The data which is passed in as part of a Command. Each tag represents a different way to
-/// pass data into the given Resource.
-///
-/// **NB:** the type of data which is passed in is determined by the containing Command. In a `ResourceCommand`,
-/// for example, it is determined by the `Resource` which is passed in; for the `VirtualFileSystemCommand`, it is
-/// determined by the `FileOrFolder` tag. See each documentation for more details.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-#[serde(tag = "dataType")]
-pub enum Data {
-    /// The data itself, represented in some valid utf8 format. Scripts, yyfiles, and most resources
-    /// will likely be passed in with this tag.
-    ///
-    /// ## Errors
-    /// It is an error to try to pass in any binary data which cannot be represented in utf8 format.
-    /// To pass in images and other similar files, prefer using `Filepath`.
-    Value { data: String },
-
-    /// A path to the data iself, read from the ManagedDirectory. Symbolic links will not be followed.
-    ///
-    /// Anything, including gml and yy files, can be passed in with this tag, though its use is primarily
-    /// for binary files, such as images and sound files.
-    Filepath { data: PathBuf },
-
-    /// A default for the type of data provided, which the YypBoss will generate for users.
-    ///
-    /// For example, to create a new Script, a user would want the Script's AssociatedData, which is the gml
-    /// file, to be blank. This will generate such an empty string.
-    /// In a more complex example, if a user is making a new Object, and is fine with default settings,
-    /// included an autogenerated name, this tag will do that. Since all data can be edited afterwards,
-    /// this can provide a convenient way to generate new objects.
-    DefaultValue,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use maplit::hashmap;
-    use std::path::Path;
+    use serde_json::json;
     #[test]
     fn test() {
         fn harness(command: Command) {
@@ -288,14 +254,15 @@ mod tests {
         }
         harness(Command::Resource(ResourceCommand {
             command_type: ResourceCommandType::Add(NewResource {
-                new_resource: Data::Value {
+                new_resource: SerializedData::Value {
                     data: "Hello".to_string(),
                 },
-                associated_data: hashmap!(
-                    "test".to_string() => Data::Filepath {
-                        data: Path::new("woah_a_path").to_owned()
-                    }
-                ),
+                associated_data: SerializedData::Value {
+                    data: json!({
+                        "test": "10"
+                    })
+                    .to_string(),
+                },
             }),
             resource: Resource::Script,
         }));

@@ -25,14 +25,19 @@
 //!
 //! [`output`]: ../output/index.html
 
-use super::output::{Output, Startup};
+use super::{
+    output::{Output, Startup},
+    yy_cli::YyCli,
+};
 use clap::{App, Arg};
-use yy_boss::{errors::StartupError, YypBoss};
+use std::path::{Path, PathBuf};
+use yy_boss::{StartupError, YypBoss};
 
 /// The required
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Arguments {
-    pub yyp_path: std::path::PathBuf,
+    pub yyp_path: PathBuf,
+    pub working_directory: Option<PathBuf>,
 }
 
 #[doc(hidden)]
@@ -49,25 +54,54 @@ pub(crate) fn parse_arguments() -> Arguments {
                 .help("The path to the Yyp to load.")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("working_directory")
+                .short("wd")
+                .value_name("WORKING_DIRECTORY")
+                .help("the path to a safe working directory where the YypBoss will read and write")
+                .takes_value(true),
+        )
         .get_matches();
 
-    let path = matches.value_of("path").unwrap();
+    let yyp_path = Path::new(matches.value_of("path").unwrap()).to_owned();
+    let working_directory = matches
+        .value_of("working_directory")
+        .map(|wd| Path::new(wd).to_owned());
 
     Arguments {
-        yyp_path: std::path::Path::new(path).to_owned(),
+        yyp_path,
+        working_directory,
     }
 }
 
 #[doc(hidden)]
-pub(crate) fn startup(success: Result<YypBoss, StartupError>) -> Option<YypBoss> {
+pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) -> Option<YypBoss> {
     let (yyp, error) = match success {
         Ok(yyp) => (Some(yyp), None),
         Err(err) => (None, Some(err)),
     };
 
+    if error.is_some() {
+        Output::Startup(Startup {
+            success: yyp.is_some(),
+            error,
+        })
+        .print();
+        return None;
+    } else if let Some(inner) = &yy_cli.working_directory {
+        if inner.is_dir() == false {
+            Output::Startup(Startup {
+                success: false,
+                error: Some(StartupError::BadWorkingDirectoryPath),
+            })
+            .print();
+            return None;
+        }
+    }
+
     Output::Startup(Startup {
-        success: yyp.is_some(),
-        error,
+        success: true,
+        error: None,
     })
     .print();
 

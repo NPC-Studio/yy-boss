@@ -155,11 +155,7 @@ impl YypBoss {
     //         .map(|texture_group| texture_group.into())
     // }
 
-    /// Returns a list of resource names already being used by the system.
-    ///
-    /// In a project
-    /// with a sprite `spr_player` and an object `obj_player`, this HashSet would contain
-    /// `"spr_player"` and `"obj_player"`.
+    /// Returns a list of names and resources already being used by the system.
     pub fn current_resource_names(&self) -> Vec<(String, Resource)> {
         self.resource_names.clone().into_iter().collect()
     }

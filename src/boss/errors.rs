@@ -9,5 +9,7 @@ pub enum StartupError {
     #[error("yyp internally inconsistent -- could not load folders, {}", .0)]
     InternalYypError(#[from] FolderGraphError),
     #[error("bad path for yyp was given -- couldn't find parent directory")]
-    BadPath,
+    BadYypPath,
+    #[error("a working directory path was given, but it was invalid")]
+    BadWorkingDirectoryPath,
 }

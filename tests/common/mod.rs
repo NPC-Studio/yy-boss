@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use std::path::Path;
 use thiserror::Error;
-use yy_boss::{errors::StartupError, YypBoss};
+use yy_boss::{StartupError, YypBoss};
 
 #[allow(dead_code)]
 const PATH_TO_TEST_PROJ: &str = "tests/examples/test_proj/test_proj.yyp";

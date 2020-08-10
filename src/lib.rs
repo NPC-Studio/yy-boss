@@ -4,7 +4,7 @@ mod boss {
     use super::*;
 
     mod yy_resource;
-    pub use yy_resource::YyResource;
+    pub use yy_resource::{SerializedData, SerializedDataError, YyResource};
 
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
@@ -18,6 +18,9 @@ mod boss {
     mod directory_manager;
     mod utils;
     pub use utils::FileSerializationError;
+
+    mod errors;
+    pub use errors::*;
 
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
@@ -44,11 +47,6 @@ mod resources_ext {
     pub use object_ext::*;
 
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
-}
-
-pub mod errors {
-    mod startup;
-    pub use startup::*;
 }
 
 pub use boss::*;
