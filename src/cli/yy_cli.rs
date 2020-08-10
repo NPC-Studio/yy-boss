@@ -25,13 +25,13 @@ impl YyCli {
                     Resource::Script => self.add_resource::<Script>(yyp_boss, new_resource),
                     Resource::Object => self.add_resource::<Object>(yyp_boss, new_resource),
                 },
-                ResourceCommandType::Replace(new_resource) => unimplemented!(),
-                ResourceCommandType::Set(new_resource) => unimplemented!(),
-                ResourceCommandType::Remove { identifier } => unimplemented!(),
-                ResourceCommandType::Get { identifier } => unimplemented!(),
-                ResourceCommandType::Exists { identifier } => unimplemented!(),
+                ResourceCommandType::Replace(_new_resource) => unimplemented!(),
+                ResourceCommandType::Set(_new_resource) => unimplemented!(),
+                ResourceCommandType::Remove { .. } => unimplemented!(),
+                ResourceCommandType::Get { .. } => unimplemented!(),
+                ResourceCommandType::Exists { .. } => unimplemented!(),
             },
-            Command::VirtualFileSystem(vfs_command) => unimplemented!(),
+            Command::VirtualFileSystem(_vfs_command) => unimplemented!(),
         }
     }
 
