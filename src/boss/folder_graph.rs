@@ -8,20 +8,9 @@ use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResou
 #[derive(Debug, Clone, Eq)]
 pub struct FolderGraph {
     pub name: String,
-    pub path_to_parent: Option<ViewPath>,
+    pub path_to_parent: ViewPath,
     pub files: BTreeMap<String, FileMember>,
     pub folders: BTreeMap<String, SubfolderMember>,
-}
-
-impl Default for FolderGraph {
-    fn default() -> Self {
-        FolderGraph {
-            name: String::new(),
-            path_to_parent: None,
-            files: btreemap![],
-            folders: btreemap![],
-        }
-    }
 }
 
 impl PartialEq for FolderGraph {
@@ -37,17 +26,23 @@ impl Hash for FolderGraph {
 }
 
 impl FolderGraph {
-    pub fn root() -> FolderGraph {
+    pub fn root(yyp_name: &str) -> FolderGraph {
         FolderGraph {
             name: "folders".to_string(),
-            ..FolderGraph::default()
+            files: Default::default(),
+            folders: Default::default(),
+            path_to_parent: ViewPath {
+                name: (),
+                path: (),
+                
+            }
         }
     }
 
-    pub fn new(name: String, parent: ViewPath) -> FolderGraph {
+    pub fn new(name: String, path_to_parent: ViewPath) -> FolderGraph {
         FolderGraph {
             name,
-            path_to_parent: Some(parent),
+            path_to_parent,
             ..FolderGraph::default()
         }
     }
@@ -55,10 +50,7 @@ impl FolderGraph {
     pub fn view_path(&self) -> ViewPath {
         ViewPath {
             name: self.name.to_string(),
-            path: match &self.path_to_parent {
-                Some(parent_path) => parent_path.path.join(&self.name),
-                None => ViewPathLocation::root(),
-            },
+            path: self.path_to_parent.path.join(&self.name),
         }
     }
 
