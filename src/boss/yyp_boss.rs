@@ -510,7 +510,7 @@ impl YypBoss {
     pub fn root_folder() -> ViewPath {
         ViewPath {
             name: "folders".to_string(),
-            path: ViewPathLocation("folders".to_string()),
+            path: ViewPathLocation::root_folder(),
         }
     }
 
@@ -526,7 +526,7 @@ impl YypBoss {
     pub fn root_resource(&self) -> ViewPath {
         ViewPath {
             name: self.yyp.name.to_string(),
-            path: ViewPathLocation(format!("{}.yyp", self.yyp.name)),
+            path: ViewPathLocation::root_file(&self.yyp.name),
         }
     }
 
@@ -542,23 +542,23 @@ impl YypBoss {
     }
 
     /// This could be a very hefty allocation!
-    pub fn folder(&self, view_path: &ViewPath) -> Option<FolderGraph> {
-        if view_path.name != self.folder_graph.name {
-            let mut folder = &self.folder_graph;
-
-            for path in view_path.path.component_paths() {
-                folder = &folder
-                    .folders
-                    .get(path)
-                    .or_else(|| folder.folders.get(path.trim_yy()))
-                    .ok_or_else(|| error!("Couldn't find subfolder {}", path))
-                    .ok()?
-                    .child;
-            }
-            Some(folder.clone())
-        } else {
-            Some(self.folder_graph.clone())
+    pub fn folder(&self, view_path: &ViewPathLocation) -> Option<FolderGraph> {
+        // check for root...
+        if view_path.inner() == "folders" {
+            return Some(self.folder_graph.clone());
         }
+
+        let mut folder = &self.folder_graph;
+        for path in view_path.component_paths() {
+            folder = &folder
+                .folders
+                .get(path)
+                .or_else(|| folder.folders.get(path.trim_yy()))
+                .ok_or_else(|| error!("Couldn't find subfolder {}", path))
+                .ok()?
+                .child;
+        }
+        Some(folder.clone())
     }
 }
 

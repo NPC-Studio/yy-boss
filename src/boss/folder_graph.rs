@@ -59,6 +59,18 @@ impl FolderGraph {
         }
     }
 
+    pub fn view_path(&self) -> ViewPath {
+        let path = match &self.path_to_parent {
+            Some(parent_path) => parent_path.join(&self.name),
+            None => ViewPathLocation::root_folder(),
+        };
+
+        ViewPath {
+            name: self.name.clone(),
+            path,
+        }
+    }
+
     pub fn find_subfolder_mut(
         &mut self,
         view_path: &ViewPath,
