@@ -17,7 +17,7 @@ mod boss {
 
     mod directory_manager;
     mod utils;
-    pub use utils::FileSerializationError;
+    pub use utils::{FileSerializationError, SerializationFormat};
 
     mod errors;
     pub use errors::*;

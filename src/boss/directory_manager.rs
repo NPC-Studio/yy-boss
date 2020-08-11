@@ -56,8 +56,9 @@ impl DirectoryManager {
     pub fn serialize_boss_file(
         &self,
         relative_path: &Path,
-        value: &impl serde::Serialize,
+        data: String,
     ) -> Result<(), utils::FileSerializationError> {
-        utils::serialize(&self.boss_file(relative_path), value)
+        std::fs::write(self.boss_file(relative_path), data)
+            .map_err(|e| FileSerializationError::Io(e.to_string()))
     }
 }

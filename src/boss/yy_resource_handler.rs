@@ -132,7 +132,7 @@ impl<T: YyResource> YyResourceHandler<T> {
                 }
             }
 
-            utils::serialize(&yy_path, &resource.yy_resource)?;
+            utils::serialize_json(&yy_path, &resource.yy_resource)?;
         }
 
         Ok(())

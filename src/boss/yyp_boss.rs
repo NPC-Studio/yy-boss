@@ -31,7 +31,7 @@ impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new(path_to_yyp: &Path) -> Result<YypBoss, StartupError> {
         let tcu = TrailingCommaUtility::new();
-        let yyp = utils::deserialize(path_to_yyp, Some(&tcu))?;
+        let yyp = utils::deserialize_json_tc(path_to_yyp, &tcu)?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp)?;
 
@@ -82,7 +82,7 @@ impl YypBoss {
                     .root_directory()
                     .join(&yyp_resource.id.path);
 
-                let yy_file: T = utils::deserialize(&yy_file_path, Some(&tcu))?;
+                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &tcu)?;
 
                 // Add to the folder graph
                 folder_graph
