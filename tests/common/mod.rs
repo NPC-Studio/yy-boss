@@ -54,8 +54,8 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                 );
             }
             YypBossNeq::FolderGraph => {
-                println!("target: {:#?}", ours.root_folder());
-                println!("proof: {:#?}", proof.root_folder());
+                println!("target: {:#?}", ours.root_folder_graph());
+                println!("proof: {:#?}", proof.root_folder_graph());
                 panic!("target folder graph and proof folder graph were not equal");
             }
             YypBossNeq::ResourceNames => {
@@ -88,10 +88,10 @@ fn yypboss_neq(ours: &YypBoss, proof: &YypBoss) -> Result<(), YypBossNeq> {
     }
 
     // Assert our Folder Graphs are the same...
-    if ours.root_folder() != proof.root_folder() {
+    if ours.root_folder_graph() != proof.root_folder_graph() {
         return Err(YypBossNeq::FolderGraph);
     }
-    assert_eq!(ours.root_folder(), proof.root_folder());
+    assert_eq!(ours.root_folder_graph(), proof.root_folder_graph());
 
     // Assert our Current Resource names are the same...
     if ours.current_resource_names() != proof.current_resource_names() {

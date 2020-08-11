@@ -53,7 +53,7 @@ impl YypBoss {
             let mut folder_graph = &mut yyp_boss.folder_graph;
 
             for section in new_folder.folder_path.component_paths() {
-                let parent_path = folder_graph.view_path();
+                let parent_path = folder_graph.view_path_location();
                 let section = section.trim_yy().to_owned();
                 let entry = folder_graph.folders.entry(section.clone());
 
@@ -200,7 +200,7 @@ impl YypBoss {
         subfolder.folders.insert(
             name.clone(),
             SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.clone()),
+                child: FolderGraph::new(name.clone(), parent_path.path.clone()),
                 order,
             },
         );
@@ -257,7 +257,7 @@ impl YypBoss {
         subfolder.folders.insert(
             name.clone(),
             SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.clone()),
+                child: FolderGraph::new(name.clone(), parent_path.path.clone()),
                 order,
             },
         );
@@ -329,6 +329,10 @@ impl YypBoss {
         resource_name: &str,
         resource_kind: Resource,
     ) -> Result<CreatedResource, FolderGraphError> {
+        if self.resource_names.contains_key(resource_name) {
+            return Err(FolderGraphError::FileAlreadyPresent);
+        }
+
         let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
         let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
         if subfolder.files.contains_key(resource_name) {
@@ -483,10 +487,46 @@ impl YypBoss {
 }
 
 impl YypBoss {
-    pub fn root_path(&self) -> ViewPath {
+    /// The root path for a folder at the root of a project.
+    ///
+    /// Gms2 projects have historically had immutable folders at the top of a project's
+    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
+    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
+    /// Yyp, so it is now possible for any folder to be at the root of the project.
+    ///
+    /// This function returns the "root" folder of the project -- it does not actually exist in
+    /// the project in any way, but you can use it to build top level folders.
+    ///
+    /// ```no_run
+    /// # use yy_boss::YypBoss;
+    /// # let mut basic_yyp_boss = YypBoss::new(std::path::Path::new("")).unwrap();
+    /// basic_yyp_boss
+    ///    .new_folder_end(&YypBoss::root_folder(), "New Folder at Root".to_string())
+    ///    .unwrap();
+    /// ```
+    /// The above code generates a new folder from the root folder called "New Folder at Root".
+    /// As an example, if, like many projects, the top level folders are named after resources,
+    /// such as "Sprite" or "Object", then "New Folder at Root" will be at the same level as those folders.
+    pub fn root_folder() -> ViewPath {
         ViewPath {
             name: "folders".to_string(),
             path: ViewPathLocation("folders".to_string()),
+        }
+    }
+
+    /// The root path for a file at the root of the project.
+    ///
+    /// Gms2 projects have historically had immutable folders at the top of a project's
+    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
+    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
+    /// Yyp, so it is now possible for a Resource to be at the root of a project.
+    ///
+    /// In that case, this function gives the path that resource will have. Note that this path
+    /// is odd, and is not build into any other paths.
+    pub fn root_resource(&self) -> ViewPath {
+        ViewPath {
+            name: self.yyp.name.to_string(),
+            path: ViewPathLocation(format!("{}.yyp", self.yyp.name)),
         }
     }
 
@@ -497,7 +537,7 @@ impl YypBoss {
     }
 
     /// Gives a reference to the current FolderGraph.
-    pub fn root_folder(&self) -> &FolderGraph {
+    pub fn root_folder_graph(&self) -> &FolderGraph {
         &self.folder_graph
     }
 

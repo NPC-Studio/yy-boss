@@ -1,3 +1,5 @@
+use yy_boss::YypBoss;
+
 mod common;
 
 #[test]
@@ -8,7 +10,7 @@ fn folder_add_root() {
     common::assert_yypboss_neq(&basic_yyp_boss, &proof);
 
     basic_yyp_boss
-        .new_folder_end(&basic_yyp_boss.root_path(), "Test At Root".to_string())
+        .new_folder_end(&YypBoss::root_folder(), "Test At Root".to_string())
         .unwrap();
 
     common::assert_yypboss_eq(&basic_yyp_boss, &proof);
@@ -22,7 +24,7 @@ fn folder_add_nonroot() {
     common::assert_yypboss_neq(&basic_yyp_boss, &proof);
 
     let parent_folder = basic_yyp_boss
-        .new_folder_end(&basic_yyp_boss.root_path(), "First Folder".to_string())
+        .new_folder_end(&YypBoss::root_folder(), "First Folder".to_string())
         .unwrap();
 
     basic_yyp_boss

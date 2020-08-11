@@ -3,7 +3,7 @@ use yy_boss::{
     yy_typings::sprite_yy::{
         FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
     },
-    Resource, SpriteExt,
+    Resource, SpriteExt, YypBoss,
 };
 mod common;
 
@@ -16,7 +16,7 @@ fn add_sprite_to_yyp() {
     assert!(exists.is_none(), "Impossible");
 
     let new_view = yyp_boss
-        .new_folder_end(&yyp_boss.root_path(), "Sprites".to_string())
+        .new_folder_end(&YypBoss::root_folder(), "Sprites".to_string())
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");
@@ -29,8 +29,8 @@ fn add_sprite_to_yyp() {
             name: LayerId::with_string("17463651-1c81-4dea-a381-8f4a7635b32e"),
             ..Layer::default()
         },
+        new_view.clone(),
     )
-    .parent(new_view.clone())
     .frame(single_frame_id)
     .with(|spr| {
         let track: &mut Track = &mut spr.sequence.tracks[0];

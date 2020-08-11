@@ -14,8 +14,13 @@ pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 pub trait SpriteExt {
     fn with(self, edit: impl Fn(&mut Self)) -> Self;
-    fn new(name: &str, texture_group_id: TexturePath) -> Sprite;
-    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite;
+    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Sprite;
+    fn with_layer(
+        name: &str,
+        texture_group_id: TexturePath,
+        layer: Layer,
+        parent: ViewPath,
+    ) -> Sprite;
     fn parent(self, parent: ViewPath) -> Sprite;
     fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
@@ -42,7 +47,31 @@ impl SpriteExt for Sprite {
         self
     }
 
-    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite {
+    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Sprite {
+        Sprite::with_layer(
+            name,
+            texture_group_id,
+            Layer {
+                visible: true,
+                is_locked: false,
+                blend_mode: 0,
+                opacity: 100.0,
+                display_name: "default".to_string(),
+                resource_version: ResourceVersion::default(),
+                name: LayerId::new(),
+                tags: vec![],
+                resource_type: ConstGmImageLayer::Const,
+            },
+            parent,
+        )
+    }
+
+    fn with_layer(
+        name: &str,
+        texture_group_id: TexturePath,
+        layer: Layer,
+        parent: ViewPath,
+    ) -> Sprite {
         Sprite {
             name: name.to_string(),
             texture_group_id,
@@ -66,27 +95,10 @@ impl SpriteExt for Sprite {
                 },
                 ..SpriteSequence::default()
             },
+            parent,
             layers: vec![layer],
             ..Sprite::default()
         }
-    }
-
-    fn new(name: &str, texture_group_id: TexturePath) -> Sprite {
-        Sprite::with_layer(
-            name,
-            texture_group_id,
-            Layer {
-                visible: true,
-                is_locked: false,
-                blend_mode: 0,
-                opacity: 100.0,
-                display_name: "default".to_string(),
-                resource_version: ResourceVersion::default(),
-                name: LayerId::new(),
-                tags: vec![],
-                resource_type: ConstGmImageLayer::Const,
-            },
-        )
     }
 
     fn parent(self, parent: ViewPath) -> Sprite {

@@ -8,7 +8,7 @@ use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResou
 #[derive(Debug, Clone, Eq)]
 pub struct FolderGraph {
     pub name: String,
-    pub path_to_parent: Option<ViewPath>,
+    pub path_to_parent: Option<ViewPathLocation>,
     pub files: BTreeMap<String, FileMember>,
     pub folders: BTreeMap<String, SubfolderMember>,
 }
@@ -44,7 +44,7 @@ impl FolderGraph {
         }
     }
 
-    pub fn new(name: String, parent: ViewPath) -> FolderGraph {
+    pub fn new(name: String, parent: ViewPathLocation) -> FolderGraph {
         FolderGraph {
             name,
             path_to_parent: Some(parent),
@@ -52,13 +52,10 @@ impl FolderGraph {
         }
     }
 
-    pub fn view_path(&self) -> ViewPath {
-        ViewPath {
-            name: self.name.to_string(),
-            path: match &self.path_to_parent {
-                Some(parent_path) => parent_path.path.join(&self.name),
-                None => ViewPathLocation::root(),
-            },
+    pub fn view_path_location(&self) -> ViewPathLocation {
+        match &self.path_to_parent {
+            Some(parent_path) => parent_path.join(&self.name),
+            None => ViewPathLocation::root_folder(),
         }
     }
 
@@ -202,7 +199,7 @@ impl FolderGraphMember for SubfolderMember {
             .ok_or(FolderGraphError::FolderGraphOutofSyncWithYyp)?;
 
         yyp_folder.order = self.order;
-        yyp_folder.folder_path = self.child.view_path().path;
+        yyp_folder.folder_path = self.child.view_path_location();
 
         Ok(())
     }
