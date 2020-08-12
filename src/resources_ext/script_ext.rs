@@ -1,4 +1,6 @@
-use crate::{Resource, SerializedData, YyResource, YyResourceHandler, YypBoss};
+use crate::{
+    Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+};
 use std::path::Path;
 use yy_typings::{sprite_yy::script::Script, ViewPath};
 
@@ -40,6 +42,23 @@ impl YyResource for Script {
 
         Ok(())
     }
+
+    fn serialize_associated_data_into_data(
+        &self,
+        our_directory: &Path,
+        _: Option<&Path>,
+        associated_data: Option<&Self::AssociatedData>,
+    ) -> Result<SerializedData, SerializedDataError> {
+        if let Some(data) = associated_data {
+            Ok(SerializedData::Value {
+                data: data.to_owned(),
+            })
+        } else {
+            let x = "jack we need to do this";
+            unimplemented!()
+        }
+    }
+
     fn cleanup_on_replace(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
         // not much to clean up here which won't get rewritten by a replace op!
     }

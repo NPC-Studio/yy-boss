@@ -445,6 +445,11 @@ impl YypBoss {
             .map(|resource_kind| CreatedResource(*resource_kind))
     }
 
+    /// Checks if a resource with a given name exists.
+    pub fn resource_exists(&self, resource_name: &str) -> bool {
+        self.get_resource(resource_name).is_some()
+    }
+
     /// Adds a new Resource to be tracked by the Yyp.
     fn add_new_yyp_resource(&mut self, id: FilesystemPath, order: usize, resource: Resource) {
         self.resource_names.insert(id.name.clone(), resource);

@@ -4,8 +4,8 @@ use super::{
 };
 use crate::{Resource, YyResource, YypBoss};
 use log::error;
-use std::path::PathBuf;
-use yy_boss::SerializedDataError;
+use std::path::{Path, PathBuf};
+use yy_boss::{SerializedData, SerializedDataError, YyResourceData};
 use yy_typings::{object_yy::Object, script::Script, sprite_yy::Sprite};
 
 pub struct YyCli {
@@ -25,8 +25,12 @@ impl YyCli {
                     Resource::Script => self.add_resource::<Script>(yyp_boss, new_resource),
                     Resource::Object => self.add_resource::<Object>(yyp_boss, new_resource),
                 },
-                ResourceCommandType::Replace(_new_resource) => unimplemented!(),
-                ResourceCommandType::Set(_new_resource) => unimplemented!(),
+                ResourceCommandType::Replace(new_resource) => match resource_command.resource {
+                    Resource::Sprite => self.replace_resource::<Sprite>(yyp_boss, new_resource),
+                    Resource::Script => self.replace_resource::<Script>(yyp_boss, new_resource),
+                    Resource::Object => self.replace_resource::<Object>(yyp_boss, new_resource),
+                },
+                ResourceCommandType::Set(new_resource) => unimplemented!(),
                 ResourceCommandType::Remove { .. } => unimplemented!(),
                 ResourceCommandType::Get { .. } => unimplemented!(),
                 ResourceCommandType::Exists { .. } => unimplemented!(),
@@ -76,6 +80,44 @@ impl YyCli {
         }
     }
 
+    pub fn replace_resource<T: YyResource>(
+        &self,
+        yyp_boss: &mut YypBoss,
+        new_resource: NewResource,
+    ) -> Output {
+        let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
+            Ok(o) => o,
+            Err(e) => {
+                return e;
+            }
+        };
+
+        if let Some(crt) = yyp_boss.get_resource(yy_file.name()) {
+            let handler = T::get_handler(yyp_boss);
+            let result = handler.set(yy_file, associated_data, crt);
+            if let Some(old_result) = result {
+                match self.deserialize_yy_data::<T>(old_result) {
+                    Ok((yy_file, serialized_data)) => {
+                        Output::Command(CommandOutput::ok_datum(yy_file, serialized_data))
+                    }
+                    Err(e) => unimplemented!(),
+                }
+            } else {
+                error!(
+                    "yyp resource and yyp resource names out of sync!\n\
+                    a name was IN resource names but NOT in our resource manager for {}.",
+                    T::RESOURCE
+                );
+                Output::Command(CommandOutput::error(YypBossError::InternalError))
+            }
+        } else {
+            // check for a bad replace...
+            Output::Command(CommandOutput::error(YypBossError::BadReplace(
+                yy_file.name().to_string(),
+            )))
+        }
+    }
+
     pub fn read_new_resource<T: YyResource>(
         &self,
         new_resource: NewResource,
@@ -108,5 +150,22 @@ impl YyCli {
             })?;
 
         Ok((value, associated_data))
+    }
+
+    pub fn deserialize_yy_data<T: YyResource>(
+        &self,
+        data: YyResourceData<T>,
+    ) -> anyhow::Result<(SerializedData, SerializedData)> {
+        let yy_data = SerializedData::Value {
+            data: serde_json::to_string_pretty(&data.yy_resource).unwrap(),
+        };
+
+        let associated_data = data.yy_resource.serialize_associated_data_into_data(
+            Path::new(""),
+            self.working_directory.as_deref(),
+            data.associated_data.as_ref(),
+        )?;
+
+        Ok((yy_data, associated_data))
     }
 }

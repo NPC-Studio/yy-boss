@@ -72,6 +72,21 @@ impl YyResource for Object {
         Ok(())
     }
 
+    fn serialize_associated_data_into_data(
+        &self,
+        our_directory: &Path,
+        _: Option<&Path>,
+        associated_data: Option<&Self::AssociatedData>,
+    ) -> Result<SerializedData, SerializedDataError> {
+        if let Some(data) = associated_data {
+            let data = serde_json::to_string_pretty(data)?;
+            Ok(SerializedData::Value { data })
+        } else {
+            let x = "jack we need to do this";
+            unimplemented!()
+        }
+    }
+
     fn cleanup_on_replace(&self, files_to_delete: &mut Vec<PathBuf>, _: &mut Vec<PathBuf>) {
         for event in self.event_list.iter() {
             let (output, last_number) = event.event_type.filename();

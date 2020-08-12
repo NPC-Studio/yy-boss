@@ -1,3 +1,4 @@
+use maplit::hashmap;
 use pretty_assertions::assert_eq;
 use yy_boss::{
     yy_typings::sprite_yy::{
@@ -45,7 +46,9 @@ fn add_sprite_to_yyp() {
         .unwrap();
     yyp_boss.sprites.set(
         sprite.clone(),
-        vec![(single_frame_id, frame_buffer)],
+        hashmap! {
+            single_frame_id => frame_buffer
+        },
         created_resource,
     );
 

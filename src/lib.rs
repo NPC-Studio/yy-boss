@@ -13,7 +13,7 @@ mod boss {
     pub use resources::Resource;
 
     mod yy_resource_handler;
-    pub use yy_resource_handler::YyResourceHandler;
+    pub use yy_resource_handler::{YyResourceData, YyResourceHandler};
 
     mod directory_manager;
     mod utils;

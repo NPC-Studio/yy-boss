@@ -33,14 +33,28 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
         data: SerializedData,
     ) -> anyhow::Result<Self::AssociatedData>;
 
-    /// Serialized the associated data with a given Yy File. In a sprite, for example,
-    /// this would serialize the `png` files, or in a script, this would serialize the
-    /// associated `gml` files.
+    /// Serialize the associated data with a given Yy File.
+    ///
+    /// In a sprite, for example, this would serialize the `png` files,
+    /// or in a script, this would serialize the associated `gml` files.
     fn serialize_associated_data(
         &self,
         directory_path: &Path,
         data: &Self::AssociatedData,
     ) -> anyhow::Result<()>;
+
+    /// Converts associated data into `SerializedData`.
+    ///
+    /// This function will largely be called by the CLI, rather than directly by the YypBoss.
+    /// Most resources will immediately return their data by value, but some resources, such
+    /// as sprites or sounds, will likely write their files and return the path to the written
+    /// audio instead.
+    fn serialize_associated_data_into_data(
+        &self,
+        our_directory: &Path,
+        working_directory: Option<&Path>,
+        associated_data: Option<&Self::AssociatedData>,
+    ) -> Result<SerializedData, SerializedDataError>;
 
     /// This cleans up any associated files which won't get cleaned up in the event of a
     /// REPLACEMENT of this resource. For example, when we replace a sprite_yy file, the old
@@ -94,7 +108,7 @@ pub enum SerializedData {
 #[derive(Debug, thiserror::Error)]
 pub enum SerializedDataError {
     #[error(
-        "given a `Data::File` tag, but was not given a working directory on startup. cannot parse"
+        "either given or tried to write a `Data::File` tag, but was not given a working directory on startup. cannot parse"
     )]
     NoFileMode,
 
@@ -103,6 +117,9 @@ pub enum SerializedDataError {
 
     #[error(transparent)]
     CouldNotParseData(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    CouldNotWriteImage(#[from] image::ImageError),
 
     #[error(
         "cannot be represented with utf8 encoding; must use `Data::File` or `Data::DefaultValue`"

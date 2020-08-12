@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yy_boss::{FolderGraphError, Resource, StartupError};
+use yy_boss::{FolderGraphError, Resource, SerializedData, StartupError};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
@@ -32,6 +32,12 @@ pub struct CommandOutput {
     pub error: Option<YypBossError>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fatal: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource: Option<SerializedData>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub associated_data: Option<SerializedData>,
 }
 
 impl CommandOutput {
@@ -40,6 +46,8 @@ impl CommandOutput {
             success: false,
             fatal: Some(false),
             error: Some(yyp_boss_error),
+            resource: None,
+            associated_data: None,
         }
     }
 
@@ -48,6 +56,18 @@ impl CommandOutput {
             success: true,
             error: None,
             fatal: None,
+            resource: None,
+            associated_data: None,
+        }
+    }
+
+    pub fn ok_datum(resource: SerializedData, associated_data: SerializedData) -> Self {
+        Self {
+            success: true,
+            error: None,
+            fatal: None,
+            resource: Some(resource),
+            associated_data: Some(associated_data),
         }
     }
 }
@@ -79,6 +99,9 @@ pub enum YypBossError {
 
     #[error("bad add command. {} already exists by the name {}", .0, .1)]
     BadAdd(Resource, String),
+
+    #[error("bad replace command. no resource by the name {} existed", .0)]
+    BadReplace(String),
 
     #[error("internal error -- YypBoss is unstable and condition is undefined. please report an error with logs")]
     InternalError,

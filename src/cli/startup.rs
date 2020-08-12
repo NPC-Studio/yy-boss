@@ -59,6 +59,12 @@ pub(crate) fn parse_arguments() -> Arguments {
                 .short("wd")
                 .value_name("WORKING_DIRECTORY")
                 .help("the path to a safe working directory where the YypBoss will read and write")
+                .long_help("A path to a safe working directory where the YypBoss will read and write. \
+                If no working directory is provided, the YypBoss can still be ran, but numerous operations \
+                become impossible, which the user will have difficulty predicting. In general, any operation \
+                which might save a buffer to a file will fail withotu a working directory. These failures will \
+                return an appropriate error, and users can lazily provide a directory to a running YypBoss.\n\n\
+                In general, users should provide a working directory unless reads and writes are completely unacceptable.")
                 .takes_value(true),
         )
         .get_matches();
