@@ -1,6 +1,7 @@
+use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yy_boss::{FolderGraphError, Resource, SerializedData, StartupError};
+use yy_boss::{FolderGraphError, Resource, SerializedData, SerializedDataError, StartupError};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
@@ -25,11 +26,15 @@ pub struct Startup {
     pub error: Option<StartupError>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CommandOutput {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub exists: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<YypBossError>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fatal: Option<bool>,
 
@@ -46,28 +51,31 @@ impl CommandOutput {
             success: false,
             fatal: Some(false),
             error: Some(yyp_boss_error),
-            resource: None,
-            associated_data: None,
+            ..Default::default()
         }
     }
 
     pub fn ok() -> Self {
         Self {
             success: true,
-            error: None,
-            fatal: None,
-            resource: None,
-            associated_data: None,
+            ..Default::default()
         }
     }
 
     pub fn ok_datum(resource: SerializedData, associated_data: SerializedData) -> Self {
         Self {
             success: true,
-            error: None,
-            fatal: None,
             resource: Some(resource),
             associated_data: Some(associated_data),
+            ..Default::default()
+        }
+    }
+
+    pub fn ok_exists(exists: bool) -> Self {
+        Self {
+            success: true,
+            exists: Some(exists),
+            ..Default::default()
         }
     }
 }
@@ -94,7 +102,7 @@ pub enum YypBossError {
     #[error("could not parse Associated Data Provided, error: {}", .0)]
     CouldNotParseAssociatedData(String),
 
-    #[error("yyp internally inconsistent -- could not load folders, {}", .0)]
+    #[error("error in the internal virtual file system, {}", .0)]
     FolderGraphError(#[from] FolderGraphError),
 
     #[error("bad add command. {} already exists by the name {}", .0, .1)]
@@ -103,8 +111,11 @@ pub enum YypBossError {
     #[error("bad replace command. no resource by the name {} existed", .0)]
     BadReplace(String),
 
-    #[error("internal error -- YypBoss is unstable and condition is undefined. please report an error with logs")]
-    InternalError,
+    #[error("bad remove command. no resource by the name {} existed", .0)]
+    BadRemove(String),
+
+    #[error("bad remove command. no resource the name {} existed", .0)]
+    BadGet(Resource, String),
 
     #[error("was given a `Data::File` tag, but was not given a working directory on startup. cannot parse")]
     NoFileMode,
@@ -116,6 +127,34 @@ pub enum YypBossError {
 
     #[error("was given a `Data::File` tag, but path didn't exist, wasn't a file, or couldn't be read. path was {}", .0.to_string_lossy())]
     BadDataFile(std::path::PathBuf),
+
+    #[error("internal error -- command could not be executed. error is fatal: {}", .0)]
+    InternalError(bool),
+}
+
+impl From<SerializedDataError> for YypBossError {
+    fn from(e: SerializedDataError) -> Self {
+        match e {
+            SerializedDataError::NoFileMode => YypBossError::NoFileMode,
+            SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
+            SerializedDataError::CouldNotParseData(v) => {
+                YypBossError::CouldNotParseYyFile(v.to_string())
+            }
+            SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
+            SerializedDataError::CouldNotWriteImage(e) => {
+                error!("We couldn't write the image...{}", e);
+                YypBossError::InternalError(false)
+            }
+            SerializedDataError::InnerError(e) => {
+                error!("{}", e);
+                YypBossError::InternalError(false)
+            }
+            SerializedDataError::CouldNotReadFile(e) => {
+                error!("Couldn't read a file...{}", e);
+                YypBossError::InternalError(false)
+            }
+        }
+    }
 }
 
 #[cfg(test)]

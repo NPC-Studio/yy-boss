@@ -1,10 +1,10 @@
 use super::{
-    input::{Command, NewResource, ResourceCommandType},
+    input::{Command, NewResource, ResourceCommandType, VfsCommand},
     output::{CommandOutput, Output, YypBossError},
 };
 use crate::{Resource, YyResource, YypBoss};
 use log::error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use yy_boss::{SerializedData, SerializedDataError, YyResourceData};
 use yy_typings::{object_yy::Object, script::Script, sprite_yy::Sprite};
 
@@ -19,31 +19,57 @@ impl YyCli {
 
     pub fn parse_command(&self, command: Command, yyp_boss: &mut YypBoss) -> Output {
         match command {
-            Command::Resource(resource_command) => match resource_command.command_type {
-                ResourceCommandType::Add(new_resource) => match resource_command.resource {
-                    Resource::Sprite => self.add_resource::<Sprite>(yyp_boss, new_resource),
-                    Resource::Script => self.add_resource::<Script>(yyp_boss, new_resource),
-                    Resource::Object => self.add_resource::<Object>(yyp_boss, new_resource),
-                },
-                ResourceCommandType::Replace(new_resource) => match resource_command.resource {
-                    Resource::Sprite => self.replace_resource::<Sprite>(yyp_boss, new_resource),
-                    Resource::Script => self.replace_resource::<Script>(yyp_boss, new_resource),
-                    Resource::Object => self.replace_resource::<Object>(yyp_boss, new_resource),
-                },
-                ResourceCommandType::Set(new_resource) => unimplemented!(),
-                ResourceCommandType::Remove { .. } => unimplemented!(),
-                ResourceCommandType::Get { .. } => unimplemented!(),
-                ResourceCommandType::Exists { .. } => unimplemented!(),
+            Command::Resource(resource_command) => {
+                let command_output = match resource_command.command_type {
+                    ResourceCommandType::Add(new_resource) => match resource_command.resource {
+                        Resource::Sprite => self.add::<Sprite>(yyp_boss, new_resource),
+                        Resource::Script => self.add::<Script>(yyp_boss, new_resource),
+                        Resource::Object => self.add::<Object>(yyp_boss, new_resource),
+                    },
+                    ResourceCommandType::Replace(new_resource) => match resource_command.resource {
+                        Resource::Sprite => self.replace::<Sprite>(yyp_boss, new_resource),
+                        Resource::Script => self.replace::<Script>(yyp_boss, new_resource),
+                        Resource::Object => self.replace::<Object>(yyp_boss, new_resource),
+                    },
+                    ResourceCommandType::Set(new_resource) => match resource_command.resource {
+                        Resource::Sprite => self.set::<Sprite>(yyp_boss, new_resource),
+                        Resource::Script => self.set::<Script>(yyp_boss, new_resource),
+                        Resource::Object => self.set::<Object>(yyp_boss, new_resource),
+                    },
+                    ResourceCommandType::Remove { identifier } => match resource_command.resource {
+                        Resource::Sprite => self.remove::<Sprite>(yyp_boss, identifier),
+                        Resource::Script => self.remove::<Script>(yyp_boss, identifier),
+                        Resource::Object => self.remove::<Object>(yyp_boss, identifier),
+                    },
+                    ResourceCommandType::Get { identifier } => match resource_command.resource {
+                        Resource::Sprite => self.get::<Sprite>(yyp_boss, identifier),
+                        Resource::Script => self.get::<Script>(yyp_boss, identifier),
+                        Resource::Object => self.get::<Object>(yyp_boss, identifier),
+                    },
+                    ResourceCommandType::Exists { identifier } => match resource_command.resource {
+                        Resource::Sprite => self.exists::<Sprite>(yyp_boss, identifier),
+                        Resource::Script => self.exists::<Script>(yyp_boss, identifier),
+                        Resource::Object => self.exists::<Object>(yyp_boss, identifier),
+                    },
+                };
+
+                Output::Command(command_output)
+            }
+            Command::VirtualFileSystem(vfs_command) => match vfs_command {
+                VfsCommand::MoveItem { start, end } => unimplemented!(),
+                VfsCommand::DeleteFolder { recursive } => unimplemented!(),
+                VfsCommand::GetFolder(f) => unimplemented!(),
+                VfsCommand::GetFullVfs => unimplemented!(),
+                VfsCommand::GetPathType(path) => unimplemented!(),
             },
-            Command::VirtualFileSystem(_vfs_command) => unimplemented!(),
         }
     }
 
-    pub fn add_resource<T: YyResource>(
+    fn add<T: YyResource>(
         &self,
         yyp_boss: &mut YypBoss,
         new_resource: NewResource,
-    ) -> Output {
+    ) -> CommandOutput {
         let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
             Ok(o) => o,
             Err(e) => {
@@ -53,15 +79,15 @@ impl YyCli {
 
         // check for a bad add...
         if let Some(found_resource) = yyp_boss.get_resource(yy_file.name()) {
-            return Output::Command(CommandOutput::error(YypBossError::BadAdd(
+            return CommandOutput::error(YypBossError::BadAdd(
                 found_resource.inner(),
                 yy_file.name().to_string(),
-            )));
+            ));
         }
 
         match yyp_boss.new_resource_end(yy_file.parent_path(), yy_file.name(), T::RESOURCE) {
             Ok(crt) => {
-                let handler = T::get_handler(yyp_boss);
+                let handler = T::get_handler_mut(yyp_boss);
                 let result = handler.set(yy_file, associated_data, crt);
                 if let Some(old_result) = result {
                     error!(
@@ -70,21 +96,21 @@ impl YyCli {
                         old_result.yy_resource.name(),
                         T::RESOURCE
                     );
-                    Output::Command(CommandOutput::error(YypBossError::InternalError))
+                    CommandOutput::error(YypBossError::InternalError(true))
                 } else {
-                    Output::Command(CommandOutput::ok())
+                    CommandOutput::ok()
                 }
             }
             // we couldn't add the file to the folder...
-            Err(e) => Output::Command(CommandOutput::error(YypBossError::FolderGraphError(e))),
+            Err(e) => CommandOutput::error(YypBossError::FolderGraphError(e)),
         }
     }
 
-    pub fn replace_resource<T: YyResource>(
+    fn replace<T: YyResource>(
         &self,
         yyp_boss: &mut YypBoss,
         new_resource: NewResource,
-    ) -> Output {
+    ) -> CommandOutput {
         let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
             Ok(o) => o,
             Err(e) => {
@@ -93,14 +119,14 @@ impl YyCli {
         };
 
         if let Some(crt) = yyp_boss.get_resource(yy_file.name()) {
-            let handler = T::get_handler(yyp_boss);
+            let handler = T::get_handler_mut(yyp_boss);
             let result = handler.set(yy_file, associated_data, crt);
             if let Some(old_result) = result {
-                match self.deserialize_yy_data::<T>(old_result) {
+                match self.deserialize_yy_data::<T>(yyp_boss, &old_result) {
                     Ok((yy_file, serialized_data)) => {
-                        Output::Command(CommandOutput::ok_datum(yy_file, serialized_data))
+                        CommandOutput::ok_datum(yy_file, serialized_data)
                     }
-                    Err(e) => unimplemented!(),
+                    Err(e) => CommandOutput::error(e.into()),
                 }
             } else {
                 error!(
@@ -108,35 +134,120 @@ impl YyCli {
                     a name was IN resource names but NOT in our resource manager for {}.",
                     T::RESOURCE
                 );
-                Output::Command(CommandOutput::error(YypBossError::InternalError))
+                CommandOutput::error(YypBossError::InternalError(true))
             }
         } else {
             // check for a bad replace...
-            Output::Command(CommandOutput::error(YypBossError::BadReplace(
-                yy_file.name().to_string(),
-            )))
+            CommandOutput::error(YypBossError::BadReplace(yy_file.name().to_string()))
         }
     }
 
-    pub fn read_new_resource<T: YyResource>(
+    fn set<T: YyResource>(
+        &self,
+        yyp_boss: &mut YypBoss,
+        new_resource: NewResource,
+    ) -> CommandOutput {
+        let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
+            Ok(o) => o,
+            Err(e) => {
+                return e;
+            }
+        };
+
+        // Get it somehow or another...
+        let crt = match yyp_boss.get_resource(yy_file.name()) {
+            Some(v) => v,
+            None => {
+                match yyp_boss.new_resource_end(yy_file.parent_path(), yy_file.name(), T::RESOURCE)
+                {
+                    Ok(v) => v,
+                    Err(e) => return CommandOutput::error(YypBossError::FolderGraphError(e)),
+                }
+            }
+        };
+
+        let handler = T::get_handler_mut(yyp_boss);
+        handler.set(yy_file, associated_data, crt);
+
+        CommandOutput::ok()
+    }
+
+    fn remove<T: YyResource>(
+        &self,
+        yyp_boss: &mut YypBoss,
+        resource_name: String,
+    ) -> CommandOutput {
+        let rrt = match yyp_boss.remove_resource(&resource_name, T::RESOURCE) {
+            Ok(v) => v,
+            Err(_) => {
+                return CommandOutput::error(YypBossError::BadRemove(resource_name));
+            }
+        };
+
+        let handler = T::get_handler_mut(yyp_boss);
+        let result = handler.remove(&resource_name, rrt);
+
+        if let Some(old_result) = result {
+            match self.deserialize_yy_data::<T>(yyp_boss, &old_result) {
+                Ok((yy_file, serialized_data)) => CommandOutput::ok_datum(yy_file, serialized_data),
+                Err(e) => CommandOutput::error(e.into()),
+            }
+        } else {
+            error!(
+                "yyp resource and yyp resource names out of sync!\n\
+                a name was IN resource names but NOT in our resource manager for {}.",
+                T::RESOURCE
+            );
+            CommandOutput::error(YypBossError::InternalError(true))
+        }
+    }
+
+    fn get<T: YyResource>(&self, yyp_boss: &YypBoss, resource_name: String) -> CommandOutput {
+        let crt = match yyp_boss.get_resource(&resource_name) {
+            Some(v) => v,
+            None => {
+                return CommandOutput::error(YypBossError::BadRemove(resource_name));
+            }
+        };
+
+        let handler = T::get_handler(yyp_boss);
+        let result = handler.get(&resource_name, crt);
+
+        if let Some(old_result) = result {
+            match self.deserialize_yy_data::<T>(yyp_boss, &old_result) {
+                Ok((yy_file, serialized_data)) => CommandOutput::ok_datum(yy_file, serialized_data),
+                Err(e) => CommandOutput::error(e.into()),
+            }
+        } else {
+            error!(
+                "yyp resource and yyp resource names out of sync!\n\
+                a name was IN resource names but NOT in our resource manager for {}.",
+                T::RESOURCE
+            );
+            CommandOutput::error(YypBossError::InternalError(true))
+        }
+    }
+
+    fn exists<T: YyResource>(&self, yyp_boss: &YypBoss, resource_name: String) -> CommandOutput {
+        let exists = yyp_boss
+            .get_resource(&resource_name)
+            .map(|v| {
+                let handler = T::get_handler(yyp_boss);
+                handler.get(&resource_name, v).is_some()
+            })
+            .unwrap_or_default();
+
+        CommandOutput::ok_exists(exists)
+    }
+
+    fn read_new_resource<T: YyResource>(
         &self,
         new_resource: NewResource,
-    ) -> Result<(T, T::AssociatedData), Output> {
+    ) -> Result<(T, T::AssociatedData), CommandOutput> {
         let value: T = new_resource
             .new_resource
             .read_data_as_file(self.working_directory.as_deref())
-            .map_err(|e| {
-                let yyp_error = match e {
-                    SerializedDataError::NoFileMode => YypBossError::NoFileMode,
-                    SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
-                    SerializedDataError::CouldNotParseData(v) => {
-                        YypBossError::CouldNotParseYyFile(v.to_string())
-                    }
-                    SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
-                };
-
-                Output::Command(CommandOutput::error(yyp_error))
-            })?;
+            .map_err(|e| CommandOutput::error(e.into()))?;
 
         let associated_data: T::AssociatedData = value
             .deserialize_associated_data(
@@ -144,9 +255,7 @@ impl YyCli {
                 new_resource.associated_data,
             )
             .map_err(|e| {
-                Output::Command(CommandOutput::error(
-                    YypBossError::CouldNotParseAssociatedData(e.to_string()),
-                ))
+                CommandOutput::error(YypBossError::CouldNotParseAssociatedData(e.to_string()))
             })?;
 
         Ok((value, associated_data))
@@ -154,14 +263,17 @@ impl YyCli {
 
     pub fn deserialize_yy_data<T: YyResource>(
         &self,
-        data: YyResourceData<T>,
-    ) -> anyhow::Result<(SerializedData, SerializedData)> {
+        yyp_boss: &YypBoss,
+        data: &YyResourceData<T>,
+    ) -> Result<(SerializedData, SerializedData), SerializedDataError> {
         let yy_data = SerializedData::Value {
             data: serde_json::to_string_pretty(&data.yy_resource).unwrap(),
         };
 
         let associated_data = data.yy_resource.serialize_associated_data_into_data(
-            Path::new(""),
+            &yyp_boss
+                .directory_manager
+                .resource_file(&data.yy_resource.relative_path()),
             self.working_directory.as_deref(),
             data.associated_data.as_ref(),
         )?;

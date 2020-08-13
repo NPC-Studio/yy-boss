@@ -13,11 +13,11 @@ use std::{
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
-    resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    pub(crate) resources_to_reserialize: Vec<FilesystemPath>,
+    resources: HashMap<String, YyResourceData<T>>,
+    pub(crate) resources_to_reserialize: Vec<String>,
     pub(crate) associated_files_to_cleanup: Vec<PathBuf>,
     pub(crate) associated_folders_to_cleanup: Vec<PathBuf>,
-    pub(crate) resources_to_remove: Vec<FilesystemPath>,
+    pub(crate) resources_to_remove: Vec<String>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
@@ -37,8 +37,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         associated_data: T::AssociatedData,
         _frt: CreatedResource,
     ) -> Option<YyResourceData<T>> {
-        self.resources_to_reserialize
-            .push(FilesystemPath::new(T::SUBPATH_NAME, value.name()));
+        self.resources_to_reserialize.push(value.name().to_owned());
         let ret = self.insert_resource(value, Some(associated_data));
 
         if let Some(old) = &ret {
@@ -57,22 +56,16 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// a resource, without using the `FilledResource`token, then this will return a `None`.
     ///
     /// You can check if this is possible beforehand by checking the `YypBoss`'s prunable state.
-    pub fn get(&self, name: &str, _crt: CreatedResource) -> Option<T> {
-        self.resources
-            .get(&FilesystemPath::new(T::SUBPATH_NAME, name))
-            .map(|v| v.yy_resource.clone())
+    pub fn get(&self, name: &str, _crt: CreatedResource) -> Option<&YyResourceData<T>> {
+        self.resources.get(name)
     }
 
     /// Removes the resource out of the handler. If that resource was being used,
     /// then this will return that resource.
-    pub fn remove(
-        &mut self,
-        value: &FilesystemPath,
-        _rrt: RemovedResource,
-    ) -> Option<YyResourceData<T>> {
-        let ret = self.resources.remove(&value);
+    pub fn remove(&mut self, value: &str, _rrt: RemovedResource) -> Option<YyResourceData<T>> {
+        let ret = self.resources.remove(value);
         if ret.is_some() {
-            self.resources_to_remove.push(value.clone());
+            self.resources_to_remove.push(value.to_owned());
         }
 
         ret
@@ -88,8 +81,9 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         // Removes the resources!
         for resource_to_remove in self.resources_to_remove.drain(..) {
-            info!("removing resource {:?}", resource_to_remove.path);
-            let yy_path = directory_manager.resource_file(&resource_to_remove.path);
+            let path = FilesystemPath::new_path(T::SUBPATH_NAME, &resource_to_remove);
+            info!("removing resource {} at {:?}", resource_to_remove, path);
+            let yy_path = directory_manager.resource_file(&path);
             fs::remove_dir_all(yy_path.parent().unwrap())?;
         }
 
@@ -113,7 +107,8 @@ impl<T: YyResource> YyResourceHandler<T> {
 
         // Finally, reserialize resources
         for resource_to_reserialize in self.resources_to_reserialize.drain(..) {
-            info!("reserializing {:?}", resource_to_reserialize.path);
+            info!("reserializing {}", resource_to_reserialize);
+
             let resource = self
                 .resources
                 .get(&resource_to_reserialize)
@@ -145,7 +140,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         associated_data: Option<T::AssociatedData>,
     ) -> Option<YyResourceData<T>> {
         self.resources.insert(
-            FilesystemPath::new(T::SUBPATH_NAME, value.name()),
+            value.name().to_owned(),
             YyResourceData {
                 yy_resource: value,
                 associated_data,

@@ -20,7 +20,14 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     /// Get the path to the parent in the View Virtual File System.
     fn parent_path(&self) -> ViewPath;
 
-    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self>;
+    /// Returns the relative path to this Resource from the Root Directory. Provided as a convenience
+    fn relative_path(&self) -> PathBuf {
+        Path::new(&format!("{}/{}", Self::SUBPATH_NAME, self.name())).to_owned()
+    }
+
+    /// Gets the resource handler on the YypBoss associated with this type.
+    fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self>;
+    fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self>;
 
     /// Deserialized the associated data with a given Yy File. In a sprite, for example,
     /// this would load the `pngs` into memory.
@@ -31,7 +38,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
         &self,
         directory_path: Option<&Path>,
         data: SerializedData,
-    ) -> anyhow::Result<Self::AssociatedData>;
+    ) -> Result<Self::AssociatedData, SerializedDataError>;
 
     /// Serialize the associated data with a given Yy File.
     ///
@@ -119,12 +126,18 @@ pub enum SerializedDataError {
     CouldNotParseData(#[from] serde_json::Error),
 
     #[error(transparent)]
+    CouldNotReadFile(#[from] std::io::Error),
+
+    #[error(transparent)]
     CouldNotWriteImage(#[from] image::ImageError),
 
     #[error(
         "cannot be represented with utf8 encoding; must use `Data::File` or `Data::DefaultValue`"
     )]
     CannotUseValue,
+
+    #[error("internal error -- yyp is unstable...{}", .0)]
+    InnerError(String),
 }
 
 impl SerializedData {

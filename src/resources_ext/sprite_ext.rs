@@ -3,7 +3,7 @@ use crate::{
 };
 use anyhow::Context;
 use anyhow::Result as AnyResult;
-use image::{ImageBuffer, ImageError, Rgba};
+use image::{ImageBuffer, Rgba};
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -325,7 +325,11 @@ impl YyResource for Sprite {
         self.parent.clone()
     }
 
-    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+    fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
+        &yyp_boss.sprites
+    }
+
+    fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
         &mut yyp_boss.sprites
     }
 
@@ -333,9 +337,9 @@ impl YyResource for Sprite {
         &self,
         directory_path: Option<&Path>,
         data: SerializedData,
-    ) -> anyhow::Result<Self::AssociatedData> {
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
         match data {
-            SerializedData::Value { .. } => Err(SerializedDataError::CannotUseValue.into()),
+            SerializedData::Value { .. } => Err(SerializedDataError::CannotUseValue),
             SerializedData::Filepath { data } => {
                 if let Some(directory) = directory_path {
                     let directory_path = directory.join(data);
@@ -358,7 +362,7 @@ impl YyResource for Sprite {
 
                     Ok(output)
                 } else {
-                    Err(SerializedDataError::NoFileMode.into())
+                    Err(SerializedDataError::NoFileMode)
                 }
             }
             SerializedData::DefaultValue => {
@@ -441,7 +445,7 @@ impl YyResource for Sprite {
             working_directory: PathBuf,
         ) -> Result<SerializedData, SerializedDataError> {
             for (frame_id, img) in data {
-                let path = working_directory.join(&format!("{}.png", frame_id.inner().to_string()));
+                let path = working_directory.join(format!("{}.png", frame_id.inner()));
 
                 img.save(&path)
                     .map_err(SerializedDataError::CouldNotWriteImage)?;
@@ -455,7 +459,16 @@ impl YyResource for Sprite {
         if let Some(data) = associated_data {
             perform_serialization(data, working_directory)
         } else {
-            self.deserialize_associated_data()
+            let value: HashMap<FrameId, SpriteImageBuffer> = self
+                .deserialize_associated_data(
+                    Some(our_directory),
+                    SerializedData::Filepath {
+                        data: PathBuf::new(),
+                    },
+                )
+                .map_err(|e| SerializedDataError::InnerError(e.to_string()))?;
+
+            perform_serialization(&value, working_directory)
         }
     }
 

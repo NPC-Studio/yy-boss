@@ -19,7 +19,11 @@ impl YyResource for Script {
         self.parent.clone()
     }
 
-    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+    fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
+        &yyp_boss.scripts
+    }
+
+    fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
         &mut yyp_boss.scripts
     }
 
@@ -27,9 +31,8 @@ impl YyResource for Script {
         &self,
         directory_path: Option<&Path>,
         data: SerializedData,
-    ) -> anyhow::Result<Self::AssociatedData> {
-        let data = data.read_data_as_file(directory_path)?;
-        Ok(data)
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        data.read_data_as_file(directory_path)
     }
 
     fn serialize_associated_data(
@@ -54,8 +57,14 @@ impl YyResource for Script {
                 data: data.to_owned(),
             })
         } else {
-            let x = "jack we need to do this";
-            unimplemented!()
+            let data = self.deserialize_associated_data(
+                Some(our_directory),
+                SerializedData::Filepath {
+                    data: std::path::PathBuf::default(),
+                },
+            )?;
+
+            Ok(SerializedData::Value { data })
         }
     }
 

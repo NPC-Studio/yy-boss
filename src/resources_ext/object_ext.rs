@@ -22,7 +22,11 @@ impl YyResource for Object {
         self.parent.clone()
     }
 
-    fn get_handler(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+    fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
+        &yyp_boss.objects
+    }
+
+    fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
         &mut yyp_boss.objects
     }
 
@@ -30,7 +34,7 @@ impl YyResource for Object {
         &self,
         directory_path: Option<&Path>,
         data: SerializedData,
-    ) -> anyhow::Result<Self::AssociatedData> {
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
         let deserialized = match data {
             SerializedData::Value { data } => serde_json::from_str(&data)?,
             SerializedData::Filepath { data } => {
@@ -41,14 +45,15 @@ impl YyResource for Object {
                     for event in &self.event_list {
                         let (output, last_number) = event.event_type.filename();
                         let path = directory_path.join(&format!("{}{}", output, last_number));
-                        let code = std::fs::read_to_string(&path)?;
+                        let code = std::fs::read_to_string(&path)
+                            .map_err(SerializedDataError::CouldNotReadFile)?;
 
                         value.insert(event.event_type, code);
                     }
 
                     value
                 } else {
-                    return Err(SerializedDataError::NoFileMode.into());
+                    return Err(SerializedDataError::NoFileMode);
                 }
             }
             SerializedData::DefaultValue => Self::AssociatedData::new(),
@@ -78,13 +83,20 @@ impl YyResource for Object {
         _: Option<&Path>,
         associated_data: Option<&Self::AssociatedData>,
     ) -> Result<SerializedData, SerializedDataError> {
-        if let Some(data) = associated_data {
-            let data = serde_json::to_string_pretty(data)?;
-            Ok(SerializedData::Value { data })
+        let data = if let Some(data) = associated_data {
+            serde_json::to_string_pretty(data)?
         } else {
-            let x = "jack we need to do this";
-            unimplemented!()
-        }
+            let data = self.deserialize_associated_data(
+                Some(our_directory),
+                SerializedData::Filepath {
+                    data: PathBuf::default(),
+                },
+            )?;
+
+            serde_json::to_string_pretty(&data)?
+        };
+
+        Ok(SerializedData::Value { data })
     }
 
     fn cleanup_on_replace(&self, files_to_delete: &mut Vec<PathBuf>, _: &mut Vec<PathBuf>) {

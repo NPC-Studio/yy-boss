@@ -61,7 +61,8 @@ fn add_sprite_to_yyp() {
         yyp_boss
             .sprites
             .get("spr_test", sprite_exists.unwrap())
-            .unwrap(),
+            .unwrap()
+            .yy_resource,
         sprite,
         "We mangled this sprite in the YypBoss!"
     );
