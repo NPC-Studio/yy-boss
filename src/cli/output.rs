@@ -2,7 +2,8 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yy_boss::{
-    FolderGraph, FolderGraphError, Resource, SerializedData, SerializedDataError, StartupError,
+    folders::{FolderGraph, FolderGraphError},
+    Resource, SerializedData, SerializedDataError, StartupError,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,7 +84,7 @@ impl CommandOutput {
             ..Self::default()
         }
     }
-
+    
     pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
         Self {
             success: true,

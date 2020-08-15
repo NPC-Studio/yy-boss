@@ -25,8 +25,19 @@ mod boss {
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
-    mod folder_graph;
-    pub use folder_graph::{FolderGraph, FolderGraphError};
+    pub mod folders {
+        mod folder_graph;
+        pub use folder_graph::*;
+
+        mod folder_graph_error;
+        pub use folder_graph_error::*;
+
+        mod folder_graph_manager;
+        pub use folder_graph_manager::*;
+
+        mod folder_graph_member;
+        pub use folder_graph_member::*;
+    }
 }
 mod resources_ext {
     use super::*;

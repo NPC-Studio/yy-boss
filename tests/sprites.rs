@@ -17,6 +17,7 @@ fn add_sprite_to_yyp() {
     assert!(exists.is_none(), "Impossible");
 
     let new_view = yyp_boss
+        .folder_graph_manager
         .new_folder_end(&YypBoss::root_folder(), "Sprites".to_string())
         .unwrap();
 

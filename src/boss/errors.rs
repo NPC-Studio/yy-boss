@@ -1,4 +1,4 @@
-use crate::{boss::FileSerializationError, FolderGraphError};
+use crate::boss::{folders::FolderGraphError, FileSerializationError};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

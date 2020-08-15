@@ -1,10 +1,10 @@
 use super::{
     directory_manager::DirectoryManager,
     errors::*,
-    folder_graph::*,
+    folders::*,
     pipelines::PipelineManager,
     resources::{CreatedResource, RemovedResource},
-    utils, FolderGraph, PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler,
+    utils, PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler,
     YypSerialization,
 };
 use anyhow::{Context, Result as AnyResult};
@@ -20,8 +20,8 @@ pub struct YypBoss {
     pub sprites: YyResourceHandler<Sprite>,
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
+    pub folder_graph_manager: FolderGraphManager,
     yyp: Yyp,
-    folder_graph: FolderGraphManager,
     resource_names: HashMap<String, Resource>,
     tcu: TrailingCommaUtility,
     dirty: bool,
@@ -37,7 +37,7 @@ impl YypBoss {
 
         let mut yyp_boss = Self {
             dirty: false,
-            folder_graph: FolderGraphManager::new(&yyp.name),
+            folder_graph_manager: FolderGraphManager::new(&yyp.name),
             resource_names: HashMap::new(),
             tcu,
             sprites: YyResourceHandler::new(),
@@ -50,7 +50,7 @@ impl YypBoss {
 
         // Load in Folders
         for new_folder in yyp_boss.yyp.folders.iter() {
-            let mut folder_graph = &mut yyp_boss.folder_graph.root;
+            let mut folder_graph = &mut yyp_boss.folder_graph_manager.root;
 
             for section in new_folder.folder_path.component_paths() {
                 let parent_path = folder_graph.view_path_location();
@@ -86,7 +86,8 @@ impl YypBoss {
 
                 // Add to the folder graph
                 folder_graph
-                    .find_subfolder_mut(&yy_file.parent_path().path)?
+                    .get_folder_mut(&yy_file.parent_path().path)
+                    .ok_or(FolderGraphError::PathNotFound)?
                     .files
                     .insert(
                         yy_file.name().to_owned(),
@@ -106,7 +107,7 @@ impl YypBoss {
         // Load in our Resources
         load_in_resource(
             &mut yyp_boss.sprites,
-            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.folder_graph_manager,
             &mut yyp_boss.resource_names,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
@@ -114,7 +115,7 @@ impl YypBoss {
         )?;
         load_in_resource(
             &mut yyp_boss.scripts,
-            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.folder_graph_manager,
             &mut yyp_boss.resource_names,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
@@ -122,7 +123,7 @@ impl YypBoss {
         )?;
         load_in_resource(
             &mut yyp_boss.objects,
-            &mut yyp_boss.folder_graph,
+            &mut yyp_boss.folder_graph_manager,
             &mut yyp_boss.resource_names,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
@@ -160,62 +161,6 @@ impl YypBoss {
         self.resource_names.clone().into_iter().collect()
     }
 
-    /// Adds a subfolder to the folder given at `parent_path` at the final order. If a tree looks like:
-    ///
-    ///```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_enemy
-    /// ```
-    ///
-    /// and user adds a folder with name `Items` to the `Sprites` folder, then the output tree will be:
-    ///
-    /// ```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_enemy
-    ///     - Items/
-    ///```
-    ///
-    /// `add_folder_to_end` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
-    /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    pub fn new_folder_end(
-        &mut self,
-        parent_path: &ViewPath,
-        name: String,
-    ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
-
-        // Sometimes Gms2 uses 1 for the default order of folders. This is chaos.
-        // No clue what's up with that.
-        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
-
-        if subfolder.folders.contains_key(&name) {
-            return Err(FolderGraphError::FolderAlreadyPresent);
-        }
-
-        // Create our Path...
-        let path = parent_path.path.join(&name);
-
-        subfolder.folders.insert(
-            name.clone(),
-            SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.path.clone()),
-                order,
-            },
-        );
-
-        self.yyp.folders.push(YypFolder {
-            folder_path: path.clone(),
-            order,
-            name: name.clone(),
-            ..YypFolder::default()
-        });
-        self.dirty = true;
-
-        Ok(ViewPath { path, name })
-    }
-
     /// Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
     ///
     ///```txt
@@ -247,7 +192,10 @@ impl YypBoss {
         name: String,
         order: usize,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
+        let subfolder = self
+            .folder_graph_manager
+            .get_folder_mut(&parent_path.path)
+            .ok_or(FolderGraphError::PathNotFound)?;
 
         if subfolder.folders.contains_key(&name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
@@ -333,7 +281,11 @@ impl YypBoss {
             return Err(FolderGraphError::FileAlreadyPresent);
         }
 
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
+        let subfolder = self
+            .folder_graph_manager
+            .get_folder_mut(&parent_path.path)
+            .ok_or(FolderGraphError::PathNotFound)?;
+
         let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
         if subfolder.files.contains_key(resource_name) {
             return Err(FolderGraphError::FileAlreadyPresent);
@@ -428,7 +380,7 @@ impl YypBoss {
         self.remove_yyp_resource(&fp);
 
         let subfolder = self
-            .folder_graph
+            .folder_graph_manager
             .get_folder_by_fname_mut(resource_name)
             .ok_or(FolderGraphError::InternalError)?;
         subfolder.files.remove(resource_name);
@@ -562,7 +514,7 @@ impl Into<Yyp> for YypBoss {
 impl PartialEq for YypBoss {
     fn eq(&self, other: &Self) -> bool {
         self.yyp == other.yyp
-            && self.folder_graph == other.folder_graph
+            && self.folder_graph_manager == other.folder_graph_manager
             && self.resource_names == other.resource_names
     }
 }

@@ -56,19 +56,11 @@ impl YyCli {
                 Output::Command(command_output)
             }
             Command::VirtualFileSystem(vfs_command) => match vfs_command {
-                VfsCommand::MoveItem { start, end } => unimplemented!(),
-                VfsCommand::DeleteFolder { recursive } => unimplemented!(),
-                VfsCommand::GetFolder(f) => {
-                    if let Some(x) = yyp_boss.folder(&f.path) {
-                        Output::Command(CommandOutput::ok_folder_graph(x))
-                    } else {
-                        Output::Command(CommandOutput::error(YypBossError::FolderGraphError(
-                            yy_boss::FolderGraphError::PathNotFound,
-                        )))
-                    }
-                }
+                VfsCommand::MoveItem { .. } => unimplemented!(),
+                VfsCommand::DeleteFolder { .. } => unimplemented!(),
+                VfsCommand::GetFolder(_) => unimplemented!(),
                 VfsCommand::GetFullVfs => unimplemented!(),
-                VfsCommand::GetPathType(path) => unimplemented!(),
+                VfsCommand::GetPathType(_) => unimplemented!(),
             },
         }
     }
