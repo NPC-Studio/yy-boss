@@ -1,11 +1,80 @@
 use super::{PathStrExt, ViewPathLocationExt};
+
 use log::error;
 use maplit::btreemap;
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, hash::Hash};
 use thiserror::Error;
 use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FolderGraphManager {
+    pub root: FolderGraph,
+    root_file_location: ViewPathLocation,
+}
+
+impl FolderGraphManager {
+    pub(crate) fn new(yyp_name: &str) -> Self {
+        FolderGraphManager {
+            root: FolderGraph::root(),
+            root_file_location: ViewPathLocation::root_file(yyp_name),
+        }
+    }
+
+    pub(crate) fn find_subfolder_mut(
+        &mut self,
+        view_path: &ViewPathLocation,
+    ) -> Result<&mut FolderGraph, FolderGraphError> {
+        if *view_path == self.root_file_location {
+            Ok(&mut self.root)
+        } else {
+            let mut folder = &mut self.root;
+            let mut used_root = true;
+
+            for path in view_path.component_paths() {
+                used_root = false;
+                let path = path.trim_yy();
+                folder = &mut folder
+                    .folders
+                    .get_mut(path)
+                    .ok_or(FolderGraphError::PathNotFound)?
+                    .child;
+            }
+
+            if used_root == false {
+                Ok(folder)
+            } else {
+                Err(FolderGraphError::PathNotFound)
+            }
+        }
+    }
+
+    pub(crate) fn get_folder_by_fname_mut(&mut self, name: &str) -> Option<&mut FolderGraph> {
+        fn iterable<'a>(name: &str, fg: &'a mut FolderGraph) -> Option<&'a mut FolderGraph> {
+            if fg.files.contains_key(name) {
+                return Some(fg);
+            }
+
+            for subfolder in fg.folders.values_mut() {
+                if let Some(found) = iterable(name, &mut subfolder.child) {
+                    return Some(found);
+                }
+            }
+
+            None
+        }
+
+        iterable(name, &mut self.root)
+    }
+
+    /// Clones a folder
+    pub fn clone_folder(&self, view_path: &ViewPathLocation) -> Option<FolderGraph> {
+
+
+        Some(folder.clone())
+    }
+}
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPathLocation>,
@@ -37,7 +106,7 @@ impl Hash for FolderGraph {
 }
 
 impl FolderGraph {
-    pub fn root() -> FolderGraph {
+    fn root() -> FolderGraph {
         FolderGraph {
             name: "folders".to_string(),
             ..FolderGraph::default()
@@ -69,42 +138,6 @@ impl FolderGraph {
             name: self.name.clone(),
             path,
         }
-    }
-
-    pub fn find_subfolder_mut(
-        &mut self,
-        view_path: &ViewPath,
-    ) -> Result<&mut FolderGraph, FolderGraphError> {
-        if view_path.name == self.name {
-            Ok(self)
-        } else {
-            let mut folder = self;
-
-            for path in view_path.path.component_paths() {
-                let path = path.trim_yy();
-                folder = &mut folder
-                    .folders
-                    .get_mut(path)
-                    .ok_or(FolderGraphError::PathNotFound)?
-                    .child;
-            }
-
-            Ok(folder)
-        }
-    }
-
-    pub fn find_subfolder_by_file(&mut self, name: &str) -> Option<&mut FolderGraph> {
-        if self.files.contains_key(name) {
-            return Some(self);
-        }
-
-        for subfolder in self.folders.values_mut() {
-            if let Some(found) = subfolder.child.find_subfolder_by_file(name) {
-                return Some(found);
-            }
-        }
-
-        None
     }
 
     /// This returns the max_suborder within this Folder. In a sense,
@@ -142,12 +175,18 @@ impl FolderGraph {
 pub enum FolderGraphError {
     #[error("path was not found")]
     PathNotFound,
+
     #[error("folder already existed at that location")]
     FolderAlreadyPresent,
+
     #[error("file already existed at that location")]
     FileAlreadyPresent,
-    #[error("foldergraph is out of sync with internal Yyp")]
-    FolderGraphOutofSyncWithYyp,
+
+    #[error("foldergraph is out of sync with internal Yyp -- yypboss is in undefined state")]
+    InternalError,
+
+    #[error("couldn't remove folder, given file")]
+    BadRemove,
 }
 
 pub trait FolderGraphMember {
@@ -162,7 +201,7 @@ pub trait FolderGraphMember {
     ) -> Result<(), FolderGraphError>;
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct FileMember {
     pub child: FilesystemPath,
     pub order: usize,
@@ -181,7 +220,7 @@ impl FolderGraphMember for FileMember {
         let yyp_resource = files
             .iter_mut()
             .find(|f| f.id.name == self.child.name)
-            .ok_or(FolderGraphError::FolderGraphOutofSyncWithYyp)?;
+            .ok_or(FolderGraphError::InternalError)?;
 
         yyp_resource.order = self.order;
         yyp_resource.id.path = self.child.path.clone();
@@ -190,7 +229,7 @@ impl FolderGraphMember for FileMember {
     }
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct SubfolderMember {
     pub child: FolderGraph,
     pub order: usize,
@@ -208,7 +247,7 @@ impl FolderGraphMember for SubfolderMember {
         let yyp_folder = folders
             .iter_mut()
             .find(|f| f.name == self.child.name)
-            .ok_or(FolderGraphError::FolderGraphOutofSyncWithYyp)?;
+            .ok_or(FolderGraphError::InternalError)?;
 
         yyp_folder.order = self.order;
         yyp_folder.folder_path = self.child.view_path_location();

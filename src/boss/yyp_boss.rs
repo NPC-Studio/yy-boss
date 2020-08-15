@@ -21,7 +21,7 @@ pub struct YypBoss {
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
     yyp: Yyp,
-    folder_graph: FolderGraph,
+    folder_graph: FolderGraphManager,
     resource_names: HashMap<String, Resource>,
     tcu: TrailingCommaUtility,
     dirty: bool,
@@ -31,14 +31,13 @@ impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new(path_to_yyp: &Path) -> Result<YypBoss, StartupError> {
         let tcu = TrailingCommaUtility::new();
-        let yyp = utils::deserialize_json_tc(path_to_yyp, &tcu)?;
+        let yyp: Yyp = utils::deserialize_json_tc(path_to_yyp, &tcu)?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp)?;
 
         let mut yyp_boss = Self {
-            yyp,
             dirty: false,
-            folder_graph: FolderGraph::root(),
+            folder_graph: FolderGraphManager::new(&yyp.name),
             resource_names: HashMap::new(),
             tcu,
             sprites: YyResourceHandler::new(),
@@ -46,11 +45,12 @@ impl YypBoss {
             objects: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager)?,
             directory_manager,
+            yyp,
         };
 
         // Load in Folders
         for new_folder in yyp_boss.yyp.folders.iter() {
-            let mut folder_graph = &mut yyp_boss.folder_graph;
+            let mut folder_graph = &mut yyp_boss.folder_graph.root;
 
             for section in new_folder.folder_path.component_paths() {
                 let parent_path = folder_graph.view_path_location();
@@ -68,7 +68,7 @@ impl YypBoss {
 
         fn load_in_resource<T: YyResource>(
             resource: &mut YyResourceHandler<T>,
-            folder_graph: &mut FolderGraph,
+            folder_graph: &mut FolderGraphManager,
             resource_names: &mut HashMap<String, Resource>,
             yyp_resources: &[YypResource],
             directory_manager: &DirectoryManager,
@@ -86,7 +86,7 @@ impl YypBoss {
 
                 // Add to the folder graph
                 folder_graph
-                    .find_subfolder_mut(&yy_file.parent_path())?
+                    .find_subfolder_mut(&yy_file.parent_path().path)?
                     .files
                     .insert(
                         yy_file.name().to_owned(),
@@ -184,7 +184,7 @@ impl YypBoss {
         parent_path: &ViewPath,
         name: String,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(parent_path)?;
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
 
         // Sometimes Gms2 uses 1 for the default order of folders. This is chaos.
         // No clue what's up with that.
@@ -247,7 +247,7 @@ impl YypBoss {
         name: String,
         order: usize,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
 
         if subfolder.folders.contains_key(&name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
@@ -333,7 +333,7 @@ impl YypBoss {
             return Err(FolderGraphError::FileAlreadyPresent);
         }
 
-        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path)?;
+        let subfolder = self.folder_graph.find_subfolder_mut(&parent_path.path)?;
         let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
         if subfolder.files.contains_key(resource_name) {
             return Err(FolderGraphError::FileAlreadyPresent);
@@ -427,11 +427,11 @@ impl YypBoss {
         let fp = FilesystemPath::new(resource_kind.base_name(), resource_name);
         self.remove_yyp_resource(&fp);
 
-        if let Some(subfolder) = self.folder_graph.find_subfolder_by_file(resource_name) {
-            subfolder.files.remove(resource_name);
-        } else {
-            return Err(FolderGraphError::FolderGraphOutofSyncWithYyp);
-        }
+        let subfolder = self
+            .folder_graph
+            .get_folder_by_fname_mut(resource_name)
+            .ok_or(FolderGraphError::InternalError)?;
+        subfolder.files.remove(resource_name);
 
         Ok(RemovedResource(resource_kind))
     }
@@ -460,14 +460,25 @@ impl YypBoss {
         self.dirty = true;
     }
 
-    /// Removes the resource. Does not error if the resource was not found!
-    fn remove_yyp_resource(&mut self, resource: &FilesystemPath) {
-        self.resource_names.remove(&resource.name);
-        if let Some(pos) = self.yyp.resources.iter().position(|p| &p.id == resource) {
+    /// Removes the yyp resource.
+    fn remove_yyp_resource(
+        &mut self,
+        fpath: &FilesystemPath,
+    ) -> Result<Resource, FolderGraphError> {
+        let resource = self
+            .resource_names
+            .remove(&fpath.name)
+            .ok_or(FolderGraphError::InternalError)?;
+
+        if let Some(pos) = self.yyp.resources.iter().position(|p| p.id == *fpath) {
             self.yyp.resources.remove(pos);
+        } else {
+            return Err(FolderGraphError::InternalError);
         }
 
         self.dirty = true;
+
+        Ok(resource)
     }
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
@@ -539,31 +550,6 @@ impl YypBoss {
     /// for integration tests.
     pub fn yyp(&self) -> &Yyp {
         &self.yyp
-    }
-
-    /// Gives a reference to the current FolderGraph.
-    pub fn root_folder_graph(&self) -> &FolderGraph {
-        &self.folder_graph
-    }
-
-    /// This could be a very hefty allocation!
-    pub fn folder(&self, view_path: &ViewPathLocation) -> Option<FolderGraph> {
-        // check for root...
-        if view_path.inner() == "folders" {
-            return Some(self.folder_graph.clone());
-        }
-
-        let mut folder = &self.folder_graph;
-        for path in view_path.component_paths() {
-            folder = &folder
-                .folders
-                .get(path)
-                .or_else(|| folder.folders.get(path.trim_yy()))
-                .ok_or_else(|| error!("Couldn't find subfolder {}", path))
-                .ok()?
-                .child;
-        }
-        Some(folder.clone())
     }
 }
 

@@ -202,6 +202,9 @@ pub enum VfsCommand {
     /// returns an error.
     /// If the Item is a Folder, and [`end`] is a subpath of [`start`], this command aborts and returns
     /// an error.
+    /// 
+    /// [`start`]: #structfield.start
+    /// [`end`]: #structfield.end
     MoveItem {
         /// The location of the Item (a folder or a resource) to be moved.
         start: ViewPath,

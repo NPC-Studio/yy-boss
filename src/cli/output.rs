@@ -1,7 +1,9 @@
 use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yy_boss::{FolderGraphError, Resource, SerializedData, SerializedDataError, StartupError};
+use yy_boss::{
+    FolderGraph, FolderGraphError, Resource, SerializedData, SerializedDataError, StartupError,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
@@ -43,6 +45,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub associated_data: Option<SerializedData>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub folder_graph: Option<FolderGraph>,
 }
 
 impl CommandOutput {
@@ -51,14 +56,14 @@ impl CommandOutput {
             success: false,
             fatal: Some(false),
             error: Some(yyp_boss_error),
-            ..Default::default()
+            ..Self::default()
         }
     }
 
     pub fn ok() -> Self {
         Self {
             success: true,
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -67,7 +72,7 @@ impl CommandOutput {
             success: true,
             resource: Some(resource),
             associated_data: Some(associated_data),
-            ..Default::default()
+            ..Self::default()
         }
     }
 
@@ -75,7 +80,15 @@ impl CommandOutput {
         Self {
             success: true,
             exists: Some(exists),
-            ..Default::default()
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
+        Self {
+            success: true,
+            folder_graph: Some(f_graph),
+            ..Self::default()
         }
     }
 }
