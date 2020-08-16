@@ -1,10 +1,10 @@
-use crate::{Resource, YyResourceHandler, YypBoss};
+use crate::{utils, FileSerializationError, Resource, YyResourceHandler, YypBoss};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
     path::{Path, PathBuf},
 };
-use yy_typings::ViewPath;
+use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     type AssociatedData: Debug;
@@ -36,8 +36,8 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     /// each individual implementation.
     fn deserialize_associated_data(
         &self,
-        directory_path: Option<&Path>,
-        data: SerializedData,
+        incoming_data: AssocDataLocation<'_>,
+        tcu: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError>;
 
     /// Serialize the associated data with a given Yy File.
@@ -56,12 +56,12 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     /// Most resources will immediately return their data by value, but some resources, such
     /// as sprites or sounds, will likely write their files and return the path to the written
     /// audio instead.
-    fn serialize_associated_data_into_data(
-        &self,
-        our_directory: &Path,
-        working_directory: Option<&Path>,
-        associated_data: Option<&Self::AssociatedData>,
-    ) -> Result<SerializedData, SerializedDataError>;
+    // fn serialize_associated_data_into_data(
+    //     &self,
+    //     our_directory: &Path,
+    //     working_directory: Option<&Path>,
+    //     associated_data: Option<&Self::AssociatedData>,
+    // ) -> Result<SerializedData, SerializedDataError>;
 
     /// This cleans up any associated files which won't get cleaned up in the event of a
     /// REPLACEMENT of this resource. For example, when we replace a sprite_yy file, the old
@@ -82,9 +82,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
 /// The data which is passed in as part of a Command. Each tag represents a different way to
 /// pass data into the given Resource.
 ///
-/// **NB:** the type of data which is passed in is determined by the containing Command. In a `ResourceCommand`,
-/// for example, it is determined by the `Resource` which is passed in; for the `VirtualFileSystemCommand`, it is
-/// determined by the `FileOrFolder` tag. See each documentation for more details.
+/// **NB:** the type of data which is passed in is determined by the containing Command.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "dataType")]
 pub enum SerializedData {
@@ -114,19 +112,11 @@ pub enum SerializedData {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SerializedDataError {
-    #[error(
-        "either given or tried to write a `Data::File` tag, but was not given a working directory on startup. cannot parse"
-    )]
-    NoFileMode,
-
     #[error("given a `Data::File` tag, but path didn't exist, wasn't a file, or couldn't be read. path was {}", .0.to_string_lossy())]
     BadDataFile(std::path::PathBuf),
 
     #[error(transparent)]
-    CouldNotParseData(#[from] serde_json::Error),
-
-    #[error(transparent)]
-    CouldNotReadFile(#[from] std::io::Error),
+    CouldNotDeserializeFile(#[from] FileSerializationError),
 
     #[error(transparent)]
     CouldNotWriteImage(#[from] image::ImageError),
@@ -140,33 +130,43 @@ pub enum SerializedDataError {
     InnerError(String),
 }
 
+impl From<serde_json::Error> for SerializedDataError {
+    fn from(e: serde_json::Error) -> Self {
+        SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Serde(e.to_string()))
+    }
+}
+
 impl SerializedData {
     pub fn read_data_as_file<T>(
         self,
-        working_directory: Option<&std::path::Path>,
+        working_directory: &Path,
+        tcu: &TrailingCommaUtility,
     ) -> Result<T, SerializedDataError>
     where
         for<'de> T: serde::Deserialize<'de> + Default,
     {
         match self {
-            SerializedData::Value { data } => {
-                serde_json::from_str(&data).map_err(SerializedDataError::CouldNotParseData)
-            }
+            SerializedData::Value { data } => serde_json::from_str(&data).map_err(|e| {
+                SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Serde(
+                    format!("{:#?}", e),
+                ))
+            }),
             SerializedData::Filepath { data } => {
-                if let Some(wd) = working_directory {
-                    let path = wd.join(data);
-                    std::fs::read_to_string(&path).map_or_else(
-                        |_| Err(SerializedDataError::BadDataFile(path)),
-                        |data| {
-                            serde_json::from_str(&data)
-                                .map_err(SerializedDataError::CouldNotParseData)
-                        },
-                    )
-                } else {
-                    Err(SerializedDataError::NoFileMode)
-                }
+                let path = working_directory.join(data);
+                utils::deserialize_json_tc(&path, tcu).map_err(|e| e.into())
             }
             SerializedData::DefaultValue => Ok(T::default()),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum AssocDataLocation<'a> {
+    Value(&'a str),
+    Path(&'a Path),
+    Default,
+}
+
+pub trait AssociatedFoo: Serialize + for<'de> Deserialize<'de> + Clone + Default {
+    type SomeType: Serialize + for<'de> Deserialize<'de>;
 }

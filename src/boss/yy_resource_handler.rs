@@ -1,8 +1,5 @@
-use super::{
-    directory_manager::DirectoryManager,
-    resources::{CreatedResource, RemovedResource},
-    utils, FilesystemPath, YyResource,
-};
+use super::{directory_manager::DirectoryManager, utils, FilesystemPath, YyResource};
+use crate::{AssocDataLocation, SerializedData, YyResourceHandlerErrors};
 use anyhow::Result as AnyResult;
 use log::info;
 use std::{
@@ -10,6 +7,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use yy_typings::utils::TrailingCommaUtility;
 
 #[derive(Debug, Default)]
 pub struct YyResourceHandler<T: YyResource> {
@@ -31,11 +29,10 @@ impl<T: YyResource> YyResourceHandler<T> {
     ///
     /// This operation is used to `add` or to `replace` the resource. If it is used
     /// to replace a resource, the resource will be returned.
-    pub fn set(
+    pub(crate) fn set(
         &mut self,
         value: T,
         associated_data: T::AssociatedData,
-        _frt: CreatedResource,
     ) -> Option<YyResourceData<T>> {
         self.resources_to_reserialize.push(value.name().to_owned());
         let ret = self.insert_resource(value, Some(associated_data));
@@ -50,25 +47,56 @@ impl<T: YyResource> YyResourceHandler<T> {
         ret
     }
 
-    /// Returns the data on the sprite yy, if it exists.
+    /// Returns an immutable reference to a resource's data, if it exists.
     ///
-    /// In general, this will return a `Some`, but if users add
-    /// a resource, without using the `FilledResource`token, then this will return a `None`.
+    /// Since associated data is lazily loaded, and be unloaded at any time,
+    /// there may not be any associated data returned. You can request that data to be
+    /// loaded using [`load_resource_associated_data`].
     ///
-    /// You can check if this is possible beforehand by checking the `YypBoss`'s prunable state.
-    pub fn get(&self, name: &str, _crt: CreatedResource) -> Option<&YyResourceData<T>> {
+    /// [`load_resource_associated_data`]: #method.load_resource_associated_data
+    pub fn get(&self, name: &str) -> Option<&YyResourceData<T>> {
         self.resources.get(name)
     }
 
     /// Removes the resource out of the handler. If that resource was being used,
     /// then this will return that resource.
-    pub fn remove(&mut self, value: &str, _rrt: RemovedResource) -> Option<YyResourceData<T>> {
+    pub(crate) fn remove(&mut self, value: &str) -> Option<(T, T::AssociatedData)> {
         let ret = self.resources.remove(value);
-        if ret.is_some() {
+        if let Some(ret) = ret {
             self.resources_to_remove.push(value.to_owned());
-        }
 
-        ret
+            let (yy, mut assoc) = ret.into();
+
+            // let output = self.load_resource_associated_data(yy.name(), )
+
+            unimplemented!()
+        } else {
+            None
+        }
+    }
+
+    /// Loads in the associated data of a given resource name, if that resource exists and is managed.
+    ///
+    /// If that resource already has some associated data, it will be discarded, and the new data will be loaded.
+    /// If the resource does not exist or is not of the type that this manager handles, an error will be
+    /// returned.
+    pub(crate) fn load_resource_associated_data(
+        &mut self,
+        resource_name: &str,
+        path: &Path,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<&T::AssociatedData, YyResourceHandlerErrors> {
+        if let Some(resource) = self.resources.get_mut(resource_name) {
+            let associated_data = resource
+                .yy_resource
+                .deserialize_associated_data(AssocDataLocation::Path(path), tcu)?;
+
+            resource.associated_data = Some(associated_data);
+
+            Ok(&resource.associated_data.as_ref().unwrap())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
+        }
     }
 
     /// Loads the resource in on startup. We don't track associated data by default,

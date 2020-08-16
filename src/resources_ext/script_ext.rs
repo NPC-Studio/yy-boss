@@ -1,8 +1,9 @@
 use crate::{
-    Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+    utils, AssocDataLocation, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
 };
 use std::path::Path;
-use yy_typings::{sprite_yy::script::Script, ViewPath};
+use yy_typings::{sprite_yy::script::Script, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Script {
     type AssociatedData = String;
@@ -29,10 +30,14 @@ impl YyResource for Script {
 
     fn deserialize_associated_data(
         &self,
-        directory_path: Option<&Path>,
-        data: SerializedData,
+        incoming_data: AssocDataLocation<'_>,
+        tcu: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
-        data.read_data_as_file(directory_path)
+        match incoming_data {
+            AssocDataLocation::Value(v) => serde_json::from_str(v).map_err(|e| e.into()),
+            AssocDataLocation::Path(v) => utils::deserialize_json_tc(v, tcu).map_err(|e| e.into()),
+            AssocDataLocation::Default => Ok(Self::AssociatedData::default()),
+        }
     }
 
     fn serialize_associated_data(
@@ -46,27 +51,22 @@ impl YyResource for Script {
         Ok(())
     }
 
-    fn serialize_associated_data_into_data(
-        &self,
-        our_directory: &Path,
-        _: Option<&Path>,
-        associated_data: Option<&Self::AssociatedData>,
-    ) -> Result<SerializedData, SerializedDataError> {
-        if let Some(data) = associated_data {
-            Ok(SerializedData::Value {
-                data: data.to_owned(),
-            })
-        } else {
-            let data = self.deserialize_associated_data(
-                Some(our_directory),
-                SerializedData::Filepath {
-                    data: std::path::PathBuf::default(),
-                },
-            )?;
+    // fn serialize_associated_data_into_data(
+    //     &self,
+    //     our_directory: &Path,
+    //     _: Option<&Path>,
+    //     associated_data: Option<&Self::AssociatedData>,
+    // ) -> Result<SerializedData, SerializedDataError> {
+    //     if let Some(data) = associated_data {
+    //         Ok(SerializedData::Value {
+    //             data: data.to_owned(),
+    //         })
+    //     } else {
+    //         let data = self.deserialize_associated_data(Some(our_directory))?;
 
-            Ok(SerializedData::Value { data })
-        }
-    }
+    //         Ok(SerializedData::Value { data })
+    //     }
+    // }
 
     fn cleanup_on_replace(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
         // not much to clean up here which won't get rewritten by a replace op!

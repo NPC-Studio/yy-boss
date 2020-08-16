@@ -30,21 +30,3 @@ impl fmt::Display for Resource {
         }
     }
 }
-
-#[derive(Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct CreatedResource(pub(crate) Resource);
-
-impl CreatedResource {
-    pub fn inner(self) -> Resource {
-        self.0
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
-pub struct RemovedResource(pub(crate) Resource);
-
-impl RemovedResource {
-    pub fn inner(self) -> Resource {
-        self.0
-    }
-}

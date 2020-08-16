@@ -1,12 +1,8 @@
 use super::{
-    directory_manager::DirectoryManager,
-    errors::*,
-    folders::*,
-    pipelines::PipelineManager,
-    resources::{CreatedResource, RemovedResource},
-    utils, PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler,
-    YypSerialization,
+    directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
+    PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
 };
+use crate::YyResourceData;
 use anyhow::{Context, Result as AnyResult};
 use log::*;
 use object_yy::Object;
@@ -55,14 +51,25 @@ impl YypBoss {
             for section in new_folder.folder_path.component_paths() {
                 let parent_path = folder_graph.view_path_location();
                 let section = section.trim_yy().to_owned();
-                let entry = folder_graph.folders.entry(section.clone());
 
-                let new_member = entry.or_insert(SubfolderMember {
-                    child: FolderGraph::new(section, parent_path),
-                    order: new_folder.order,
-                });
+                // find or insert the new folder...
+                if folder_graph.folders.iter().any(|f| f.child.name == section) == false {
+                    folder_graph.folders.push(SubfolderMember {
+                        child: FolderGraph::new(section.clone(), parent_path),
+                        order: new_folder.order,
+                    });
 
-                folder_graph = &mut new_member.child;
+                    folder_graph
+                        .folders
+                        .sort_unstable_by(SubfolderMember::sort_by_name);
+                }
+
+                folder_graph = &mut folder_graph
+                    .folders
+                    .iter_mut()
+                    .find(|f| f.child.name == section)
+                    .unwrap()
+                    .child;
             }
         }
 
@@ -85,18 +92,18 @@ impl YypBoss {
                 let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &tcu)?;
 
                 // Add to the folder graph
-                folder_graph
+                let folder = folder_graph
                     .get_folder_mut(&yy_file.parent_path().path)
-                    .ok_or(FolderGraphError::PathNotFound)?
-                    .files
-                    .insert(
-                        yy_file.name().to_owned(),
-                        FileMember {
-                            child: FilesystemPath::new(T::SUBPATH_NAME, &yy_file.name()),
-                            order: yyp_resource.order,
-                        },
-                    );
+                    .ok_or(FolderGraphError::PathNotFound)?;
 
+                // add and sort
+                folder.files.push(FileMember {
+                    child: FilesystemPath::new(T::SUBPATH_NAME, &yy_file.name()),
+                    order: yyp_resource.order,
+                });
+                folder.files.sort_unstable_by(FileMember::sort_by_name);
+
+                // add to resource names...
                 resource_names.insert(yy_file.name().to_string(), T::RESOURCE);
                 resource.load_on_startup(yy_file);
             }
@@ -161,149 +168,58 @@ impl YypBoss {
         self.resource_names.clone().into_iter().collect()
     }
 
-    /// Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
-    ///
-    ///```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - OtherSprites/
-    ///     - spr_enemy
-    /// ```
-    ///
-    /// and user adds a folder with name `Items` to the `Sprites` folder with an order of 1,
-    /// then the output tree will be:
-    ///
-    /// ```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - Items/
-    ///     - OtherSprites/
-    ///     - spr_enemy
-    ///```
-    ///
-    /// `add_folder_with_order` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
-    /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    ///
-    /// **Nb:** when users have Gms2 in "Alphabetical" sort order, the `order` value here is largely ignored by the IDE.
-    /// This can make for odd and unexpected results.
-    pub fn new_folder_order(
+    /// Adds a new resource, which must not already exist within the project.
+    pub fn add_resource<T: YyResource>(
         &mut self,
-        parent_path: ViewPath,
-        name: String,
-        order: usize,
-    ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self
+        yy_file: T,
+        associated_data: T::AssociatedData,
+    ) -> Result<(), ResourceManipulationError> {
+        if let Some(r) = self.resource_names.get(yy_file.name()) {
+            return Err(ResourceManipulationError::BadResourceName(*r));
+        }
+
+        let child = FilesystemPath::new(T::SUBPATH_NAME, yy_file.name());
+        let order = self
             .folder_graph_manager
-            .get_folder_mut(&parent_path.path)
-            .ok_or(FolderGraphError::PathNotFound)?;
+            .new_resource_end(&yy_file.parent_path().path, child.clone())?;
 
-        if subfolder.folders.contains_key(&name) {
-            return Err(FolderGraphError::FolderAlreadyPresent);
+        self.add_new_yyp_resource(child, order, T::RESOURCE);
+        let handler = T::get_handler_mut(self);
+
+        if handler.set(yy_file, associated_data).is_some() {
+            Err(ResourceManipulationError::InternalError)
+        } else {
+            Ok(())
         }
-
-        // Add the Subfolder View:
-        subfolder.folders.insert(
-            name.clone(),
-            SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.path.clone()),
-                order,
-            },
-        );
-
-        let path = parent_path.path.join(&name);
-
-        self.yyp.folders.push(YypFolder {
-            folder_path: path.clone(),
-            order,
-            name: name.clone(),
-            ..YypFolder::default()
-        });
-        self.dirty = true;
-
-        // Fix the other Orders:
-        for (folder_name, folder) in subfolder.folders.iter_mut() {
-            if folder.order <= order {
-                folder.order += 1;
-
-                if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
-                    error!(
-                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-                    This may become a hard error in the future. E: {1}",
-                    folder_name, e
-                    )
-                }
-            }
-        }
-
-        for (file_name, file) in subfolder.files.iter_mut() {
-            if file.order <= order {
-                file.order += 1;
-
-                if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
-                    error!(
-                    "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-                    This may become a hard error in the future. E: {1}",
-                    file_name, e
-                    )
-                }
-            }
-        }
-
-        Ok(ViewPath { path, name })
     }
 
-    /// Adds a file to the folder given at `parent_path` and with the final order. If a tree looks like:
-    ///
-    ///```no run
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_enemy
-    /// ```
-    ///
-    /// and user adds a file with name `spr_item` to the `Sprites` folder, then the output tree will be:
-    ///
-    /// ```txt
-    /// Sprites/
-    ///     - spr_player
-    ///     - spr_enemy
-    ///     - spr_item
-    ///```
-    ///
-    /// This function returns a `FilledResourceToken`, which is a required parameter for then assigning the Sprite
-    /// to the Token.
-    pub fn new_resource_end(
+    /// Adds a new resource, which must not already exist within the project.
+    pub fn remove_resource<T: YyResource>(
         &mut self,
-        parent_path: ViewPath,
-        resource_name: &str,
-        resource_kind: Resource,
-    ) -> Result<CreatedResource, FolderGraphError> {
-        if self.resource_names.contains_key(resource_name) {
-            return Err(FolderGraphError::FileAlreadyPresent);
+        name: &str,
+    ) -> Result<(T, T::AssociatedData), ResourceManipulationError> {
+        // confirm the resource exists...
+        if let Some(v) = self.resource_names.get(name) {
+            if *v != T::RESOURCE {
+                return Err(ResourceManipulationError::BadResourceName(*v));
+            }
+        } else {
+            return Err(ResourceManipulationError::NoResourceByThatName);
         }
 
-        let subfolder = self
-            .folder_graph_manager
-            .get_folder_mut(&parent_path.path)
-            .ok_or(FolderGraphError::PathNotFound)?;
+        // // remove the file from the VFS...
+        // self.folder_graph_manager.remove_resource(name)?;
 
-        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
-        if subfolder.files.contains_key(resource_name) {
-            return Err(FolderGraphError::FileAlreadyPresent);
-        }
+        // // remove from our name tracking
+        // self.remove_yyp_resource(name);
 
-        let child = FilesystemPath::new(resource_kind.base_name(), resource_name);
-        subfolder.files.insert(
-            resource_name.to_owned(),
-            FileMember {
-                child: child.clone(),
-                order,
-            },
-        );
+        // let handler = T::get_handler_mut(self);
+        // match handler.remove(name) {
+        //     Some(_) => {}
+        //     None => {}
+        // }
 
-        // add the resource
-        self.add_new_yyp_resource(child, order, resource_kind);
-
-        Ok(CreatedResource(resource_kind))
+        unimplemented!()
     }
 
     // /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
@@ -371,30 +287,11 @@ impl YypBoss {
     //     Ok(())
     // }
 
-    pub fn remove_resource(
-        &mut self,
-        resource_name: &str,
-        resource_kind: Resource,
-    ) -> Result<RemovedResource, FolderGraphError> {
-        let fp = FilesystemPath::new(resource_kind.base_name(), resource_name);
-        self.remove_yyp_resource(&fp);
-
-        let subfolder = self
-            .folder_graph_manager
-            .get_folder_by_fname_mut(resource_name)
-            .ok_or(FolderGraphError::InternalError)?;
-        subfolder.files.remove(resource_name);
-
-        Ok(RemovedResource(resource_kind))
-    }
-
     /// Checks if a resource with a given name exists. If it does, it will return information
     /// on that resource in the form of the `CreatedResource` token, which can tell the user
     /// the type of resource.
-    pub fn get_resource(&self, resource_name: &str) -> Option<CreatedResource> {
-        self.resource_names
-            .get(resource_name)
-            .map(|resource_kind| CreatedResource(*resource_kind))
+    pub fn get_resource(&self, resource_name: &str) -> Option<Resource> {
+        self.resource_names.get(resource_name).cloned()
     }
 
     /// Checks if a resource with a given name exists.
@@ -413,19 +310,16 @@ impl YypBoss {
     }
 
     /// Removes the yyp resource.
-    fn remove_yyp_resource(
-        &mut self,
-        fpath: &FilesystemPath,
-    ) -> Result<Resource, FolderGraphError> {
+    fn remove_yyp_resource(&mut self, name: &str) -> Result<Resource, ResourceManipulationError> {
         let resource = self
             .resource_names
-            .remove(&fpath.name)
-            .ok_or(FolderGraphError::InternalError)?;
+            .remove(name)
+            .ok_or(ResourceManipulationError::NoResourceByThatName)?;
 
-        if let Some(pos) = self.yyp.resources.iter().position(|p| p.id == *fpath) {
+        if let Some(pos) = self.yyp.resources.iter().position(|p| p.id.name == *name) {
             self.yyp.resources.remove(pos);
         } else {
-            return Err(FolderGraphError::InternalError);
+            return Err(ResourceManipulationError::InternalError);
         }
 
         self.dirty = true;

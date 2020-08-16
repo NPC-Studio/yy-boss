@@ -1,5 +1,6 @@
 use super::{FolderGraph, FolderGraphError};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use yy_typings::{FilesystemPath, YypFolder, YypResource};
 
 pub trait FolderGraphMember: PartialOrd + Ord {
@@ -12,6 +13,8 @@ pub trait FolderGraphMember: PartialOrd + Ord {
         &self,
         yyp_resource: &mut Vec<Self::YypReference>,
     ) -> Result<(), FolderGraphError>;
+
+    fn sort_by_name(lhs: &Self, rhs: &Self) -> Ordering;
 }
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -21,8 +24,14 @@ pub struct FileMember {
 }
 
 impl PartialOrd for FileMember {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.order.partial_cmp(&other.order)
+    }
+}
+
+impl Ord for FileMember {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.order.cmp(&other.order)
     }
 }
 
@@ -46,6 +55,9 @@ impl FolderGraphMember for FileMember {
 
         Ok(())
     }
+    fn sort_by_name(lhs: &Self, rhs: &Self) -> Ordering {
+        lhs.child.name.cmp(&rhs.child.name)
+    }
 }
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -54,9 +66,21 @@ pub struct SubfolderMember {
     pub order: usize,
 }
 
+impl PartialOrd for SubfolderMember {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.order.partial_cmp(&other.order)
+    }
+}
+
+impl Ord for SubfolderMember {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.order.cmp(&other.order)
+    }
+}
+
 impl PartialEq for SubfolderMember {
     fn eq(&self, other: &Self) -> bool {
-        self.child == other.child && self.order <= other.order
+        self.child == other.child
     }
 }
 
@@ -72,5 +96,8 @@ impl FolderGraphMember for SubfolderMember {
         yyp_folder.folder_path = self.child.view_path_location();
 
         Ok(())
+    }
+    fn sort_by_name(lhs: &Self, rhs: &Self) -> Ordering {
+        lhs.child.name.cmp(&rhs.child.name)
     }
 }

@@ -71,45 +71,15 @@ impl FolderGraph {
         }
     }
 
-    /// This returns the max_suborder within this Folder. In a sense,
-    /// this is the "size" of the folder's children, though due to A-Z sorting
-    /// in the Gms2 IDE, order and size are not always directly related.
-    ///
-    /// Given the folder:
-    /// ```no run
-    /// Sprites/
-    ///     - spr_player
-    ///     - OtherMembers/
-    ///     - spr_enemy
-    /// ```
-    /// `max_suborder` will return `2`, which is what `spr_enemy`'s suborder would be.
-    pub fn max_suborder(&self) -> Option<usize> {
-        let mut output = None;
-
-        if let Some(file_max) = self.files.iter().max() {
-            if file_max >= output.unwrap_or_default() {
-                output = Some(file_max);
-            }
-        }
-
-        if let Some(file_max) = self.folders.iter().max() {
-            if file_max >= output.unwrap_or_default() {
-                output = Some(file_max);
-            }
-        }
-
-        output
-    }
-
     pub(super) fn get_folder_by_fname_mut<'a>(
         &'a mut self,
         name: &str,
     ) -> Option<&'a mut FolderGraph> {
-        if self.files.contains_key(name) {
+        if self.files.iter().any(|f| f.child.name == *name) {
             return Some(self);
         }
 
-        for subfolder in self.folders.values_mut() {
+        for subfolder in self.folders.iter_mut() {
             if let Some(found) = subfolder.child.get_folder_by_fname_mut(name) {
                 return Some(found);
             }
@@ -119,11 +89,11 @@ impl FolderGraph {
     }
 
     pub(super) fn get_folder_by_fname<'a>(&'a self, name: &str) -> Option<&'a FolderGraph> {
-        if self.files.contains_key(name) {
+        if self.files.iter().any(|f| f.child.name == *name) {
             return Some(self);
         }
 
-        for subfolder in self.folders.values() {
+        for subfolder in self.folders.iter() {
             if let Some(found) = subfolder.child.get_folder_by_fname(name) {
                 return Some(found);
             }

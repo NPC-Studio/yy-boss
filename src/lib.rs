@@ -4,7 +4,7 @@ mod boss {
     use super::*;
 
     mod yy_resource;
-    pub use yy_resource::{SerializedData, SerializedDataError, YyResource};
+    pub use yy_resource::{SerializedData, SerializedDataError, YyResource, AssocDataLocation};
 
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
@@ -16,7 +16,7 @@ mod boss {
     pub use yy_resource_handler::{YyResourceData, YyResourceHandler};
 
     mod directory_manager;
-    mod utils;
+    pub(crate) mod utils;
     pub use utils::{FileSerializationError, SerializationFormat};
 
     mod errors;

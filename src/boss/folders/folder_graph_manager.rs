@@ -1,7 +1,7 @@
-use super::{FolderGraph, FolderGraphError, SubfolderMember};
+use super::{FileMember, FolderGraph, FolderGraphError, SubfolderMember};
 use crate::{PathStrExt, ViewPathLocationExt};
 use serde::{Deserialize, Serialize};
-use yy_typings::{ViewPath, ViewPathLocation};
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FolderGraphManager {
@@ -30,7 +30,11 @@ impl FolderGraphManager {
             for path in view_path.component_paths() {
                 used_root = false;
                 let path = path.trim_yy();
-                folder = &mut folder.folders.get_mut(path)?.child;
+                folder = &mut folder
+                    .folders
+                    .iter_mut()
+                    .find(|f| f.child.name == path)?
+                    .child;
             }
 
             if used_root == false {
@@ -57,7 +61,7 @@ impl FolderGraphManager {
             for path in view_path.component_paths() {
                 used_root = false;
                 let path = path.trim_yy();
-                folder = &folder.folders.get(path)?.child;
+                folder = &folder.folders.iter().find(|f| f.child.name == path)?.child;
             }
 
             if used_root == false {
@@ -110,23 +114,24 @@ impl FolderGraphManager {
             .ok_or(FolderGraphError::PathNotFound)?;
 
         // Don't add a new folder with the same name...
-        if subfolder.folders.contains_key(&name) {
+        if subfolder.folders.iter().any(|f| f.child.name == name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
-        // Sometimes Gms2 uses 1 for the default order of folders. This is chaos.
-        // No clue what's up with that.
-        let order = subfolder.max_suborder().map(|v| v + 1).unwrap_or_default();
+        let order = subfolder
+            .files
+            .last()
+            .map(|f| f.order + 1)
+            .unwrap_or_default();
 
         // Create our Path...
         let path = parent_path.path.join(&name);
-        subfolder.folders.insert(
-            name.clone(),
-            SubfolderMember {
-                child: FolderGraph::new(name.clone(), parent_path.path.clone()),
-                order,
-            },
-        );
+        subfolder.folders.push(SubfolderMember {
+            child: FolderGraph::new(name.clone(), parent_path.path.clone()),
+            order,
+        });
+
+        unimplemented!();
 
         // self.yyp.folders.push(YypFolder {
         //     folder_path: path.clone(),
@@ -137,6 +142,118 @@ impl FolderGraphManager {
         // self.dirty = true;
 
         Ok(ViewPath { path, name })
+    }
+
+    // / Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
+    // /
+    // /```txt
+    // / Sprites/
+    // /     - spr_player
+    // /     - OtherSprites/
+    // /     - spr_enemy
+    // / ```
+    // /
+    // / and user adds a folder with name `Items` to the `Sprites` folder with an order of 1,
+    // / then the output tree will be:
+    // /
+    // / ```txt
+    // / Sprites/
+    // /     - spr_player
+    // /     - Items/
+    // /     - OtherSprites/
+    // /     - spr_enemy
+    // /```
+    // /
+    // / `add_folder_with_order` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
+    // / This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
+    // /
+    // / **Nb:** when users have Gms2 in "Alphabetical" sort order, the `order` value here is largely ignored by the IDE.
+    // / This can make for odd and unexpected results.
+    // pub fn new_folder_order(
+    //     &mut self,
+    //     parent_path: ViewPath,
+    //     name: String,
+    //     order: usize,
+    // ) -> Result<ViewPath, FolderGraphError> {
+    //     let subfolder = self
+    //         .folder_graph_manager
+    //         .get_folder_mut(&parent_path.path)
+    //         .ok_or(FolderGraphError::PathNotFound)?;
+
+    //     if subfolder.folders.contains_key(&name) {
+    //         return Err(FolderGraphError::FolderAlreadyPresent);
+    //     }
+
+    //     // Add the Subfolder View:
+    //     subfolder.folders.insert(
+    //         name.clone(),
+    //         SubfolderMember {
+    //             child: FolderGraph::new(name.clone(), parent_path.path.clone()),
+    //             order,
+    //         },
+    //     );
+
+    //     let path = parent_path.path.join(&name);
+
+    //     self.yyp.folders.push(YypFolder {
+    //         folder_path: path.clone(),
+    //         order,
+    //         name: name.clone(),
+    //         ..YypFolder::default()
+    //     });
+    //     self.dirty = true;
+
+    //     // Fix the other Orders:
+    //     for (folder_name, folder) in subfolder.folders.iter_mut() {
+    //         if folder.order <= order {
+    //             folder.order += 1;
+
+    //             if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
+    //                 error!(
+    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+    //                 This may become a hard error in the future. E: {1}",
+    //                 folder_name, e
+    //                 )
+    //             }
+    //         }
+    //     }
+
+    //     for (file_name, file) in subfolder.files.iter_mut() {
+    //         if file.order <= order {
+    //             file.order += 1;
+
+    //             if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
+    //                 error!(
+    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
+    //                 This may become a hard error in the future. E: {1}",
+    //                 file_name, e
+    //                 )
+    //             }
+    //         }
+    //     }
+
+    //     Ok(ViewPath { path, name })
+    // }
+
+    pub(crate) fn new_resource_end(
+        &mut self,
+        view_path: &ViewPathLocation,
+        child: FilesystemPath,
+    ) -> Result<usize, FolderGraphError> {
+        let subfolder = self
+            .get_folder_mut(view_path)
+            .ok_or(FolderGraphError::PathNotFound)?;
+
+        let order = subfolder
+            .files
+            .last()
+            .map(|f| f.order + 1)
+            .unwrap_or_default();
+
+        // add the resource
+        subfolder.files.push(FileMember { child, order });
+
+        Ok(order)
     }
 }
 
