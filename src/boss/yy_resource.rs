@@ -4,12 +4,23 @@ use std::{
     fmt::Debug,
     path::{Path, PathBuf},
 };
-use yy_typings::{utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{utils::TrailingCommaUtility, FilesystemPath, ViewPath};
 
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
-    type AssociatedData: Debug;
+    type AssociatedData: Debug + Clone;
     const SUBPATH_NAME: &'static str;
     const RESOURCE: Resource;
+
+    /// The relative filepath to the directory of the yy file. For a sprite named
+    /// `spr_player`, for example, this would be `sprites/spr_player`.
+    fn relative_yy_directory(&self) -> PathBuf {
+        self.relative_yy_filepath().parent().unwrap().to_owned()
+    }
+
+    /// The relative filepath to the yy file of the resource.
+    fn relative_yy_filepath(&self) -> PathBuf {
+        FilesystemPath::new_path(Self::SUBPATH_NAME, self.name())
+    }
 
     /// Get's the resource's name.
     fn name(&self) -> &str;
@@ -18,7 +29,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     fn set_name(&mut self, name: String);
 
     /// Get the path to the parent in the View Virtual File System.
-    fn parent_path(&self) -> ViewPath;
+    fn parent_view_path(&self) -> ViewPath;
 
     /// Returns the relative path to this Resource from the Root Directory. Provided as a convenience
     fn relative_path(&self) -> PathBuf {

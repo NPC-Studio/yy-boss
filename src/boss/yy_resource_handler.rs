@@ -1,7 +1,7 @@
 use super::{directory_manager::DirectoryManager, utils, FilesystemPath, YyResource};
-use crate::{AssocDataLocation, SerializedData, YyResourceHandlerErrors};
+use crate::{AssocDataLocation, YyResourceHandlerErrors};
 use anyhow::Result as AnyResult;
-use log::info;
+use log::{error, info};
 use std::{
     collections::HashMap,
     fs,
@@ -60,16 +60,31 @@ impl<T: YyResource> YyResourceHandler<T> {
 
     /// Removes the resource out of the handler. If that resource was being used,
     /// then this will return that resource.
-    pub(crate) fn remove(&mut self, value: &str) -> Option<(T, T::AssociatedData)> {
+    pub(crate) fn remove(
+        &mut self,
+        value: &str,
+        tcu: &TrailingCommaUtility,
+    ) -> Option<(T, Option<T::AssociatedData>)> {
         let ret = self.resources.remove(value);
         if let Some(ret) = ret {
             self.resources_to_remove.push(value.to_owned());
 
             let (yy, mut assoc) = ret.into();
 
-            // let output = self.load_resource_associated_data(yy.name(), )
+            // Try to load this guy up...
+            if assoc.is_none() {
+                let output = self
+                    .load_resource_associated_data(yy.name(), &yy.relative_yy_directory(), tcu)
+                    .map_err(|e| {
+                        error!("Couldn't deserialize {}'s assoc data...{}", value, e);
+                        e
+                    })
+                    .ok();
 
-            unimplemented!()
+                assoc = output.cloned();
+            }
+
+            Some((yy, assoc))
         } else {
             None
         }
@@ -80,7 +95,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// If that resource already has some associated data, it will be discarded, and the new data will be loaded.
     /// If the resource does not exist or is not of the type that this manager handles, an error will be
     /// returned.
-    pub(crate) fn load_resource_associated_data(
+    pub fn load_resource_associated_data(
         &mut self,
         resource_name: &str,
         path: &Path,

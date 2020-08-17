@@ -19,7 +19,7 @@ impl YyResource for Object {
     fn set_name(&mut self, name: String) {
         self.name = name;
     }
-    fn parent_path(&self) -> ViewPath {
+    fn parent_view_path(&self) -> ViewPath {
         self.parent.clone()
     }
 

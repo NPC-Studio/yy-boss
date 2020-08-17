@@ -322,7 +322,7 @@ impl YyResource for Sprite {
         }
     }
 
-    fn parent_path(&self) -> ViewPath {
+    fn parent_view_path(&self) -> ViewPath {
         self.parent.clone()
     }
 

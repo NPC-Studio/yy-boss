@@ -37,7 +37,7 @@ use yy_boss::{StartupError, YypBoss};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Arguments {
     pub yyp_path: PathBuf,
-    pub working_directory: Option<PathBuf>,
+    pub working_directory: PathBuf,
 }
 
 #[doc(hidden)]
@@ -58,6 +58,7 @@ pub(crate) fn parse_arguments() -> Arguments {
             Arg::with_name("working_directory")
                 .short("wd")
                 .value_name("WORKING_DIRECTORY")
+                .required(true)
                 .help("the path to a safe working directory where the YypBoss will read and write")
                 .long_help("A path to a safe working directory where the YypBoss will read and write. \
                 If no working directory is provided, the YypBoss can still be ran, but numerous operations \
@@ -72,7 +73,9 @@ pub(crate) fn parse_arguments() -> Arguments {
     let yyp_path = Path::new(matches.value_of("path").unwrap()).to_owned();
     let working_directory = matches
         .value_of("working_directory")
-        .map(|wd| Path::new(wd).to_owned());
+        .map(|p| Path::new(p))
+        .unwrap()
+        .to_owned();
 
     Arguments {
         yyp_path,
@@ -94,15 +97,13 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
         })
         .print();
         return None;
-    } else if let Some(inner) = &yy_cli.working_directory {
-        if inner.is_dir() == false {
-            Output::Startup(Startup {
-                success: false,
-                error: Some(StartupError::BadWorkingDirectoryPath),
-            })
-            .print();
-            return None;
-        }
+    } else if yy_cli.working_directory.is_dir() == false {
+        Output::Startup(Startup {
+            success: false,
+            error: Some(StartupError::BadWorkingDirectoryPath),
+        })
+        .print();
+        return None;
     }
 
     Output::Startup(Startup {

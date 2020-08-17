@@ -67,31 +67,31 @@ pub enum ResourceCommandType {
     /// If it succeeds, it will return without any extra data, like a `void`.
     Add(NewResource),
 
-    /// Replaces a resource in the project.
-    ///
-    /// ## Errors
-    /// If there is no resource by that name already, this command will abort and return
-    /// an error.
-    ///
-    /// ## Returns
-    /// If it succeeds, it will return the resource and its associated data
-    /// after having replaced it.
-    Replace(NewResource),
+    // /// Replaces a resource in the project.
+    // ///
+    // /// ## Errors
+    // /// If there is no resource by that name already, this command will abort and return
+    // /// an error.
+    // ///
+    // /// ## Returns
+    // /// If it succeeds, it will return the resource and its associated data
+    // /// after having replaced it.
+    // Replace(NewResource),
 
-    /// Sets a resource in a project, regardless of the current resources in the project.
-    /// Functionally, this will replace any resource of the same name, or add a new resource.
-    /// Users can think of this command as a "forceAdd".
-    ///
-    /// ## Errors
-    /// This command is infallible.
-    ///
-    /// ## Returns
-    /// This command returns without any extra data. If a User wants the resource data
-    /// which was present, they will have to run [`Exists`] and then [`Replace`] as two commands.
-    ///
-    /// [`Exists`]: #variant.Exists
-    /// [`Replace`]: #variant.Replace
-    Set(NewResource),
+    // /// Sets a resource in a project, regardless of the current resources in the project.
+    // /// Functionally, this will replace any resource of the same name, or add a new resource.
+    // /// Users can think of this command as a "forceAdd".
+    // ///
+    // /// ## Errors
+    // /// This command is infallible.
+    // ///
+    // /// ## Returns
+    // /// This command returns without any extra data. If a User wants the resource data
+    // /// which was present, they will have to run [`Exists`] and then [`Replace`] as two commands.
+    // ///
+    // /// [`Exists`]: #variant.Exists
+    // /// [`Replace`]: #variant.Replace
+    // Set(NewResource),
 
     /// Removes and returns the resource.
     ///

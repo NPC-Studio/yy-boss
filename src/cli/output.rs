@@ -84,7 +84,7 @@ impl CommandOutput {
             ..Self::default()
         }
     }
-    
+
     pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
         Self {
             success: true,
@@ -149,10 +149,9 @@ pub enum YypBossError {
 impl From<SerializedDataError> for YypBossError {
     fn from(e: SerializedDataError) -> Self {
         match e {
-            SerializedDataError::NoFileMode => YypBossError::NoFileMode,
             SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
-            SerializedDataError::CouldNotParseData(v) => {
-                YypBossError::CouldNotParseYyFile(v.to_string())
+            SerializedDataError::CouldNotDeserializeFile(fde) => {
+                YypBossError::CouldNotParseYyFile(fde.to_string())
             }
             SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
             SerializedDataError::CouldNotWriteImage(e) => {
@@ -161,10 +160,6 @@ impl From<SerializedDataError> for YypBossError {
             }
             SerializedDataError::InnerError(e) => {
                 error!("{}", e);
-                YypBossError::InternalError(false)
-            }
-            SerializedDataError::CouldNotReadFile(e) => {
-                error!("Couldn't read a file...{}", e);
                 YypBossError::InternalError(false)
             }
         }

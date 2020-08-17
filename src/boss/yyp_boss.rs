@@ -4,7 +4,6 @@ use super::{
 };
 use crate::YyResourceData;
 use anyhow::{Context, Result as AnyResult};
-use log::*;
 use object_yy::Object;
 use std::{collections::HashMap, fs, path::Path};
 use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
@@ -93,7 +92,7 @@ impl YypBoss {
 
                 // Add to the folder graph
                 let folder = folder_graph
-                    .get_folder_mut(&yy_file.parent_path().path)
+                    .get_folder_mut(&yy_file.parent_view_path().path)
                     .ok_or(FolderGraphError::PathNotFound)?;
 
                 // add and sort
@@ -181,7 +180,7 @@ impl YypBoss {
         let child = FilesystemPath::new(T::SUBPATH_NAME, yy_file.name());
         let order = self
             .folder_graph_manager
-            .new_resource_end(&yy_file.parent_path().path, child.clone())?;
+            .new_resource_end(&yy_file.parent_view_path().path, child.clone())?;
 
         self.add_new_yyp_resource(child, order, T::RESOURCE);
         let handler = T::get_handler_mut(self);
@@ -197,7 +196,7 @@ impl YypBoss {
     pub fn remove_resource<T: YyResource>(
         &mut self,
         name: &str,
-    ) -> Result<(T, T::AssociatedData), ResourceManipulationError> {
+    ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
         // confirm the resource exists...
         if let Some(v) = self.resource_names.get(name) {
             if *v != T::RESOURCE {
@@ -207,19 +206,17 @@ impl YypBoss {
             return Err(ResourceManipulationError::NoResourceByThatName);
         }
 
-        // // remove the file from the VFS...
+        // remove the file from the VFS...
         // self.folder_graph_manager.remove_resource(name)?;
 
-        // // remove from our name tracking
-        // self.remove_yyp_resource(name);
+        // remove from our name tracking
+        self.remove_yyp_resource(name)?;
 
-        // let handler = T::get_handler_mut(self);
-        // match handler.remove(name) {
-        //     Some(_) => {}
-        //     None => {}
-        // }
-
-        unimplemented!()
+        let handler = T::get_handler_mut(self);
+        let tcu = TrailingCommaUtility::new();
+        handler
+            .remove(name, &tcu)
+            .ok_or_else(|| ResourceManipulationError::InternalError)
     }
 
     // /// Adds a file to the folder given at `parent_path` at the given order. If a tree looks like:
@@ -287,16 +284,27 @@ impl YypBoss {
     //     Ok(())
     // }
 
+    /// Gets a resource via the type. Users should probably not use this method unless they're doing
+    /// some generic code. Instead, simply use each resources manager as appropriate -- for example,
+    /// to get an object's data, use `yyp_boss.objects.get`.
+    ///
+    /// *Nb*: `YyResourceData` might not have any AssociatedData on it. See its warning on how Associated
+    /// Data is held lazily.
+    pub fn get_resource<T: YyResource>(&self, name: &str) -> Option<&YyResourceData<T>> {
+        let handler = T::get_handler(self);
+        handler.get(name)
+    }
+
     /// Checks if a resource with a given name exists. If it does, it will return information
     /// on that resource in the form of the `CreatedResource` token, which can tell the user
     /// the type of resource.
-    pub fn get_resource(&self, resource_name: &str) -> Option<Resource> {
+    pub fn get_resource_type(&self, resource_name: &str) -> Option<Resource> {
         self.resource_names.get(resource_name).cloned()
     }
 
     /// Checks if a resource with a given name exists.
     pub fn resource_exists(&self, resource_name: &str) -> bool {
-        self.get_resource(resource_name).is_some()
+        self.get_resource_type(resource_name).is_some()
     }
 
     /// Adds a new Resource to be tracked by the Yyp.
