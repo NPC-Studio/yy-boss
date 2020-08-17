@@ -45,6 +45,7 @@ impl FolderGraphManager {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_folder_by_fname_mut(&mut self, name: &str) -> Option<&mut FolderGraph> {
         self.root.get_folder_by_fname_mut(name)
     }

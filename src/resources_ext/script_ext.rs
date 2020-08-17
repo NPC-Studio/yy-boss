@@ -2,7 +2,6 @@ use crate::{
     utils, AssocDataLocation, Resource, SerializedData, SerializedDataError, YyResource,
     YyResourceHandler, YypBoss,
 };
-use std::path::Path;
 use yy_typings::{sprite_yy::script::Script, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Script {
@@ -51,22 +50,15 @@ impl YyResource for Script {
         Ok(())
     }
 
-    // fn serialize_associated_data_into_data(
-    //     &self,
-    //     our_directory: &Path,
-    //     _: Option<&Path>,
-    //     associated_data: Option<&Self::AssociatedData>,
-    // ) -> Result<SerializedData, SerializedDataError> {
-    //     if let Some(data) = associated_data {
-    //         Ok(SerializedData::Value {
-    //             data: data.to_owned(),
-    //         })
-    //     } else {
-    //         let data = self.deserialize_associated_data(Some(our_directory))?;
-
-    //         Ok(SerializedData::Value { data })
-    //     }
-    // }
+    fn serialize_associated_data_into_data(
+        _: &std::path::Path,
+        associated_data: &Self::AssociatedData,
+    ) -> Result<SerializedData, SerializedDataError> {
+        match serde_json::to_string_pretty(associated_data) {
+            Ok(data) => Ok(SerializedData::Value { data }),
+            Err(e) => Err(e.into()),
+        }
+    }
 
     fn cleanup_on_replace(&self, _: &mut Vec<std::path::PathBuf>, _: &mut Vec<std::path::PathBuf>) {
         // not much to clean up here which won't get rewritten by a replace op!

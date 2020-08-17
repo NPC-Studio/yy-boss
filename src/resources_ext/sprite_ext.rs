@@ -337,10 +337,10 @@ impl YyResource for Sprite {
     fn deserialize_associated_data(
         &self,
         incoming_data: AssocDataLocation<'_>,
-        tcu: &TrailingCommaUtility,
+        _: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
         match incoming_data {
-            AssocDataLocation::Value(v) => Err(SerializedDataError::CannotUseValue),
+            AssocDataLocation::Value(_) => Err(SerializedDataError::CannotUseValue),
             AssocDataLocation::Path(p) => {
                 let output = self
                     .frames
@@ -425,47 +425,21 @@ impl YyResource for Sprite {
         Ok(())
     }
 
-    // fn serialize_associated_data_into_data(
-    //     &self,
-    //     our_directory: &Path,
-    //     working_directory: Option<&Path>,
-    //     associated_data: Option<&Self::AssociatedData>,
-    // ) -> Result<SerializedData, SerializedDataError> {
-    //     let working_directory = working_directory
-    //         .ok_or_else(|| SerializedDataError::NoFileMode)?
-    //         .join(self.name());
+    fn serialize_associated_data_into_data(
+        working_directory: &Path,
+        associated_data: &Self::AssociatedData,
+    ) -> Result<SerializedData, SerializedDataError> {
+        for (frame_id, img) in associated_data {
+            let path = working_directory.join(format!("{}.png", frame_id.inner()));
 
-    //     fn perform_serialization(
-    //         data: &HashMap<FrameId, SpriteImageBuffer>,
-    //         working_directory: PathBuf,
-    //     ) -> Result<SerializedData, SerializedDataError> {
-    //         for (frame_id, img) in data {
-    //             let path = working_directory.join(format!("{}.png", frame_id.inner()));
+            img.save(&path)
+                .map_err(SerializedDataError::CouldNotWriteImage)?;
+        }
 
-    //             img.save(&path)
-    //                 .map_err(SerializedDataError::CouldNotWriteImage)?;
-    //         }
-
-    //         Ok(SerializedData::Filepath {
-    //             data: working_directory,
-    //         })
-    //     }
-
-    //     if let Some(data) = associated_data {
-    //         perform_serialization(data, working_directory)
-    //     } else {
-    //         let value: HashMap<FrameId, SpriteImageBuffer> = self
-    //             .deserialize_associated_data(
-    //                 Some(our_directory),
-    //                 SerializedData::Filepath {
-    //                     data: PathBuf::new(),
-    //                 },
-    //             )
-    //             .map_err(|e| SerializedDataError::InnerError(e.to_string()))?;
-
-    //         perform_serialization(&value, working_directory)
-    //     }
-    // }
+        Ok(SerializedData::Filepath {
+            data: working_directory.to_owned(),
+        })
+    }
 
     fn cleanup_on_replace(
         &self,

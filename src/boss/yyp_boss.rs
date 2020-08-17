@@ -16,9 +16,9 @@ pub struct YypBoss {
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
     pub folder_graph_manager: FolderGraphManager,
+    pub tcu: TrailingCommaUtility,
     yyp: Yyp,
     resource_names: HashMap<String, Resource>,
-    tcu: TrailingCommaUtility,
     dirty: bool,
 }
 
@@ -207,7 +207,7 @@ impl YypBoss {
         }
 
         // remove the file from the VFS...
-        // self.folder_graph_manager.remove_resource(name)?;
+        self.folder_graph_manager.remove_resource(name)?;
 
         // remove from our name tracking
         self.remove_yyp_resource(name)?;

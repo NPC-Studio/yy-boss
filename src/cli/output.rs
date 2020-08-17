@@ -1,10 +1,7 @@
 use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yy_boss::{
-    folders::{FolderGraph, FolderGraphError},
-    Resource, SerializedData, SerializedDataError, StartupError,
-};
+use yy_boss::{folders::FolderGraph, ResourceManipulationError, SerializedData, StartupError};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
@@ -68,11 +65,11 @@ impl CommandOutput {
         }
     }
 
-    pub fn ok_datum(resource: SerializedData, associated_data: SerializedData) -> Self {
+    pub fn ok_datum(resource: SerializedData, associated_data: Option<SerializedData>) -> Self {
         Self {
             success: true,
             resource: Some(resource),
-            associated_data: Some(associated_data),
+            associated_data,
             ..Self::default()
         }
     }
@@ -85,6 +82,7 @@ impl CommandOutput {
         }
     }
 
+    #[allow(dead_code)]
     pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
         Self {
             success: true,
@@ -110,61 +108,41 @@ pub enum YypBossError {
     #[error("could not read Command, error: {}", .0)]
     CouldNotReadCommand(String),
 
-    #[error("could not parse Yy File Provided, error: {}", .0)]
-    CouldNotParseYyFile(String),
+    #[error(transparent)]
+    ResourceManipulation(#[from] ResourceManipulationError),
 
-    #[error("could not parse Associated Data Provided, error: {}", .0)]
-    CouldNotParseAssociatedData(String),
+    #[error("could not read yyfile, error: {}", .0)]
+    YyParseError(String),
 
-    #[error("error in the internal virtual file system, {}", .0)]
-    FolderGraphError(#[from] FolderGraphError),
+    #[error("could not read associated data, error: {}", .0)]
+    AssociatedDataParseError(String),
 
-    #[error("bad add command. {} already exists by the name {}", .0, .1)]
-    BadAdd(Resource, String),
-
-    #[error("bad replace command. no resource by the name {} existed", .0)]
-    BadReplace(String),
-
-    #[error("bad remove command. no resource by the name {} existed", .0)]
-    BadRemove(String),
-
-    #[error("bad remove command. no resource the name {} existed", .0)]
-    BadGet(Resource, String),
-
-    #[error("was given a `Data::File` tag, but was not given a working directory on startup. cannot parse")]
-    NoFileMode,
-
-    #[error(
-        "cannot be represented with utf8 encoding; must use `Data::File` or `Data::DefaultValue`"
-    )]
-    CannotUseValue,
-
-    #[error("was given a `Data::File` tag, but path didn't exist, wasn't a file, or couldn't be read. path was {}", .0.to_string_lossy())]
-    BadDataFile(std::path::PathBuf),
+    #[error("could not output data -- operation was SUCCESFUL, but data could not be returned because {}", .0)]
+    CouldNotOutputData(String),
 
     #[error("internal error -- command could not be executed. error is fatal: {}", .0)]
     InternalError(bool),
 }
 
-impl From<SerializedDataError> for YypBossError {
-    fn from(e: SerializedDataError) -> Self {
-        match e {
-            SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
-            SerializedDataError::CouldNotDeserializeFile(fde) => {
-                YypBossError::CouldNotParseYyFile(fde.to_string())
-            }
-            SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
-            SerializedDataError::CouldNotWriteImage(e) => {
-                error!("We couldn't write the image...{}", e);
-                YypBossError::InternalError(false)
-            }
-            SerializedDataError::InnerError(e) => {
-                error!("{}", e);
-                YypBossError::InternalError(false)
-            }
-        }
-    }
-}
+// impl From<SerializedDataError> for YypBossError {
+//     fn from(e: SerializedDataError) -> Self {
+//         match e {
+//             SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
+//             SerializedDataError::CouldNotDeserializeFile(fde) => {
+//                 YypBossError::CouldNotParseYyFile(fde.to_string())
+//             }
+//             SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
+//             SerializedDataError::CouldNotWriteImage(e) => {
+//                 error!("We couldn't write the image...{}", e);
+//                 YypBossError::InternalError(false)
+//             }
+//             SerializedDataError::InnerError(e) => {
+//                 error!("{}", e);
+//                 YypBossError::InternalError(false)
+//             }
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

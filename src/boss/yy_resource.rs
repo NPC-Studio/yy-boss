@@ -1,4 +1,4 @@
-use crate::{utils, FileSerializationError, Resource, YyResourceHandler, YypBoss};
+use crate::{FileSerializationError, Resource, YyResourceHandler, YypBoss};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -67,12 +67,10 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default {
     /// Most resources will immediately return their data by value, but some resources, such
     /// as sprites or sounds, will likely write their files and return the path to the written
     /// audio instead.
-    // fn serialize_associated_data_into_data(
-    //     &self,
-    //     our_directory: &Path,
-    //     working_directory: Option<&Path>,
-    //     associated_data: Option<&Self::AssociatedData>,
-    // ) -> Result<SerializedData, SerializedDataError>;
+    fn serialize_associated_data_into_data(
+        working_directory: &Path,
+        associated_data: &Self::AssociatedData,
+    ) -> Result<SerializedData, SerializedDataError>;
 
     /// This cleans up any associated files which won't get cleaned up in the event of a
     /// REPLACEMENT of this resource. For example, when we replace a sprite_yy file, the old
@@ -123,7 +121,7 @@ pub enum SerializedData {
 
 #[derive(Debug, thiserror::Error)]
 pub enum SerializedDataError {
-    #[error("given a `Data::File` tag, but path didn't exist, wasn't a file, or couldn't be read. path was {}", .0.to_string_lossy())]
+    #[error("given a `SerializedData::File` tag, but path didn't exist, wasn't a file, or couldn't be read. path was {}", .0.to_string_lossy())]
     BadDataFile(std::path::PathBuf),
 
     #[error(transparent)]
@@ -133,7 +131,7 @@ pub enum SerializedDataError {
     CouldNotWriteImage(#[from] image::ImageError),
 
     #[error(
-        "cannot be represented with utf8 encoding; must use `Data::File` or `Data::DefaultValue`"
+        "cannot be represented with utf8 encoding; must use `SerializedData::File` or `SerializedData::DefaultValue`"
     )]
     CannotUseValue,
 
@@ -148,25 +146,11 @@ impl From<serde_json::Error> for SerializedDataError {
 }
 
 impl SerializedData {
-    pub fn read_data_as_file<T>(
-        self,
-        working_directory: &Path,
-        tcu: &TrailingCommaUtility,
-    ) -> Result<T, SerializedDataError>
-    where
-        for<'de> T: serde::Deserialize<'de> + Default,
-    {
+    pub fn as_assoc_data_location(&self) -> AssocDataLocation {
         match self {
-            SerializedData::Value { data } => serde_json::from_str(&data).map_err(|e| {
-                SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Serde(
-                    format!("{:#?}", e),
-                ))
-            }),
-            SerializedData::Filepath { data } => {
-                let path = working_directory.join(data);
-                utils::deserialize_json_tc(&path, tcu).map_err(|e| e.into())
-            }
-            SerializedData::DefaultValue => Ok(T::default()),
+            SerializedData::Value { data } => AssocDataLocation::Value(data),
+            SerializedData::Filepath { data } => AssocDataLocation::Path(data.as_ref()),
+            SerializedData::DefaultValue => AssocDataLocation::Default,
         }
     }
 }

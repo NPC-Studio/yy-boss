@@ -17,7 +17,7 @@ pub enum StartupError {
     BadWorkingDirectoryPath,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Serialize, Deserialize)]
 pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),

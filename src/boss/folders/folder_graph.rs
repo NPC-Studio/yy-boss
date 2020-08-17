@@ -1,6 +1,5 @@
 use super::{FileMember, SubfolderMember};
 use crate::ViewPathLocationExt;
-use maplit::btreemap;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use yy_typings::{ViewPath, ViewPathLocation};

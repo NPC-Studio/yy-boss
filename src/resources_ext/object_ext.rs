@@ -1,6 +1,6 @@
 use crate::{
-    utils, AssocDataLocation, FileSerializationError, Resource, SerializedData,
-    SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+    utils, AssocDataLocation, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
 };
 use std::{
     collections::HashMap,
@@ -58,23 +58,15 @@ impl YyResource for Object {
         Ok(())
     }
 
-    // fn serialize_associated_data_into_data(
-    //     &self,
-    //     our_directory: &Path,
-    //     _: Option<&Path>,
-    //     associated_data: Option<&Self::AssociatedData>,
-    // ) -> Result<SerializedData, SerializedDataError> {
-    //     let data = if let Some(data) = associated_data {
-    //         serde_json::to_string_pretty(data)?
-    //     } else {
-    //         let data =
-    //             self.deserialize_associated_data(AssocDataLocation::Path(our_directory), tcu)?;
-
-    //         serde_json::to_string_pretty(&data)?
-    //     };
-
-    //     Ok(SerializedData::Value { data })
-    // }
+    fn serialize_associated_data_into_data(
+        _: &Path,
+        associated_data: &Self::AssociatedData,
+    ) -> Result<SerializedData, SerializedDataError> {
+        match serde_json::to_string_pretty(associated_data) {
+            Ok(data) => Ok(SerializedData::Value { data }),
+            Err(e) => Err(e.into()),
+        }
+    }
 
     fn cleanup_on_replace(&self, files_to_delete: &mut Vec<PathBuf>, _: &mut Vec<PathBuf>) {
         for event in self.event_list.iter() {
