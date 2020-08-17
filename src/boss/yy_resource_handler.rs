@@ -177,7 +177,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     }
 
     /// Wrapper around inserting the resource into `self.resources`.
-    pub(crate) fn insert_resource(
+    fn insert_resource(
         &mut self,
         value: T,
         associated_data: Option<T::AssociatedData>,

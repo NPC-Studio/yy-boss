@@ -146,7 +146,7 @@ impl From<serde_json::Error> for SerializedDataError {
 }
 
 impl SerializedData {
-    pub fn as_assoc_data_location(&self) -> AssocDataLocation {
+    pub fn as_assoc_data_location(&self) -> AssocDataLocation<'_> {
         match self {
             SerializedData::Value { data } => AssocDataLocation::Value(data),
             SerializedData::Filepath { data } => AssocDataLocation::Path(data.as_ref()),

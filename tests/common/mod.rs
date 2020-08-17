@@ -60,8 +60,8 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
             }
             YypBossNeq::ResourceNames => {
                 assert_eq!(
-                    ours.current_resource_names(),
-                    proof.current_resource_names(),
+                    ours.resource_names.get_all(),
+                    proof.resource_names.get_all(),
                     "target resource names and proof resource names were not equal"
                 );
             }
@@ -93,7 +93,7 @@ fn yypboss_neq(ours: &YypBoss, proof: &YypBoss) -> Result<(), YypBossNeq> {
     }
 
     // Assert our Current Resource names are the same...
-    if ours.current_resource_names() != proof.current_resource_names() {
+    if ours.resource_names.get_all() != proof.resource_names.get_all() {
         return Err(YypBossNeq::ResourceNames);
     }
 

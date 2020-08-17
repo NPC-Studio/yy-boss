@@ -1,5 +1,5 @@
 #![allow(clippy::bool_comparison)]
-
+#![warn(elided_lifetimes_in_paths)]
 mod boss {
     use super::*;
 
@@ -18,6 +18,9 @@ mod boss {
     mod directory_manager;
     pub mod utils;
     pub use utils::{FileSerializationError, SerializationFormat};
+
+    mod resource_names;
+    pub use resource_names::*;
 
     mod errors;
     pub use errors::*;

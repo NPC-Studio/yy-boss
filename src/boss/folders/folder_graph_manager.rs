@@ -1,7 +1,7 @@
 use super::{FileMember, FolderGraph, FolderGraphError, SubfolderMember};
 use crate::{PathStrExt, ViewPathLocationExt};
 use serde::{Deserialize, Serialize};
-use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation};
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, Yyp};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FolderGraphManager {
@@ -128,7 +128,7 @@ impl FolderGraphManager {
         // Create our Path...
         let path = parent_path.path.join(&name);
         subfolder.folders.push(SubfolderMember {
-            child: FolderGraph::new(name.clone(), parent_path.path.clone()),
+            child: FolderGraph::new(name, parent_path.path.clone()),
             order,
         });
 
@@ -255,6 +255,10 @@ impl FolderGraphManager {
         subfolder.files.push(FileMember { child, order });
 
         Ok(order)
+    }
+
+    pub(crate) fn serialize(&self, yyp: &mut Yyp) -> anyhow::Result<bool> {
+        unimplemented!()
     }
 }
 

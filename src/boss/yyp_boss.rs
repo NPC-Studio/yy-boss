@@ -1,11 +1,11 @@
 use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
-    PathStrExt, Resource, ViewPathLocationExt, YyResource, YyResourceHandler, YypSerialization,
+    PathStrExt, Resource, ResourceDescriptor, ResourceNames, ViewPathLocationExt, YyResource,
+    YyResourceData, YyResourceHandler, YypSerialization,
 };
-use crate::YyResourceData;
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
-use std::{collections::HashMap, fs, path::Path};
+use std::{fs, path::Path};
 use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
 
 #[derive(Debug)]
@@ -16,10 +16,9 @@ pub struct YypBoss {
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
     pub folder_graph_manager: FolderGraphManager,
+    pub resource_names: ResourceNames,
     pub tcu: TrailingCommaUtility,
     yyp: Yyp,
-    resource_names: HashMap<String, Resource>,
-    dirty: bool,
 }
 
 impl YypBoss {
@@ -31,9 +30,8 @@ impl YypBoss {
         let directory_manager = DirectoryManager::new(path_to_yyp)?;
 
         let mut yyp_boss = Self {
-            dirty: false,
             folder_graph_manager: FolderGraphManager::new(&yyp.name),
-            resource_names: HashMap::new(),
+            resource_names: ResourceNames::new(),
             tcu,
             sprites: YyResourceHandler::new(),
             scripts: YyResourceHandler::new(),
@@ -75,7 +73,7 @@ impl YypBoss {
         fn load_in_resource<T: YyResource>(
             resource: &mut YyResourceHandler<T>,
             folder_graph: &mut FolderGraphManager,
-            resource_names: &mut HashMap<String, Resource>,
+            resource_names: &mut ResourceNames,
             yyp_resources: &[YypResource],
             directory_manager: &DirectoryManager,
             tcu: &TrailingCommaUtility,
@@ -103,7 +101,10 @@ impl YypBoss {
                 folder.files.sort_unstable_by(FileMember::sort_by_name);
 
                 // add to resource names...
-                resource_names.insert(yy_file.name().to_string(), T::RESOURCE);
+                resource_names.insert(
+                    yy_file.name().to_string(),
+                    ResourceDescriptor::new(T::RESOURCE, yyp_resource.order),
+                );
                 resource.load_on_startup(yy_file);
             }
 
@@ -111,6 +112,7 @@ impl YypBoss {
         }
 
         // Load in our Resources
+        // @update_resource
         load_in_resource(
             &mut yyp_boss.sprites,
             &mut yyp_boss.folder_graph_manager,
@@ -136,9 +138,6 @@ impl YypBoss {
             &yyp_boss.tcu,
         )?;
 
-        // Ensure the directory
-        // Self::ensure_yyboss_data(&yyp_boss.directory_manager)?;
-
         Ok(yyp_boss)
     }
 
@@ -152,21 +151,6 @@ impl YypBoss {
             .map(|texture_group| texture_group.into())
     }
 
-    // /// Creates a texture group with the given name and rename preference.
-    // /// If it does exist, it returns an error.
-    // pub fn create_texture_group(&self) -> Option<TexturePath> {
-    //     self.yyp
-    //         .texture_groups
-    //         .iter()
-    //         .find(|tex| tex.name == "Default")
-    //         .map(|texture_group| texture_group.into())
-    // }
-
-    /// Returns a list of names and resources already being used by the system.
-    pub fn current_resource_names(&self) -> Vec<(String, Resource)> {
-        self.resource_names.clone().into_iter().collect()
-    }
-
     /// Adds a new resource, which must not already exist within the project.
     pub fn add_resource<T: YyResource>(
         &mut self,
@@ -174,15 +158,18 @@ impl YypBoss {
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
         if let Some(r) = self.resource_names.get(yy_file.name()) {
-            return Err(ResourceManipulationError::BadResourceName(*r));
+            return Err(ResourceManipulationError::BadResourceName(r.resource));
         }
 
         let child = FilesystemPath::new(T::SUBPATH_NAME, yy_file.name());
         let order = self
             .folder_graph_manager
-            .new_resource_end(&yy_file.parent_view_path().path, child.clone())?;
+            .new_resource_end(&yy_file.parent_view_path().path, child)?;
 
-        self.add_new_yyp_resource(child, order, T::RESOURCE);
+        self.resource_names.insert(
+            yy_file.name().to_owned(),
+            ResourceDescriptor::new(T::RESOURCE, order),
+        );
         let handler = T::get_handler_mut(self);
 
         if handler.set(yy_file, associated_data).is_some() {
@@ -199,18 +186,18 @@ impl YypBoss {
     ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
         // confirm the resource exists...
         if let Some(v) = self.resource_names.get(name) {
-            if *v != T::RESOURCE {
-                return Err(ResourceManipulationError::BadResourceName(*v));
+            if v.resource != T::RESOURCE {
+                return Err(ResourceManipulationError::BadResourceName(v.resource));
             }
         } else {
             return Err(ResourceManipulationError::NoResourceByThatName);
         }
 
         // remove the file from the VFS...
-        self.folder_graph_manager.remove_resource(name)?;
+        // self.folder_graph_manager.remove_resource(name)?;
 
         // remove from our name tracking
-        self.remove_yyp_resource(name)?;
+        self.resource_names.remove(name);
 
         let handler = T::get_handler_mut(self);
         let tcu = TrailingCommaUtility::new();
@@ -299,7 +286,7 @@ impl YypBoss {
     /// on that resource in the form of the `CreatedResource` token, which can tell the user
     /// the type of resource.
     pub fn get_resource_type(&self, resource_name: &str) -> Option<Resource> {
-        self.resource_names.get(resource_name).cloned()
+        self.resource_names.get(resource_name).map(|v| v.resource)
     }
 
     /// Checks if a resource with a given name exists.
@@ -307,37 +294,21 @@ impl YypBoss {
         self.get_resource_type(resource_name).is_some()
     }
 
-    /// Adds a new Resource to be tracked by the Yyp.
-    fn add_new_yyp_resource(&mut self, id: FilesystemPath, order: usize, resource: Resource) {
-        self.resource_names.insert(id.name.clone(), resource);
-        let new_yyp_resource = YypResource { id, order };
-
-        // Update the Resource
-        self.yyp.resources.push(new_yyp_resource);
-        self.dirty = true;
-    }
-
-    /// Removes the yyp resource.
-    fn remove_yyp_resource(&mut self, name: &str) -> Result<Resource, ResourceManipulationError> {
-        let resource = self
-            .resource_names
-            .remove(name)
-            .ok_or(ResourceManipulationError::NoResourceByThatName)?;
-
-        if let Some(pos) = self.yyp.resources.iter().position(|p| p.id.name == *name) {
-            self.yyp.resources.remove(pos);
-        } else {
-            return Err(ResourceManipulationError::InternalError);
-        }
-
-        self.dirty = true;
-
-        Ok(resource)
-    }
-
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
+        let mut dirty = false;
+
+        // serialize the resource names...
+        dirty |= self.resource_names.serialize(&mut self.yyp)?;
+
+        // serialize the folder graph...
+        dirty |= self.folder_graph_manager.serialize(&mut self.yyp)?;
+
+        // serialize all the whatever
+        // @update_resource
         self.sprites.serialize(&self.directory_manager)?;
+        self.objects.serialize(&self.directory_manager)?;
+        self.scripts.serialize(&self.directory_manager)?;
 
         // serialize the pipeline manifests
         self.pipeline_manager
@@ -345,11 +316,9 @@ impl YypBoss {
             .context("serializing pipelines")?;
 
         // Serialize Ourselves:
-        if self.dirty {
+        if dirty {
             let string = self.yyp.yyp_serialization(0);
             fs::write(&self.directory_manager.yyp(), &string)?;
-
-            self.dirty = false;
         }
 
         Ok(())
