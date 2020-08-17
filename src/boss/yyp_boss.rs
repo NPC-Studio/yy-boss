@@ -296,13 +296,11 @@ impl YypBoss {
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
-        let mut dirty = false;
-
         // serialize the resource names...
-        dirty |= self.resource_names.serialize(&mut self.yyp)?;
+        self.resource_names.serialize(&mut self.yyp);
 
         // serialize the folder graph...
-        dirty |= self.folder_graph_manager.serialize(&mut self.yyp)?;
+        self.folder_graph_manager.serialize(&mut self.yyp);
 
         // serialize all the whatever
         // @update_resource
@@ -316,10 +314,8 @@ impl YypBoss {
             .context("serializing pipelines")?;
 
         // Serialize Ourselves:
-        if dirty {
-            let string = self.yyp.yyp_serialization(0);
-            fs::write(&self.directory_manager.yyp(), &string)?;
-        }
+        let string = self.yyp.yyp_serialization(0);
+        fs::write(&self.directory_manager.yyp(), &string)?;
 
         Ok(())
     }

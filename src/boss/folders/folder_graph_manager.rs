@@ -1,12 +1,15 @@
 use super::{FileMember, FolderGraph, FolderGraphError, SubfolderMember};
 use crate::{PathStrExt, ViewPathLocationExt};
 use serde::{Deserialize, Serialize};
-use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, Yyp};
+use std::collections::HashSet;
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, Yyp, YypFolder};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FolderGraphManager {
     pub(crate) root: FolderGraph,
     root_file_location: ViewPathLocation,
+    folders_to_reserialize: HashSet<ViewPathLocation>,
+    folders_to_remove: HashSet<ViewPathLocation>,
 }
 
 impl FolderGraphManager {
@@ -14,6 +17,8 @@ impl FolderGraphManager {
         FolderGraphManager {
             root: FolderGraph::root(),
             root_file_location: ViewPathLocation::root_file(yyp_name),
+            folders_to_reserialize: HashSet::new(),
+            folders_to_remove: HashSet::new(),
         }
     }
 
@@ -128,19 +133,14 @@ impl FolderGraphManager {
         // Create our Path...
         let path = parent_path.path.join(&name);
         subfolder.folders.push(SubfolderMember {
-            child: FolderGraph::new(name, parent_path.path.clone()),
+            child: FolderGraph::new(name.clone(), parent_path.path.clone()),
             order,
         });
 
-        unimplemented!();
-
-        // self.yyp.folders.push(YypFolder {
-        //     folder_path: path.clone(),
-        //     order,
-        //     name: name.clone(),
-        //     ..YypFolder::default()
-        // });
-        // self.dirty = true;
+        // reserialize it
+        self.folders_to_reserialize.insert(path.clone());
+        // just in case...
+        self.folders_to_remove.remove(&path);
 
         Ok(ViewPath { path, name })
     }
@@ -257,8 +257,26 @@ impl FolderGraphManager {
         Ok(order)
     }
 
-    pub(crate) fn serialize(&self, yyp: &mut Yyp) -> anyhow::Result<bool> {
-        unimplemented!()
+    pub(crate) fn serialize(&mut self, yyp: &mut Yyp) {
+        for reserialize in self.folders_to_reserialize.drain() {
+            let folder_data = self
+                .get_folder(&reserialize)
+                .expect("always internally consistent");
+
+            if let Some(pos) = yyp
+                .folders
+                .iter()
+                .position(|v| v.folder_path == reserialize)
+            {
+                yyp.folders[pos] = YypFolder {
+                    folder_path: reserialize,
+                    order: (),
+                    name: (),
+                    ..Default::default()
+                };
+            } else {
+            }
+        }
     }
 }
 
