@@ -18,7 +18,6 @@ impl Files {
     pub fn load_in<T: YyResource>(&mut self, yy: &T, order: usize, rn: &mut ResourceNames) {
         self.0
             .push(FilesystemPath::new(T::SUBPATH_NAME, &yy.name()));
-        self.0.sort_unstable();
 
         // add to resource names...
         rn.load_in_resource(
@@ -30,7 +29,6 @@ impl Files {
     pub fn add<T: YyResource>(&mut self, yy: &T, order: usize, rn: &mut ResourceNames) {
         self.0
             .push(FilesystemPath::new(T::SUBPATH_NAME, &yy.name()));
-        self.0.sort_unstable();
 
         // add to resource names...
         rn.insert(
