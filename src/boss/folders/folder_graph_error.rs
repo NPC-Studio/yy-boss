@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum FolderGraphError {
     #[error("path {} was not found", .0)]
     PathNotFound(String),
@@ -11,8 +11,8 @@ pub enum FolderGraphError {
     #[error("file already existed at that location")]
     FileAlreadyPresent,
 
-    #[error("foldergraph is out of sync with internal Yyp -- yypboss is in undefined state")]
-    InternalError,
+    #[error("foldergraph is out of sync with internal Yyp -- yypboss is in undefined state. data {}", .0)]
+    InternalError(String),
 
     #[error("couldn't remove folder, not empty")]
     CannotRemoveFolder,

@@ -26,6 +26,8 @@ mod boss {
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
     pub mod folders {
+        use super::utils;
+        
         mod folder_graph;
         pub use folder_graph::*;
 

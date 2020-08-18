@@ -17,6 +17,12 @@ pub enum SerializationFormat {
     Yaml,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub enum DirtyState {
+    Edit,
+    Lifetime,
+}
+
 impl SerializationFormat {
     pub fn file_ending(&self) -> &'static str {
         match self {

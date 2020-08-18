@@ -1,6 +1,6 @@
-use super::{Files, FolderGraph, FolderGraphError, ResourceNames};
+use super::{utils::DirtyState, Files, FolderGraph, FolderGraphError, ResourceNames};
 use crate::{PathStrExt, Resource, ViewPathLocationExt, YyResource};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
 
 static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPath> =
@@ -14,8 +14,8 @@ pub struct Vfs {
     pub resource_names: ResourceNames,
     root: FolderGraph,
     root_resource: ViewPath,
-    folders_to_reserialize: HashSet<ViewPathLocation>,
-    folders_to_remove: HashSet<ViewPathLocation>,
+    to_serialize: HashMap<ViewPathLocation, DirtyState>,
+    to_remove: HashMap<ViewPathLocation, DirtyState>,
 }
 
 impl Vfs {
@@ -27,8 +27,8 @@ impl Vfs {
                 path: ViewPathLocation::root_file(yyp_name),
             },
             resource_names: ResourceNames::new(),
-            folders_to_reserialize: HashSet::new(),
-            folders_to_remove: HashSet::new(),
+            to_serialize: HashMap::new(),
+            to_remove: HashMap::new(),
         }
     }
 
@@ -126,11 +126,15 @@ impl Vfs {
 
     /// Gets a folder by the given ViewPathLocation.
     /// If a folder does not exist, or if the path points to a file, None will be returned.
-    pub fn get_folder(&self, view_path: &ViewPathLocation) -> Option<&FolderGraph> {
-        if *view_path == self.root_resource.path {
-            Some(&self.root)
+    pub fn get_folder<'a>(
+        root: &'a FolderGraph,
+        view_path: &ViewPathLocation,
+        root_view: &ViewPathLocation,
+    ) -> Option<&'a FolderGraph> {
+        if view_path == root_view {
+            Some(root)
         } else {
-            let mut folder = &self.root;
+            let mut folder = root;
             let mut used_root = true;
 
             for path in view_path.component_paths() {
@@ -203,10 +207,10 @@ impl Vfs {
     ///
     /// `add_folder_to_end` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
     /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    pub fn new_folder_end(
+    pub fn new_folder_end<S: AsRef<str>>(
         &mut self,
         parent_path: &ViewPath,
-        name: String,
+        name: S,
     ) -> Result<ViewPath, FolderGraphError> {
         let subfolder =
             Self::get_folder_mut(&mut self.root, &parent_path.path, &Self::root_folder().path)
@@ -215,7 +219,7 @@ impl Vfs {
                 })?;
 
         // Don't add a new folder with the same name...
-        if subfolder.folders.iter().any(|f| f.name == name) {
+        if subfolder.folders.iter().any(|f| f.name == name.as_ref()) {
             return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
@@ -226,20 +230,29 @@ impl Vfs {
             .unwrap_or_default();
 
         // Create our Path...
-        let path = parent_path.path.join(&name);
+        let path = parent_path.path.join(name.as_ref());
         subfolder.folders.push(FolderGraph::new(
-            name.clone(),
+            name.as_ref().to_owned(),
             parent_path.path.clone(),
             vec![],
             order,
         ));
 
         // reserialize it
-        self.folders_to_reserialize.insert(path.clone());
-        // just in case...
-        self.folders_to_remove.remove(&path);
+        match self.to_remove.remove(&path) {
+            Some(DirtyState::Lifetime) => {}
+            Some(DirtyState::Edit) => {
+                self.to_serialize.insert(path.clone(), DirtyState::Edit);
+            }
+            None => {
+                self.to_serialize.insert(path.clone(), DirtyState::Lifetime);
+            }
+        };
 
-        Ok(ViewPath { path, name })
+        Ok(ViewPath {
+            path,
+            name: name.as_ref().to_owned(),
+        })
     }
 
     /// Removes an empty folder from the virtual file system. If *anything* is within this folder, it will not be deleted,
@@ -272,11 +285,18 @@ impl Vfs {
             let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
             parent.folders.remove(pos);
 
-            if self.folders_to_reserialize.contains(folder_path) {
-                
-            } else {
-                self.folders_to_remove.insert(folder_path.clone());
-            }
+            // add to our whatever...
+            match self.to_serialize.remove(folder_path) {
+                Some(DirtyState::Lifetime) => {}
+                Some(DirtyState::Edit) => {
+                    self.to_remove
+                        .insert(folder_path.to_owned(), DirtyState::Edit);
+                }
+                None => {
+                    self.to_remove
+                        .insert(folder_path.to_owned(), DirtyState::Lifetime);
+                }
+            };
 
             Ok(())
         } else {
@@ -427,11 +447,11 @@ impl Vfs {
         yyp_folders: &mut Vec<YypFolder>,
         yyp_resources: &mut Vec<YypResource>,
     ) {
-        // folder graph...
-        for reserialize in self.folders_to_reserialize.iter() {
-            let folder_data = self
-                .get_folder(&reserialize)
-                .expect("always internally consistent");
+        // refry the beans...
+        for (reserialize, state) in self.to_serialize.drain() {
+            let folder_data =
+                Self::get_folder(&self.root, &reserialize, &ROOT_FOLDER_VIEW_PATH.path)
+                    .expect("always internally consistent");
 
             let output = YypFolder {
                 folder_path: reserialize.clone(),
@@ -441,24 +461,28 @@ impl Vfs {
                 ..Default::default()
             };
 
-            if let Some(pos) = yyp_folders
-                .iter()
-                .position(|v| v.folder_path == *reserialize)
-            {
-                yyp_folders[pos] = output;
-            } else {
-                yyp_folders.push(output);
+            match state {
+                DirtyState::Edit => {
+                    let pos = yyp_folders
+                        .iter()
+                        .position(|v| v.folder_path == reserialize)
+                        .expect("must exist for edits");
+
+                    yyp_folders[pos] = output;
+                }
+                DirtyState::Lifetime => {
+                    yyp_folders.push(output);
+                }
             }
         }
-        self.folders_to_reserialize.clear();
 
-        for remove_path in self.folders_to_remove.drain() {
-            if let Some(pos) = yyp_folders
+        // remove the excess beans...
+        for (remove_path, _) in self.to_remove.drain() {
+            let pos = yyp_folders
                 .iter()
                 .position(|v| v.folder_path == remove_path)
-            {
-                yyp_folders.remove(pos);
-            }
+                .expect("must exist to remove it");
+            yyp_folders.remove(pos);
         }
 
         // resource names...
@@ -470,12 +494,11 @@ impl Vfs {
 mod test {
     use super::*;
     use pretty_assertions::assert_eq;
+    use std::collections::HashSet;
     #[test]
-    fn folder_root() {
+    fn folder_manipulations() {
         let mut fgm = Vfs::new("project");
-        let new_folder = fgm
-            .new_folder_end(Vfs::root_folder(), "Sprites".to_owned())
-            .unwrap();
+        let new_folder = fgm.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
 
         let root = FolderGraph {
             name: "folders".to_string(),
@@ -487,7 +510,7 @@ mod test {
                 order: 0,
                 folders: vec![],
                 files: Files::new(),
-                path_to_parent: Some(ViewPathLocation("folders".to_string())),
+                path_to_parent: Some(ViewPathLocation::new("folders")),
                 tags: vec![],
             }],
             tags: vec![],
@@ -499,39 +522,89 @@ mod test {
                 name: "project".to_string(),
                 path: ViewPathLocation::root_file("project"),
             },
-            folders_to_reserialize: maplit::hashset! {
-                ViewPathLocation("folders/Sprites.yy".to_string())
+            to_serialize: maplit::hashmap! {
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime
             },
-            folders_to_remove: HashSet::new(),
+            to_remove: HashMap::new(),
             resource_names: ResourceNames::new(),
         };
         assert_eq!(fgm, proof);
 
         fgm.remove_folder(&new_folder.path).unwrap();
-        proof.folders_to_reserialize = HashSet::new();
+        proof.to_serialize = HashMap::new();
         proof.root.folders.clear();
-
         assert_eq!(fgm, proof);
+
+        // bit of nesting...
+        let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
+        let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
+        proof.to_serialize = maplit::hashmap! {
+            ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime,
+            ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::Lifetime,
+        };
+        proof.root.folders = vec![FolderGraph {
+            name: "Sprites".to_string(),
+            path_to_parent: Some(ViewPathLocation::new("folders")),
+            tags: vec![],
+            order: 0,
+            folders: vec![FolderGraph {
+                name: "Npcs".to_string(),
+                path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy")),
+                tags: vec![],
+                order: 0,
+                folders: vec![],
+                files: Files::new(),
+            }],
+            files: Files::new(),
+        }];
+        assert_eq!(fgm, proof);
+
+        // removal test...
+        assert_eq!(
+            fgm.remove_folder(&new_folder.path),
+            Err(FolderGraphError::CannotRemoveFolder)
+        );
+        fgm.remove_folder(&subfolder.path).unwrap();
+        fgm.remove_folder(&new_folder.path).unwrap();
+        assert_eq!(fgm.to_remove, HashMap::new());
+        assert_eq!(fgm.to_serialize, HashMap::new());
+
+        // add and then check removal...
+        let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
+        let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
+
+        let mut dummy0 = vec![];
+        let mut dummy1 = vec![];
+        fgm.serialize(&mut dummy0, &mut dummy1);
+
+        assert_eq!(
+            dummy0.into_iter().collect::<HashSet<_>>(),
+            maplit::hashset![
+                YypFolder {
+                    folder_path: ViewPathLocation::new("folders/Sprites.yy"),
+                    order: 0,
+                    name: "Sprites".to_string(),
+                    ..Default::default()
+                },
+                YypFolder {
+                    folder_path: ViewPathLocation::new("folders/Sprites/Npcs.yy"),
+                    order: 0,
+                    name: "Npcs".to_string(),
+                    ..Default::default()
+                }
+            ]
+        );
+        assert_eq!(dummy1, vec![]);
+
+        fgm.remove_folder(&subfolder.path).unwrap();
+        fgm.remove_folder(&new_folder.path).unwrap();
+        assert_eq!(
+            fgm.to_remove,
+            maplit::hashmap! {
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime,
+                ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::Lifetime,
+            }
+        );
+        assert_eq!(fgm.to_serialize, HashMap::new());
     }
-
-    // #[test]
-    // fn folder_add_nonroot() {
-    //     let mut basic_yyp_boss = common::setup_blank_project().unwrap();
-    //     let proof = common::load_proof("folder_add_nonroot").unwrap();
-
-    //     common::assert_yypboss_neq(&basic_yyp_boss, &proof);
-
-    //     let parent_folder = basic_yyp_boss
-    //         .new_folder_end(&YypBoss::root_folder(), "First Folder".to_string())
-    //         .unwrap();
-
-    //     basic_yyp_boss
-    //         .new_folder_end(&parent_folder, "Subfolder".to_string())
-    //         .unwrap();
-
-    //     common::assert_yypboss_eq(&basic_yyp_boss, &proof);
-    // }
-
-    // #[test]
-    // fn delete_folder_recursively() {}
 }
