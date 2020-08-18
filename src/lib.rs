@@ -32,8 +32,8 @@ mod boss {
         mod folder_graph_error;
         pub use folder_graph_error::*;
 
-        mod folder_graph_manager;
-        pub use folder_graph_manager::*;
+        mod vfs;
+        pub use vfs::*;
 
         mod resource_names;
         pub use resource_names::*;

@@ -14,6 +14,9 @@ pub enum FolderGraphError {
     #[error("foldergraph is out of sync with internal Yyp -- yypboss is in undefined state")]
     InternalError,
 
-    #[error("couldn't remove folder, given file")]
-    BadRemove,
+    #[error("couldn't remove folder, not empty")]
+    CannotRemoveFolder,
+
+    #[error("cannot remove the root folder, why are you doing that don't do that come on now")]
+    CannotRemoveRootFolder,
 }

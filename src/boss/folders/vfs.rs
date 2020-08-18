@@ -242,6 +242,48 @@ impl Vfs {
         Ok(ViewPath { path, name })
     }
 
+    /// Removes an empty folder from the virtual file system. If *anything* is within this folder, it will not be deleted,
+    /// including other empty folders.
+    ///
+    /// ```
+    ///
+    ///
+    /// ```
+    pub fn remove_folder(
+        &mut self,
+        folder_path: &ViewPathLocation,
+    ) -> Result<(), FolderGraphError> {
+        let subfolder =
+            Self::get_folder_mut(&mut self.root, &folder_path, &Self::root_folder().path)
+                .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
+
+        if subfolder.files.is_empty() == false || subfolder.folders.is_empty() == false {
+            return Err(FolderGraphError::CannotRemoveFolder);
+        }
+
+        let name = subfolder.name.clone();
+        if let Some(parent_path) = subfolder.path_to_parent.clone() {
+            let parent =
+                Self::get_folder_mut(&mut self.root, &parent_path, &Self::root_folder().path)
+                    .ok_or_else(|| {
+                        FolderGraphError::PathNotFound(folder_path.inner().to_string())
+                    })?;
+
+            let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
+            parent.folders.remove(pos);
+
+            if self.folders_to_reserialize.contains(folder_path) {
+                
+            } else {
+                self.folders_to_remove.insert(folder_path.clone());
+            }
+
+            Ok(())
+        } else {
+            Err(FolderGraphError::CannotRemoveRootFolder)
+        }
+    }
+
     /// Checks if a resource with a given name exists. If it does, it will return information
     /// on that resource in the form of the `CreatedResource` token, which can tell the user
     /// the type of resource.
@@ -429,9 +471,10 @@ mod test {
     use super::*;
     use pretty_assertions::assert_eq;
     #[test]
-    fn folder_add_root() {
+    fn folder_root() {
         let mut fgm = Vfs::new("project");
-        fgm.new_folder_end(Vfs::root_folder(), "Sprites".to_owned())
+        let new_folder = fgm
+            .new_folder_end(Vfs::root_folder(), "Sprites".to_owned())
             .unwrap();
 
         let root = FolderGraph {
@@ -450,7 +493,7 @@ mod test {
             tags: vec![],
         };
 
-        let proof = Vfs {
+        let mut proof = Vfs {
             root,
             root_resource: ViewPath {
                 name: "project".to_string(),
@@ -462,10 +505,13 @@ mod test {
             folders_to_remove: HashSet::new(),
             resource_names: ResourceNames::new(),
         };
-
         assert_eq!(fgm, proof);
 
-        // common::assert_yypboss_eq(&basic_yyp_boss, &proof);
+        fgm.remove_folder(&new_folder.path).unwrap();
+        proof.folders_to_reserialize = HashSet::new();
+        proof.root.folders.clear();
+
+        assert_eq!(fgm, proof);
     }
 
     // #[test]
