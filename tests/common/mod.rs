@@ -1,14 +1,43 @@
 use pretty_assertions::assert_eq;
-use std::path::Path;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
+use uuid::Uuid;
 use yy_boss::{StartupError, YypBoss};
 
 #[allow(dead_code)]
-const PATH_TO_TEST_PROJ: &str = "tests/examples/test_proj/test_proj.yyp";
+const PATH_TO_TEST_PROJ: &str = "tests/examples/test_proj";
 
 #[allow(dead_code)]
-pub fn setup_blank_project() -> Result<YypBoss, StartupError> {
-    YypBoss::new(Path::new(PATH_TO_TEST_PROJ))
+const TEST_PROJECT_NAME: &str = "test_proj.yyp";
+
+#[allow(dead_code)]
+const WORKING_DIR: &str = "tests/working_dir";
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[must_use = "clean up the resulting directories"]
+pub struct CleanUpToken(Uuid);
+
+impl CleanUpToken {
+    #[allow(dead_code)]
+    pub fn dispose(self) {
+        std::fs::remove_dir_all(Path::new(WORKING_DIR).join(self.0.to_string())).unwrap();
+    }
+}
+
+#[allow(dead_code)]
+pub fn setup_blank_project() -> (YypBoss, CleanUpToken) {
+    let subdir = Uuid::new_v4();
+    let path = Path::new(WORKING_DIR).join(subdir.to_string());
+    let token = CleanUpToken(subdir);
+
+    println!("Working Dir is {}", subdir);
+
+    copy_dir_r(PATH_TO_TEST_PROJ, &path).unwrap();
+
+    (YypBoss::new(path.join(TEST_PROJECT_NAME)).unwrap(), token)
 }
 
 /// Loads a yyp boss by the name of the Proof. It must have a YYP of the same name
@@ -54,14 +83,14 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                 );
             }
             YypBossNeq::FolderGraph => {
-                println!("target: {:#?}", ours.folder_graph_manager.get_root_folder());
-                println!("proof: {:#?}", proof.folder_graph_manager.get_root_folder());
+                println!("target: {:#?}", ours.vfs.get_root_folder());
+                println!("proof: {:#?}", proof.vfs.get_root_folder());
                 panic!("target folder graph and proof folder graph were not equal");
             }
             YypBossNeq::ResourceNames => {
                 assert_eq!(
-                    ours.resource_names.get_all(),
-                    proof.resource_names.get_all(),
+                    ours.vfs.resource_names.get_all(),
+                    proof.vfs.resource_names.get_all(),
                     "target resource names and proof resource names were not equal"
                 );
             }
@@ -88,12 +117,12 @@ fn yypboss_neq(ours: &YypBoss, proof: &YypBoss) -> Result<(), YypBossNeq> {
     }
 
     // Assert our Folder Graphs are the same...
-    if ours.folder_graph_manager.get_root_folder() != proof.folder_graph_manager.get_root_folder() {
+    if ours.vfs.get_root_folder() != proof.vfs.get_root_folder() {
         return Err(YypBossNeq::FolderGraph);
     }
 
     // Assert our Current Resource names are the same...
-    if ours.resource_names.get_all() != proof.resource_names.get_all() {
+    if ours.vfs.resource_names.get_all() != proof.vfs.resource_names.get_all() {
         return Err(YypBossNeq::ResourceNames);
     }
 
@@ -108,4 +137,47 @@ enum YypBossNeq {
     FolderGraph,
     #[error("the resource names are not the same")]
     ResourceNames,
+}
+
+fn copy_dir_r<U: AsRef<Path>, V: AsRef<Path>>(from: U, to: V) -> Result<(), std::io::Error> {
+    let mut stack = Vec::new();
+    stack.push(PathBuf::from(from.as_ref()));
+
+    let output_root = PathBuf::from(to.as_ref());
+    let input_root = PathBuf::from(from.as_ref()).components().count();
+
+    while let Some(working_path) = stack.pop() {
+        // Generate a relative path
+        let src: PathBuf = working_path.components().skip(input_root).collect();
+
+        // Create a destination if missing
+        let dest = if src.components().count() == 0 {
+            output_root.clone()
+        } else {
+            output_root.join(&src)
+        };
+        if fs::metadata(&dest).is_err() {
+            fs::create_dir_all(&dest)?;
+        }
+
+        for entry in fs::read_dir(working_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                match path.file_name() {
+                    Some(filename) => {
+                        let dest_path = dest.join(filename);
+                        fs::copy(&path, &dest_path)?;
+                    }
+                    None => {
+                        println!("failed: {:?}", path);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

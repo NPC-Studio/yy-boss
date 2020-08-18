@@ -109,8 +109,8 @@ where
     Ok(data)
 }
 
-pub fn deserialize_json_tc<T>(
-    path: &Path,
+pub fn deserialize_json_tc<T, P: AsRef<Path>>(
+    path: P,
     tcu: &TrailingCommaUtility,
 ) -> Result<T, FileSerializationError>
 where

@@ -1,7 +1,6 @@
 use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
-    PathStrExt, Resource, ResourceDescriptor, ResourceNames, ViewPathLocationExt, YyResource,
-    YyResourceData, YyResourceHandler, YypSerialization,
+    YyResource, YyResourceData, YyResourceHandler, YypSerialization,
 };
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
@@ -15,23 +14,21 @@ pub struct YypBoss {
     pub sprites: YyResourceHandler<Sprite>,
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
-    pub folder_graph_manager: FolderGraphManager,
-    pub resource_names: ResourceNames,
+    pub vfs: Vfs,
     pub tcu: TrailingCommaUtility,
     yyp: Yyp,
 }
 
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
-    pub fn new(path_to_yyp: &Path) -> Result<YypBoss, StartupError> {
+    pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
         let tcu = TrailingCommaUtility::new();
-        let yyp: Yyp = utils::deserialize_json_tc(path_to_yyp, &tcu)?;
+        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &tcu)?;
 
-        let directory_manager = DirectoryManager::new(path_to_yyp)?;
+        let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 
         let mut yyp_boss = Self {
-            folder_graph_manager: FolderGraphManager::new(&yyp.name),
-            resource_names: ResourceNames::new(),
+            vfs: Vfs::new(&yyp.name),
             tcu,
             sprites: YyResourceHandler::new(),
             scripts: YyResourceHandler::new(),
@@ -42,38 +39,11 @@ impl YypBoss {
         };
 
         // Load in Folders
-        for new_folder in yyp_boss.yyp.folders.iter() {
-            let mut folder_graph = &mut yyp_boss.folder_graph_manager.root;
-
-            for section in new_folder.folder_path.component_paths() {
-                let parent_path = folder_graph.view_path_location();
-                let section = section.trim_yy().to_owned();
-
-                // find or insert the new folder...
-                if folder_graph.folders.iter().any(|f| f.child.name == section) == false {
-                    folder_graph.folders.push(SubfolderMember {
-                        child: FolderGraph::new(section.clone(), parent_path),
-                        order: new_folder.order,
-                    });
-
-                    folder_graph
-                        .folders
-                        .sort_unstable_by(SubfolderMember::sort_by_name);
-                }
-
-                folder_graph = &mut folder_graph
-                    .folders
-                    .iter_mut()
-                    .find(|f| f.child.name == section)
-                    .unwrap()
-                    .child;
-            }
-        }
+        yyp_boss.vfs.load_in_folders(&yyp_boss.yyp.folders);
 
         fn load_in_resource<T: YyResource>(
             resource: &mut YyResourceHandler<T>,
-            folder_graph: &mut FolderGraphManager,
-            resource_names: &mut ResourceNames,
+            folder_graph: &mut Vfs,
             yyp_resources: &[YypResource],
             directory_manager: &DirectoryManager,
             tcu: &TrailingCommaUtility,
@@ -88,23 +58,7 @@ impl YypBoss {
 
                 let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &tcu)?;
 
-                // Add to the folder graph
-                let folder = folder_graph
-                    .get_folder_mut(&yy_file.parent_view_path().path)
-                    .ok_or(FolderGraphError::PathNotFound)?;
-
-                // add and sort
-                folder.files.push(FileMember {
-                    child: FilesystemPath::new(T::SUBPATH_NAME, &yy_file.name()),
-                    order: yyp_resource.order,
-                });
-                folder.files.sort_unstable_by(FileMember::sort_by_name);
-
-                // add to resource names...
-                resource_names.insert(
-                    yy_file.name().to_string(),
-                    ResourceDescriptor::new(T::RESOURCE, yyp_resource.order),
-                );
+                folder_graph.load_in_file(&yy_file, yyp_resource.order)?;
                 resource.load_on_startup(yy_file);
             }
 
@@ -115,24 +69,21 @@ impl YypBoss {
         // @update_resource
         load_in_resource(
             &mut yyp_boss.sprites,
-            &mut yyp_boss.folder_graph_manager,
-            &mut yyp_boss.resource_names,
+            &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
             &yyp_boss.tcu,
         )?;
         load_in_resource(
             &mut yyp_boss.scripts,
-            &mut yyp_boss.folder_graph_manager,
-            &mut yyp_boss.resource_names,
+            &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
             &yyp_boss.tcu,
         )?;
         load_in_resource(
             &mut yyp_boss.objects,
-            &mut yyp_boss.folder_graph_manager,
-            &mut yyp_boss.resource_names,
+            &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
             &yyp_boss.tcu,
@@ -157,19 +108,12 @@ impl YypBoss {
         yy_file: T,
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
-        if let Some(r) = self.resource_names.get(yy_file.name()) {
+        if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
             return Err(ResourceManipulationError::BadResourceName(r.resource));
         }
 
-        let child = FilesystemPath::new(T::SUBPATH_NAME, yy_file.name());
-        let order = self
-            .folder_graph_manager
-            .new_resource_end(&yy_file.parent_view_path().path, child)?;
+        self.vfs.new_resource_end(&yy_file)?;
 
-        self.resource_names.insert(
-            yy_file.name().to_owned(),
-            ResourceDescriptor::new(T::RESOURCE, order),
-        );
         let handler = T::get_handler_mut(self);
 
         if handler.set(yy_file, associated_data).is_some() {
@@ -185,7 +129,7 @@ impl YypBoss {
         name: &str,
     ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
         // confirm the resource exists...
-        if let Some(v) = self.resource_names.get(name) {
+        if let Some(v) = self.vfs.resource_names.get(name) {
             if v.resource != T::RESOURCE {
                 return Err(ResourceManipulationError::BadResourceName(v.resource));
             }
@@ -194,10 +138,7 @@ impl YypBoss {
         }
 
         // remove the file from the VFS...
-        // self.folder_graph_manager.remove_resource(name)?;
-
-        // remove from our name tracking
-        self.resource_names.remove(name);
+        self.vfs.remove_resource(name);
 
         let handler = T::get_handler_mut(self);
         let tcu = TrailingCommaUtility::new();
@@ -282,25 +223,11 @@ impl YypBoss {
         handler.get(name)
     }
 
-    /// Checks if a resource with a given name exists. If it does, it will return information
-    /// on that resource in the form of the `CreatedResource` token, which can tell the user
-    /// the type of resource.
-    pub fn get_resource_type(&self, resource_name: &str) -> Option<Resource> {
-        self.resource_names.get(resource_name).map(|v| v.resource)
-    }
-
-    /// Checks if a resource with a given name exists.
-    pub fn resource_exists(&self, resource_name: &str) -> bool {
-        self.get_resource_type(resource_name).is_some()
-    }
-
     /// Serializes the YypBoss data to disk at the path of the Yyp.
     pub fn serialize(&mut self) -> AnyResult<()> {
-        // serialize the resource names...
-        self.resource_names.serialize(&mut self.yyp);
-
-        // serialize the folder graph...
-        self.folder_graph_manager.serialize(&mut self.yyp);
+        // serialize the vfs
+        self.vfs
+            .serialize(&mut self.yyp.folders, &mut self.yyp.resources);
 
         // serialize all the whatever
         // @update_resource
@@ -319,54 +246,7 @@ impl YypBoss {
 
         Ok(())
     }
-}
 
-impl YypBoss {
-    /// The root path for a folder at the root of a project.
-    ///
-    /// Gms2 projects have historically had immutable folders at the top of a project's
-    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
-    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
-    /// Yyp, so it is now possible for any folder to be at the root of the project.
-    ///
-    /// This function returns the "root" folder of the project -- it does not actually exist in
-    /// the project in any way, but you can use it to build top level folders.
-    ///
-    /// ```no_run
-    /// # use yy_boss::YypBoss;
-    /// # let mut basic_yyp_boss = YypBoss::new(std::path::Path::new("")).unwrap();
-    /// basic_yyp_boss
-    ///    .new_folder_end(&YypBoss::root_folder(), "New Folder at Root".to_string())
-    ///    .unwrap();
-    /// ```
-    /// The above code generates a new folder from the root folder called "New Folder at Root".
-    /// As an example, if, like many projects, the top level folders are named after resources,
-    /// such as "Sprite" or "Object", then "New Folder at Root" will be at the same level as those folders.
-    pub fn root_folder() -> ViewPath {
-        ViewPath {
-            name: "folders".to_string(),
-            path: ViewPathLocation::root_folder(),
-        }
-    }
-
-    /// The root path for a file at the root of the project.
-    ///
-    /// Gms2 projects have historically had immutable folders at the top of a project's
-    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
-    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
-    /// Yyp, so it is now possible for a Resource to be at the root of a project.
-    ///
-    /// In that case, this function gives the path that resource will have. Note that this path
-    /// is odd, and is not build into any other paths.
-    pub fn root_resource(&self) -> ViewPath {
-        ViewPath {
-            name: self.yyp.name.to_string(),
-            path: ViewPathLocation::root_file(&self.yyp.name),
-        }
-    }
-
-    /// Shows the underlying Yyp. This is exposed mostly
-    /// for integration tests.
     pub fn yyp(&self) -> &Yyp {
         &self.yyp
     }
@@ -380,8 +260,6 @@ impl Into<Yyp> for YypBoss {
 
 impl PartialEq for YypBoss {
     fn eq(&self, other: &Self) -> bool {
-        self.yyp == other.yyp
-            && self.folder_graph_manager == other.folder_graph_manager
-            && self.resource_names == other.resource_names
+        self.yyp == other.yyp && self.vfs == other.vfs
     }
 }

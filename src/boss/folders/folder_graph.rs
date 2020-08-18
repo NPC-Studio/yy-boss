@@ -1,26 +1,17 @@
-use super::{FileMember, SubfolderMember};
+use super::Files;
 use crate::ViewPathLocationExt;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use yy_typings::{ViewPath, ViewPathLocation};
+use yy_typings::{Tags, ViewPath, ViewPathLocation};
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPathLocation>,
-    pub files: Vec<FileMember>,
-    pub folders: Vec<SubfolderMember>,
-}
-
-impl Default for FolderGraph {
-    fn default() -> Self {
-        FolderGraph {
-            name: String::new(),
-            path_to_parent: None,
-            files: vec![],
-            folders: vec![],
-        }
-    }
+    pub tags: Tags,
+    pub order: usize,
+    pub folders: Vec<FolderGraph>,
+    pub files: Files,
 }
 
 impl PartialEq for FolderGraph {
@@ -39,15 +30,22 @@ impl FolderGraph {
     pub(super) fn root() -> FolderGraph {
         FolderGraph {
             name: "folders".to_string(),
-            ..FolderGraph::default()
+            order: 0,
+            path_to_parent: None,
+            files: Files::new(),
+            folders: vec![],
+            tags: vec![],
         }
     }
 
-    pub fn new(name: String, parent: ViewPathLocation) -> FolderGraph {
+    pub fn new(name: String, parent: ViewPathLocation, tags: Tags, order: usize) -> FolderGraph {
         FolderGraph {
             name,
             path_to_parent: Some(parent),
-            ..FolderGraph::default()
+            tags,
+            order,
+            files: Files::new(),
+            folders: vec![],
         }
     }
 
@@ -74,12 +72,12 @@ impl FolderGraph {
         &'a mut self,
         name: &str,
     ) -> Option<&'a mut FolderGraph> {
-        if self.files.iter().any(|f| f.child.name == *name) {
+        if self.files.contains_name(name) {
             return Some(self);
         }
 
         for subfolder in self.folders.iter_mut() {
-            if let Some(found) = subfolder.child.get_folder_by_fname_mut(name) {
+            if let Some(found) = subfolder.get_folder_by_fname_mut(name) {
                 return Some(found);
             }
         }
@@ -88,12 +86,12 @@ impl FolderGraph {
     }
 
     pub(super) fn get_folder_by_fname<'a>(&'a self, name: &str) -> Option<&'a FolderGraph> {
-        if self.files.iter().any(|f| f.child.name == *name) {
+        if self.files.contains_name(name) {
             return Some(self);
         }
 
         for subfolder in self.folders.iter() {
-            if let Some(found) = subfolder.child.get_folder_by_fname(name) {
+            if let Some(found) = subfolder.get_folder_by_fname(name) {
                 return Some(found);
             }
         }

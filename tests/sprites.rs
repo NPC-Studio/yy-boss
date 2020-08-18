@@ -1,10 +1,11 @@
 use maplit::hashmap;
 use pretty_assertions::assert_eq;
 use yy_boss::{
+    folders::Vfs,
     yy_typings::sprite_yy::{
         FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
     },
-    SpriteExt, YypBoss,
+    SpriteExt,
 };
 mod common;
 
@@ -12,13 +13,13 @@ mod common;
 fn add_sprite_to_yyp() {
     const IMAGE_PATH: &str = "tests/examples/test_spr_add.png";
 
-    let mut yyp_boss = common::setup_blank_project().unwrap();
-    let exists = yyp_boss.get_resource_type("spr_test");
+    let (mut yyp_boss, token) = common::setup_blank_project();
+    let exists = yyp_boss.vfs.get_resource_type("spr_test");
     assert!(exists.is_none(), "Impossible");
 
     let new_view = yyp_boss
-        .folder_graph_manager
-        .new_folder_end(&YypBoss::root_folder(), "Sprites".to_string())
+        .vfs
+        .new_folder_end(&Vfs::root_folder(), "Sprites".to_string())
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");
@@ -51,7 +52,7 @@ fn add_sprite_to_yyp() {
         )
         .unwrap();
 
-    let sprite_exists = yyp_boss.get_resource_type("spr_test");
+    let sprite_exists = yyp_boss.vfs.get_resource_type("spr_test");
     assert!(
         sprite_exists.is_some(),
         "We didn't add, or couldn't find, the sprite we just tried to add!"
@@ -63,7 +64,10 @@ fn add_sprite_to_yyp() {
     );
 
     let proof_yyp_boss = common::load_proof("sprite_add_proof").unwrap();
+    yyp_boss.serialize().unwrap();
 
     // // Assert the our YYPs are the Same...
     common::assert_yypboss_eq(&yyp_boss, &proof_yyp_boss);
+
+    token.dispose();
 }

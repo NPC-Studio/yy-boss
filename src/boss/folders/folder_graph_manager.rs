@@ -1,45 +1,114 @@
-use super::{FileMember, FolderGraph, FolderGraphError, SubfolderMember};
-use crate::{PathStrExt, ViewPathLocationExt};
-use serde::{Deserialize, Serialize};
+use super::{Files, FolderGraph, FolderGraphError, ResourceNames};
+use crate::{PathStrExt, Resource, ViewPathLocationExt, YyResource};
 use std::collections::HashSet;
-use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, Yyp, YypFolder};
+use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FolderGraphManager {
-    pub(crate) root: FolderGraph,
-    root_file_location: ViewPathLocation,
+static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPath> =
+    once_cell::sync::Lazy::new(|| ViewPath {
+        name: "folders".to_owned(),
+        path: ViewPathLocation::root_folder(),
+    });
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Vfs {
+    pub resource_names: ResourceNames,
+    root: FolderGraph,
+    root_resource: ViewPath,
     folders_to_reserialize: HashSet<ViewPathLocation>,
     folders_to_remove: HashSet<ViewPathLocation>,
 }
 
-impl FolderGraphManager {
+impl Vfs {
     pub(crate) fn new(yyp_name: &str) -> Self {
-        FolderGraphManager {
+        Vfs {
             root: FolderGraph::root(),
-            root_file_location: ViewPathLocation::root_file(yyp_name),
+            root_resource: ViewPath {
+                name: yyp_name.to_string(),
+                path: ViewPathLocation::root_file(yyp_name),
+            },
+            resource_names: ResourceNames::new(),
             folders_to_reserialize: HashSet::new(),
             folders_to_remove: HashSet::new(),
         }
     }
 
-    pub(crate) fn get_folder_mut(
+    pub(crate) fn load_in_folders(&mut self, folders: &[YypFolder]) {
+        for new_folder in folders.iter() {
+            let mut folder_graph = &mut self.root;
+
+            // ensure subfolders are loaded in...
+            for section in new_folder.folder_path.component_paths() {
+                let path_to_parent = folder_graph.view_path_location();
+                let section = section.trim_yy().to_owned();
+
+                // find or insert the new folder...
+                if folder_graph.folders.iter().any(|f| f.name == section) == false {
+                    folder_graph.folders.push(FolderGraph {
+                        name: section.clone(),
+                        path_to_parent: Some(path_to_parent),
+                        // all of these are defaults..below we add in specs for each
+                        order: 0,
+                        tags: vec![],
+                        folders: vec![],
+                        files: Files::new(),
+                    });
+                }
+
+                folder_graph = folder_graph
+                    .folders
+                    .iter_mut()
+                    .find(|f| f.name == section)
+                    .unwrap();
+            }
+
+            // get the folder and add in its order and what not...
+            let f = Vfs::get_folder_mut(
+                &mut self.root,
+                &new_folder.folder_path,
+                &Self::root_folder().path,
+            )
+            .unwrap();
+            f.order = new_folder.order;
+            f.tags = new_folder.tags.clone();
+        }
+    }
+
+    pub(crate) fn load_in_file<T: YyResource>(
         &mut self,
+        yy: &T,
+        order: usize,
+    ) -> Result<(), FolderGraphError> {
+        // Add to the folder graph
+        let folder = Vfs::get_folder_mut(
+            &mut self.root,
+            &yy.parent_view_path().path,
+            &self.root_resource.path,
+        )
+        .ok_or_else(|| {
+            FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+        })?;
+
+        // add and sort
+        folder.files.load_in(yy, order, &mut self.resource_names);
+
+        Ok(())
+    }
+
+    pub(crate) fn get_folder_mut<'a>(
+        root: &'a mut FolderGraph,
         view_path: &ViewPathLocation,
-    ) -> Option<&mut FolderGraph> {
-        if *view_path == self.root_file_location {
-            Some(&mut self.root)
+        root_view: &ViewPathLocation,
+    ) -> Option<&'a mut FolderGraph> {
+        if view_path == root_view {
+            Some(root)
         } else {
-            let mut folder = &mut self.root;
+            let mut folder = root;
             let mut used_root = true;
 
             for path in view_path.component_paths() {
                 used_root = false;
                 let path = path.trim_yy();
-                folder = &mut folder
-                    .folders
-                    .iter_mut()
-                    .find(|f| f.child.name == path)?
-                    .child;
+                folder = folder.folders.iter_mut().find(|f| f.name == path)?;
             }
 
             if used_root == false {
@@ -58,7 +127,7 @@ impl FolderGraphManager {
     /// Gets a folder by the given ViewPathLocation.
     /// If a folder does not exist, or if the path points to a file, None will be returned.
     pub fn get_folder(&self, view_path: &ViewPathLocation) -> Option<&FolderGraph> {
-        if *view_path == self.root_file_location {
+        if *view_path == self.root_resource.path {
             Some(&self.root)
         } else {
             let mut folder = &self.root;
@@ -67,7 +136,7 @@ impl FolderGraphManager {
             for path in view_path.component_paths() {
                 used_root = false;
                 let path = path.trim_yy();
-                folder = &folder.folders.iter().find(|f| f.child.name == path)?.child;
+                folder = folder.folders.iter().find(|f| f.name == path)?;
             }
 
             if used_root == false {
@@ -82,13 +151,37 @@ impl FolderGraphManager {
     pub fn get_root_folder(&self) -> &FolderGraph {
         &self.root
     }
+
     /// Finds the containing folder for a given file. Returns an error is no file of that name
     /// could be found.
     #[allow(dead_code)]
     pub fn get_folder_by_fname(&self, name: &str) -> Result<&FolderGraph, FolderGraphError> {
         self.root
             .get_folder_by_fname(name)
-            .ok_or(FolderGraphError::PathNotFound)
+            .ok_or_else(|| FolderGraphError::PathNotFound(name.to_string()))
+    }
+
+    /// The root path for a folder at the root of a project.
+    ///
+    /// Gms2 projects have historically had immutable folders at the top of a project's
+    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
+    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
+    /// Yyp, so it is now possible for any folder to be at the root of the project.
+    pub fn root_folder() -> &'static ViewPath {
+        &ROOT_FOLDER_VIEW_PATH
+    }
+
+    /// The root path for a file at the root of the project.
+    ///
+    /// Gms2 projects have historically had immutable folders at the top of a project's
+    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
+    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
+    /// Yyp, so it is now possible for a Resource to be at the root of a project.
+    ///
+    /// In that case, this function gives the path that resource will have. Note that this path
+    /// is odd, and is not build into any other paths.
+    pub fn root_resource(&self) -> &ViewPath {
+        &self.root_resource
     }
 
     /// Adds a subfolder to the folder given at `parent_path` with the order set to the end. If a tree looks like:
@@ -115,27 +208,31 @@ impl FolderGraphManager {
         parent_path: &ViewPath,
         name: String,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = self
-            .get_folder_mut(&parent_path.path)
-            .ok_or(FolderGraphError::PathNotFound)?;
+        let subfolder =
+            Self::get_folder_mut(&mut self.root, &parent_path.path, &Self::root_folder().path)
+                .ok_or_else(|| {
+                    FolderGraphError::PathNotFound(parent_path.path.inner().to_string())
+                })?;
 
         // Don't add a new folder with the same name...
-        if subfolder.folders.iter().any(|f| f.child.name == name) {
+        if subfolder.folders.iter().any(|f| f.name == name) {
             return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
         let order = subfolder
-            .files
+            .folders
             .last()
             .map(|f| f.order + 1)
             .unwrap_or_default();
 
         // Create our Path...
         let path = parent_path.path.join(&name);
-        subfolder.folders.push(SubfolderMember {
-            child: FolderGraph::new(name.clone(), parent_path.path.clone()),
+        subfolder.folders.push(FolderGraph::new(
+            name.clone(),
+            parent_path.path.clone(),
+            vec![],
             order,
-        });
+        ));
 
         // reserialize it
         self.folders_to_reserialize.insert(path.clone());
@@ -143,6 +240,18 @@ impl FolderGraphManager {
         self.folders_to_remove.remove(&path);
 
         Ok(ViewPath { path, name })
+    }
+
+    /// Checks if a resource with a given name exists. If it does, it will return information
+    /// on that resource in the form of the `CreatedResource` token, which can tell the user
+    /// the type of resource.
+    pub fn get_resource_type(&self, resource_name: &str) -> Option<Resource> {
+        self.resource_names.get(resource_name).map(|v| v.resource)
+    }
+
+    /// Checks if a resource with a given name exists.
+    pub fn resource_exists(&self, resource_name: &str) -> bool {
+        self.get_resource_type(resource_name).is_some()
     }
 
     // / Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
@@ -236,65 +345,128 @@ impl FolderGraphManager {
     //     Ok(ViewPath { path, name })
     // }
 
-    pub(crate) fn new_resource_end(
+    pub(crate) fn new_resource_end<T: YyResource>(
         &mut self,
-        view_path: &ViewPathLocation,
-        child: FilesystemPath,
-    ) -> Result<usize, FolderGraphError> {
-        let subfolder = self
-            .get_folder_mut(view_path)
-            .ok_or(FolderGraphError::PathNotFound)?;
+        yy: &T,
+    ) -> Result<(), FolderGraphError> {
+        let subfolder = Self::get_folder_mut(
+            &mut self.root,
+            &yy.parent_view_path().path,
+            &self.root_resource.path,
+        )
+        .ok_or_else(|| {
+            FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+        })?;
 
         let order = subfolder
-            .files
+            .folders
             .last()
             .map(|f| f.order + 1)
             .unwrap_or_default();
 
-        // add the resource
-        subfolder.files.push(FileMember { child, order });
-
-        Ok(order)
+        subfolder.files.add(yy, order, &mut self.resource_names);
+        Ok(())
     }
 
-    pub(crate) fn serialize(&mut self, yyp: &mut Yyp) {
-        for reserialize in self.folders_to_reserialize.drain() {
+    pub(crate) fn remove_resource(&mut self, name: &str) {
+        if let Some(desc) = self.resource_names.get(name) {
+            if let Some(folder) = Self::get_folder_mut(
+                &mut self.root,
+                &desc.parent_location,
+                &self.root_resource.path,
+            ) {
+                folder.files.remove(name, &mut self.resource_names);
+            }
+        }
+    }
+
+    pub(crate) fn serialize(
+        &mut self,
+        yyp_folders: &mut Vec<YypFolder>,
+        yyp_resources: &mut Vec<YypResource>,
+    ) {
+        // folder graph...
+        for reserialize in self.folders_to_reserialize.iter() {
             let folder_data = self
                 .get_folder(&reserialize)
                 .expect("always internally consistent");
 
-            if let Some(pos) = yyp
-                .folders
+            let output = YypFolder {
+                folder_path: reserialize.clone(),
+                order: folder_data.order,
+                name: folder_data.name.clone(),
+                tags: folder_data.tags.clone(),
+                ..Default::default()
+            };
+
+            if let Some(pos) = yyp_folders
                 .iter()
-                .position(|v| v.folder_path == reserialize)
+                .position(|v| v.folder_path == *reserialize)
             {
-                yyp.folders[pos] = YypFolder {
-                    folder_path: reserialize,
-                    order: (),
-                    name: (),
-                    ..Default::default()
-                };
+                yyp_folders[pos] = output;
             } else {
+                yyp_folders.push(output);
             }
         }
+        self.folders_to_reserialize.clear();
+
+        for remove_path in self.folders_to_remove.drain() {
+            if let Some(pos) = yyp_folders
+                .iter()
+                .position(|v| v.folder_path == remove_path)
+            {
+                yyp_folders.remove(pos);
+            }
+        }
+
+        // resource names...
+        self.resource_names.serialize(yyp_resources);
     }
 }
 
 #[cfg(test)]
 mod test {
-    // #[test]
-    // fn folder_add_root() {
-    //     let mut basic_yyp_boss = common::setup_blank_project().unwrap();
-    //     let proof = common::load_proof("folder_add_root").unwrap();
+    use super::*;
+    use pretty_assertions::assert_eq;
+    #[test]
+    fn folder_add_root() {
+        let mut fgm = Vfs::new("project");
+        fgm.new_folder_end(Vfs::root_folder(), "Sprites".to_owned())
+            .unwrap();
 
-    //     common::assert_yypboss_neq(&basic_yyp_boss, &proof);
+        let root = FolderGraph {
+            name: "folders".to_string(),
+            order: 0,
+            path_to_parent: None,
+            files: Files::new(),
+            folders: vec![FolderGraph {
+                name: "Sprites".to_string(),
+                order: 0,
+                folders: vec![],
+                files: Files::new(),
+                path_to_parent: Some(ViewPathLocation("folders".to_string())),
+                tags: vec![],
+            }],
+            tags: vec![],
+        };
 
-    //     basic_yyp_boss
-    //         .new_folder_end(&YypBoss::root_folder(), "Test At Root".to_string())
-    //         .unwrap();
+        let proof = Vfs {
+            root,
+            root_resource: ViewPath {
+                name: "project".to_string(),
+                path: ViewPathLocation::root_file("project"),
+            },
+            folders_to_reserialize: maplit::hashset! {
+                ViewPathLocation("folders/Sprites.yy".to_string())
+            },
+            folders_to_remove: HashSet::new(),
+            resource_names: ResourceNames::new(),
+        };
 
-    //     common::assert_yypboss_eq(&basic_yyp_boss, &proof);
-    // }
+        assert_eq!(fgm, proof);
+
+        // common::assert_yypboss_eq(&basic_yyp_boss, &proof);
+    }
 
     // #[test]
     // fn folder_add_nonroot() {

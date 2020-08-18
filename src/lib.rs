@@ -19,9 +19,6 @@ mod boss {
     pub mod utils;
     pub use utils::{FileSerializationError, SerializationFormat};
 
-    mod resource_names;
-    pub use resource_names::*;
-
     mod errors;
     pub use errors::*;
 
@@ -38,10 +35,14 @@ mod boss {
         mod folder_graph_manager;
         pub use folder_graph_manager::*;
 
-        mod folder_graph_member;
-        pub use folder_graph_member::*;
+        mod resource_names;
+        pub use resource_names::*;
+
+        mod file;
+        pub(crate) use file::*;
     }
 }
+
 mod resources_ext {
     use super::*;
 

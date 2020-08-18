@@ -445,6 +445,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "once_cell"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b631f7e854af39a1739f401cf34a8a013dfe09eac4fa4dba91e9768bd28168d"
+
+[[package]]
 name = "output_vt100"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -905,6 +911,7 @@ dependencies = [
  "include_dir",
  "log",
  "maplit",
+ "once_cell",
  "pretty_assertions",
  "regex",
  "semver",
@@ -914,6 +921,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "thiserror",
+ "uuid",
  "yy-typings",
 ]
 

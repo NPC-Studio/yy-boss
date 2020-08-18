@@ -215,7 +215,7 @@ impl YyCli {
         resource_name: String,
     ) -> Result<CommandOutput, YypBossError> {
         Ok(CommandOutput::ok_exists(
-            yyp_boss.resource_exists(&resource_name),
+            yyp_boss.vfs.resource_exists(&resource_name),
         ))
     }
 
