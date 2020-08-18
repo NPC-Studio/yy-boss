@@ -127,14 +127,14 @@ impl Vfs {
     /// Gets a folder by the given ViewPathLocation.
     /// If a folder does not exist, or if the path points to a file, None will be returned.
     pub fn get_folder<'a>(
-        root: &'a FolderGraph,
+        &'a self,
         view_path: &ViewPathLocation,
         root_view: &ViewPathLocation,
     ) -> Option<&'a FolderGraph> {
         if view_path == root_view {
-            Some(root)
+            Some(&self.root)
         } else {
-            let mut folder = root;
+            let mut folder = &self.root;
             let mut used_root = true;
 
             for path in view_path.component_paths() {
@@ -448,10 +448,10 @@ impl Vfs {
         yyp_resources: &mut Vec<YypResource>,
     ) {
         // refry the beans...
-        for (reserialize, state) in self.to_serialize.drain() {
-            let folder_data =
-                Self::get_folder(&self.root, &reserialize, &ROOT_FOLDER_VIEW_PATH.path)
-                    .expect("always internally consistent");
+        for (reserialize, state) in self.to_serialize.iter() {
+            let folder_data = self
+                .get_folder(&reserialize, &ROOT_FOLDER_VIEW_PATH.path)
+                .expect("always internally consistent");
 
             let output = YypFolder {
                 folder_path: reserialize.clone(),
@@ -465,7 +465,7 @@ impl Vfs {
                 DirtyState::Edit => {
                     let pos = yyp_folders
                         .iter()
-                        .position(|v| v.folder_path == reserialize)
+                        .position(|v| v.folder_path == *reserialize)
                         .expect("must exist for edits");
 
                     yyp_folders[pos] = output;
@@ -475,6 +475,7 @@ impl Vfs {
                 }
             }
         }
+        self.to_serialize.clear();
 
         // remove the excess beans...
         for (remove_path, _) in self.to_remove.drain() {
