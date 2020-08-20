@@ -20,7 +20,7 @@ pub enum SerializationFormat {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub enum DirtyState {
     Edit,
-    Lifetime,
+    New,
 }
 
 impl SerializationFormat {

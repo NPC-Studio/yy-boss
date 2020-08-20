@@ -240,12 +240,12 @@ impl Vfs {
 
         // reserialize it
         match self.to_remove.remove(&path) {
-            Some(DirtyState::Lifetime) => {}
+            Some(DirtyState::New) => {}
             Some(DirtyState::Edit) => {
                 self.to_serialize.insert(path.clone(), DirtyState::Edit);
             }
             None => {
-                self.to_serialize.insert(path.clone(), DirtyState::Lifetime);
+                self.to_serialize.insert(path.clone(), DirtyState::New);
             }
         };
 
@@ -287,14 +287,14 @@ impl Vfs {
 
             // add to our whatever...
             match self.to_serialize.remove(folder_path) {
-                Some(DirtyState::Lifetime) => {}
+                Some(DirtyState::New) => {}
                 Some(DirtyState::Edit) => {
                     self.to_remove
                         .insert(folder_path.to_owned(), DirtyState::Edit);
                 }
                 None => {
                     self.to_remove
-                        .insert(folder_path.to_owned(), DirtyState::Lifetime);
+                        .insert(folder_path.to_owned(), DirtyState::New);
                 }
             };
 
@@ -470,7 +470,7 @@ impl Vfs {
 
                     yyp_folders[pos] = output;
                 }
-                DirtyState::Lifetime => {
+                DirtyState::New => {
                     yyp_folders.push(output);
                 }
             }
@@ -524,7 +524,7 @@ mod test {
                 path: ViewPathLocation::root_file("project"),
             },
             to_serialize: maplit::hashmap! {
-                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New
             },
             to_remove: HashMap::new(),
             resource_names: ResourceNames::new(),
@@ -540,8 +540,8 @@ mod test {
         let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
         let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
         proof.to_serialize = maplit::hashmap! {
-            ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime,
-            ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::Lifetime,
+            ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New,
+            ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::New,
         };
         proof.root.folders = vec![FolderGraph {
             name: "Sprites".to_string(),
@@ -602,8 +602,8 @@ mod test {
         assert_eq!(
             fgm.to_remove,
             maplit::hashmap! {
-                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Lifetime,
-                ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::Lifetime,
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New,
+                ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::New,
             }
         );
         assert_eq!(fgm.to_serialize, HashMap::new());

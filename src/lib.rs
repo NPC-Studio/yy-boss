@@ -27,7 +27,7 @@ mod boss {
 
     pub mod folders {
         use super::utils;
-        
+
         mod folder_graph;
         pub use folder_graph::*;
 
@@ -62,6 +62,8 @@ mod resources_ext {
 
     mod object_ext;
     pub use object_ext::*;
+
+    pub(crate) mod dummy;
 
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
