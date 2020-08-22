@@ -1,11 +1,8 @@
 use crate::{
-    utils, AssocDataLocation, Resource, SerializedData, SerializedDataError, YyResource,
-    YyResourceHandler, YypBoss,
+    utils, AssocDataLocation, FileHandler, FolderHandler, Resource, SerializedData,
+    SerializedDataError, YyResource, YyResourceHandler, YypBoss,
 };
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, path::Path};
 use yy_typings::{sprite_yy::object_yy::*, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Object {
@@ -68,11 +65,15 @@ impl YyResource for Object {
         }
     }
 
-    fn cleanup_on_replace(&self, files_to_delete: &mut Vec<PathBuf>, _: &mut Vec<PathBuf>) {
+    fn cleanup_on_replace(
+        &self,
+        mut files_to_delete: FileHandler<'_, '_>,
+        _: FolderHandler<'_, '_>,
+    ) {
         for event in self.event_list.iter() {
             let (output, last_number) = event.event_type.filename();
             let path = Path::new(&format!("{}{}", output, last_number)).to_path_buf();
-            files_to_delete.push(path);
+            files_to_delete.push_file(path);
         }
     }
 }

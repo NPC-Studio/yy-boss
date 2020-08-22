@@ -1,15 +1,11 @@
 use crate::{
-    AssocDataLocation, Resource, SerializedData, SerializedDataError, YyResource,
-    YyResourceHandler, YypBoss,
+    AssocDataLocation, FileHandler, FolderHandler, Resource, SerializedData, SerializedDataError,
+    YyResource, YyResourceHandler, YypBoss,
 };
 use anyhow::Context;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{
-    collections::HashMap,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashMap, num::NonZeroUsize, path::Path};
 use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
@@ -443,8 +439,8 @@ impl YyResource for Sprite {
 
     fn cleanup_on_replace(
         &self,
-        files_to_delete: &mut Vec<PathBuf>,
-        folders_to_delete: &mut Vec<PathBuf>,
+        mut files_to_delete: FileHandler<'_, '_>,
+        mut folders_to_delete: FolderHandler<'_, '_>,
     ) {
         // first, clean up the layer folders...
         let base_path = Path::new(&self.name);
@@ -454,11 +450,11 @@ impl YyResource for Sprite {
         for frame in self.frames.iter() {
             let name = frame.name.inner().to_string();
             let path = Path::new(&name);
-            folders_to_delete.push(layers_path.join(path));
+            folders_to_delete.push_folder(layers_path.join(path));
 
             let mut file = path.to_owned();
             file.set_extension("png");
-            files_to_delete.push(base_path.join(file));
+            files_to_delete.push_file(base_path.join(file));
         }
     }
 }

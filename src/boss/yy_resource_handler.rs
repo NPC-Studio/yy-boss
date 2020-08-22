@@ -1,5 +1,5 @@
 use super::{directory_manager::DirectoryManager, utils, FilesystemPath, YyResource};
-use crate::{AssocDataLocation, YyResourceHandlerErrors};
+use crate::{AssocDataLocation, FileHandler, FolderHandler, YyResourceHandlerErrors};
 use anyhow::Result as AnyResult;
 use log::{error, info};
 use std::{
@@ -19,9 +19,9 @@ pub enum DirtyState {
 pub struct YyResourceHandler<T: YyResource> {
     resources: HashMap<String, YyResourceData<T>>,
     pub(crate) resources_to_reserialize: HashMap<String, DirtyState>,
-    pub(crate) resources_to_remove: HashMap<String, (DirtyState, T)>,
-    pub(crate) associated_files_to_cleanup: Vec<PathBuf>,
-    pub(crate) associated_folders_to_cleanup: Vec<PathBuf>,
+    pub(crate) resources_to_remove: HashMap<String, DirtyState>,
+    pub(crate) associated_files_to_cleanup: HashMap<String, Vec<PathBuf>>,
+    pub(crate) associated_folders_to_cleanup: HashMap<String, Vec<PathBuf>>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
@@ -41,30 +41,33 @@ impl<T: YyResource> YyResourceHandler<T> {
         associated_data: T::AssociatedData,
     ) -> Option<YyResourceData<T>> {
         let name = value.name().to_owned();
-        let ret = self.insert_resource(value.clone(), Some(associated_data));
+        let ret = self.insert_resource(value, Some(associated_data));
 
         if let Some(old) = &ret {
-            old.yy_resource.cleanup_on_replace(
-                &mut self.associated_files_to_cleanup,
-                &mut self.associated_folders_to_cleanup,
-            );
-
-            let dirty_state = if let Some(state) = self.resources_to_reserialize.remove(&name) {
-                state
-            } else {
-                DirtyState::Edit
+            let dirty_state = match self.resources_to_reserialize.remove(&name) {
+                Some(DirtyState::New) => DirtyState::New,
+                Some(DirtyState::Edit) | None => {
+                    old.yy_resource.cleanup_on_replace(
+                        FileHandler(
+                            &mut self.associated_files_to_cleanup,
+                            &old.yy_resource.name(),
+                        ),
+                        FolderHandler(
+                            &mut self.associated_folders_to_cleanup,
+                            &old.yy_resource.name(),
+                        ),
+                    );
+                    DirtyState::Edit
+                }
             };
 
             self.resources_to_reserialize.insert(name, dirty_state);
         } else {
             match self.resources_to_remove.remove(&name) {
-                Some((DirtyState::New, huh)) => {
-                    if huh != value {
-                        self.resources_to_reserialize.insert(name, DirtyState::New);
-                    }
+                Some(DirtyState::New) => {
                     // do nothing
                 }
-                Some((DirtyState::Edit, _)) => {
+                Some(DirtyState::Edit) => {
                     self.resources_to_reserialize.insert(name, DirtyState::Edit);
                 }
                 None => {
@@ -100,15 +103,12 @@ impl<T: YyResource> YyResourceHandler<T> {
                 Some(DirtyState::New) => {
                     // do nothing... let it die
                 }
-                Some(DirtyState::Edit) => {
-                    self.resources_to_remove.insert(
-                        value.to_owned(),
-                        (DirtyState::Edit, ret.yy_resource.clone()),
-                    );
-                }
-                None => {
+                Some(DirtyState::Edit) | None => {
                     self.resources_to_remove
-                        .insert(value.to_owned(), (DirtyState::New, ret.yy_resource.clone()));
+                        .insert(value.to_owned(), DirtyState::Edit);
+
+                    self.associated_files_to_cleanup.remove(value);
+                    self.associated_folders_to_cleanup.remove(value);
                 }
             }
 
@@ -157,6 +157,21 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
     }
 
+    /// Unloads a resource. This will free up some memory.
+    ///
+    /// If the resource does not exist on this handler, an error will be returned.
+    pub fn unload_resource_associated_data(
+        &mut self,
+        resource_name: &str,
+    ) -> Result<(), YyResourceHandlerErrors> {
+        if let Some(resource) = self.resources.get_mut(resource_name) {
+            resource.associated_data = None;
+            Ok(())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
+        }
+    }
+
     /// Loads the resource in on startup. We don't track associated data by default,
     /// and we don't mark the resource as dirty.
     pub(crate) fn load_on_startup(&mut self, value: T) {
@@ -174,21 +189,25 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
 
         // Remove folders
-        for folder in self.associated_folders_to_cleanup.drain(..) {
-            let path = directory_manager
-                .resource_file(Path::new(T::SUBPATH_NAME))
-                .join(folder);
-            info!("remove folder {:?}", path);
-            fs::remove_dir_all(path)?;
+        for (_, mut folder) in self.associated_folders_to_cleanup.drain() {
+            for folder in folder.drain(..) {
+                let path = directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(folder);
+                info!("remove folder {:?}", path);
+                fs::remove_dir_all(path)?;
+            }
         }
 
         // Remove files
-        for file in self.associated_files_to_cleanup.drain(..) {
-            let path = directory_manager
-                .resource_file(Path::new(T::SUBPATH_NAME))
-                .join(file);
-            info!("removing path {:?}", path);
-            fs::remove_file(path)?;
+        for (_, mut file) in self.associated_files_to_cleanup.drain() {
+            for file in file.drain(..) {
+                let path = directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(file);
+                info!("removing path {:?}", path);
+                fs::remove_file(path)?;
+            }
         }
 
         // Finally, reserialize resources
@@ -267,8 +286,8 @@ mod tests {
     fn add() {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
 
-        assert!(dummy_handler.set(DummyResource::new("a", 0), ()).is_none());
-        assert!(dummy_handler.set(DummyResource::new("b", 0), ()).is_none());
+        assert!(dummy_handler.set(DummyResource::new("a", 0), 0).is_none());
+        assert!(dummy_handler.set(DummyResource::new("b", 0), 0).is_none());
 
         assert_eq!(
             dummy_handler.resources_to_reserialize,
@@ -280,10 +299,10 @@ mod tests {
         assert_eq!(dummy_handler.resources_to_remove, HashMap::default());
 
         assert_eq!(
-            dummy_handler.set(DummyResource::new("a", 1), ()),
+            dummy_handler.set(DummyResource::new("a", 1), 0),
             Some(YyResourceData {
                 yy_resource: DummyResource::new("a", 0),
-                associated_data: Some(())
+                associated_data: Some(0)
             })
         );
     }
@@ -292,29 +311,33 @@ mod tests {
     fn replace() {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
-        dummy_handler.set(DummyResource::new("b", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+        dummy_handler.set(DummyResource::new("b", 0), 0);
         dummy_handler.resources_to_reserialize.clear();
 
         assert_eq!(
-            dummy_handler.set(DummyResource::new("a", 1), ()),
+            dummy_handler.set(DummyResource::new("a", 1), 0),
             Some(YyResourceData {
                 yy_resource: DummyResource::new("a", 0),
-                associated_data: Some(())
+                associated_data: Some(0)
             })
-        );
-        assert_eq!(
-            dummy_handler.associated_files_to_cleanup,
-            vec![Path::new("a/0.txt")]
-        );
-        assert_eq!(
-            dummy_handler.associated_folders_to_cleanup,
-            vec![Path::new("a/0")]
         );
         assert_eq!(
             dummy_handler.resources_to_reserialize,
             hashmap! {
                 "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert_eq!(
+            dummy_handler.associated_files_to_cleanup,
+            hashmap! {
+                "a".to_string() => vec![Path::new("a/0.txt").to_owned()]
+            }
+        );
+        assert_eq!(
+            dummy_handler.associated_folders_to_cleanup,
+            hashmap! {
+                "a".to_string() => vec![Path::new("a/0").to_owned()]
             }
         );
     }
@@ -324,7 +347,7 @@ mod tests {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         dummy_handler.resources_to_reserialize.clear();
 
         assert!(dummy_handler.resources_to_reserialize.is_empty());
@@ -332,7 +355,7 @@ mod tests {
 
         assert_eq!(
             dummy_handler.remove("a", &tcu),
-            Some((DummyResource::new("a", 0), Some(())))
+            Some((DummyResource::new("a", 0), Some(0)))
         );
         assert_eq!(dummy_handler.remove("a", &tcu), None);
 
@@ -340,7 +363,7 @@ mod tests {
         assert_eq!(
             dummy_handler.resources_to_remove,
             hashmap! {
-                "a".to_string() => (DirtyState::New, DummyResource::new("a", 0)),
+                "a".to_string() => DirtyState::Edit,
             }
         );
     }
@@ -350,7 +373,7 @@ mod tests {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         assert!(dummy_handler.remove("a", &tcu).is_some());
 
         assert!(dummy_handler.resources_to_reserialize.is_empty());
@@ -362,19 +385,24 @@ mod tests {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         dummy_handler.resources_to_reserialize.clear();
 
         // we removed it!
         assert_eq!(
             dummy_handler.remove("a", &tcu),
-            Some((DummyResource::new("a", 0), Some(())))
+            Some((DummyResource::new("a", 0), Some(0)))
         );
 
         // reset the thing...
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
 
-        assert_eq!(dummy_handler.resources_to_reserialize, hashmap! {});
+        assert_eq!(
+            dummy_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
         assert!(dummy_handler.resources_to_remove.is_empty());
     }
 
@@ -383,22 +411,28 @@ mod tests {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         dummy_handler.resources_to_reserialize.clear();
 
         // we removed it!
-        assert_eq!(
-            dummy_handler.remove("a", &tcu),
-            Some((DummyResource::new("a", 0), Some(())))
-        );
-
-        // reset the thing...
-        dummy_handler.set(DummyResource::new("a", 1), ());
-
+        dummy_handler.remove("a", &tcu);
+        dummy_handler.set(DummyResource::new("a", 1), 0);
         assert_eq!(
             dummy_handler.resources_to_reserialize,
             hashmap! {
-                "a".to_string() => DirtyState::New,
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert!(dummy_handler.resources_to_remove.is_empty());
+
+        // and now a complex case...
+        dummy_handler.resources_to_reserialize.clear();
+        dummy_handler.remove("a", &tcu);
+        dummy_handler.set(DummyResource::new("a", 1), 1);
+        assert_eq!(
+            dummy_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
             }
         );
         assert!(dummy_handler.resources_to_remove.is_empty());
@@ -409,19 +443,20 @@ mod tests {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         dummy_handler.resources_to_reserialize.clear();
 
         // we removed it!
         dummy_handler.remove("a", &tcu);
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+
         dummy_handler.remove("a", &tcu);
 
         assert!(dummy_handler.resources_to_reserialize.is_empty(),);
         assert_eq!(
             dummy_handler.resources_to_remove,
             hashmap! {
-                "a".to_string() => (DirtyState::New, DummyResource::new("a", 0)),
+                "a".to_string() => DirtyState::Edit,
             }
         );
 
@@ -435,9 +470,9 @@ mod tests {
         let tcu = TrailingCommaUtility::new();
 
         // we removed it!
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
         dummy_handler.remove("a", &tcu);
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        dummy_handler.set(DummyResource::new("a", 0), 0);
 
         assert_eq!(
             dummy_handler.resources_to_reserialize,
@@ -452,19 +487,51 @@ mod tests {
     }
 
     #[test]
+    fn replace_associated_files() {
+        let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
+
+        // we removed it!
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+
+        assert_eq!(
+            dummy_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::New,
+            }
+        );
+        assert_eq!(dummy_handler.resources_to_remove, hashmap! {});
+
+        // notice how there's nothing to remove yet here...
+        assert_eq!(dummy_handler.associated_files_to_cleanup, hashmap![]);
+        assert_eq!(dummy_handler.associated_folders_to_cleanup, hashmap![]);
+    }
+
+    #[test]
     fn replace_remove() {
         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
         let tcu = TrailingCommaUtility::new();
 
-        // we removed it!
-        dummy_handler.set(DummyResource::new("a", 0), ());
-        dummy_handler.set(DummyResource::new("a", 0), ());
+        // add resource...
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+        dummy_handler.resources_to_reserialize.clear();
+
+        // replace it..
+        dummy_handler.set(DummyResource::new("a", 0), 0);
+
+        // and then remove it
         dummy_handler.remove("a", &tcu);
 
         assert_eq!(dummy_handler.resources_to_reserialize, hashmap! {});
-        assert_eq!(dummy_handler.resources_to_remove, hashmap! {});
+        assert_eq!(
+            dummy_handler.resources_to_remove,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
 
-        assert!(dummy_handler.associated_files_to_cleanup.is_empty());
-        assert!(dummy_handler.associated_folders_to_cleanup.is_empty());
+        // aaaaand no files to cleanup!
+        assert_eq!(dummy_handler.associated_files_to_cleanup, hashmap![]);
+        assert_eq!(dummy_handler.associated_folders_to_cleanup, hashmap![]);
     }
 }

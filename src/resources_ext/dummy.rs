@@ -1,4 +1,5 @@
 use super::YyResource;
+use crate::{FileHandler, FolderHandler};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -13,7 +14,7 @@ impl DummyResource {
 }
 
 impl YyResource for DummyResource {
-    type AssociatedData = ();
+    type AssociatedData = usize;
     const SUBPATH_NAME: &'static str = "dummy";
     const RESOURCE: crate::Resource = crate::Resource::Script;
 
@@ -41,7 +42,7 @@ impl YyResource for DummyResource {
         _: crate::AssocDataLocation<'_>,
         _: &yy_typings::utils::TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, crate::SerializedDataError> {
-        Ok(())
+        Ok(0)
     }
     fn serialize_associated_data(&self, _: &Path, _: &Self::AssociatedData) -> anyhow::Result<()> {
         Ok(())
@@ -54,12 +55,13 @@ impl YyResource for DummyResource {
             data: String::new(),
         })
     }
+
     fn cleanup_on_replace(
         &self,
-        files: &mut Vec<std::path::PathBuf>,
-        folders: &mut Vec<std::path::PathBuf>,
+        mut files_to_delete: FileHandler<'_, '_>,
+        mut folders_to_delete: FolderHandler<'_, '_>,
     ) {
-        files.push(Path::new(&format!("{}/{}.txt", self.0, self.1)).to_owned());
-        folders.push(Path::new(&format!("{}/{}", self.0, self.1)).to_owned());
+        files_to_delete.push_file(Path::new(&format!("{}/{}.txt", self.0, self.1)).to_owned());
+        folders_to_delete.push_folder(Path::new(&format!("{}/{}", self.0, self.1)).to_owned());
     }
 }
