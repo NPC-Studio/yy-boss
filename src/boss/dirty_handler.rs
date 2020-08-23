@@ -107,6 +107,16 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
             associated_values: self.associated_values.as_mut().map(|v| v.drain()),
         }
     }
+
+    #[allow(dead_code)]
+    pub fn resources_to_reserialize(&self) -> &HashMap<R, DirtyState> {
+        &self.resources_to_reserialize
+    }
+
+    #[allow(dead_code)]
+    pub fn resources_to_remove(&self) -> &HashMap<R, DirtyState> {
+        &self.resources_to_remove
+    }
 }
 
 pub struct DirtyValueHolder<'a, A>(&'a mut Vec<A>);
@@ -122,262 +132,212 @@ pub struct DirtyDrain<'a, R: std::hash::Hash + Eq + Clone, A> {
     pub associated_values: Option<Drain<'a, R, Vec<A>>>,
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::dummy::DummyResource;
-//     use maplit::hashmap;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use maplit::hashmap;
 
-//     #[test]
-//     fn add() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
+    fn dirty_handler() -> DirtyHandler<String, usize> {
+        DirtyHandler::<String, usize>::new_assoc()
+    }
 
-//         assert!(dummy_handler.set(DummyResource::new("a", 0), 0).is_none());
-//         assert!(dummy_handler.set(DummyResource::new("b", 0), 0).is_none());
+    fn a() -> String {
+        "a".to_string()
+    }
 
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::New,
-//                 "b".to_string() => DirtyState::New
-//             }
-//         );
-//         assert_eq!(dummy_handler.resources_to_remove, HashMap::default());
+    #[test]
+    fn add() {
+        let mut dirty_handler = dirty_handler();
 
-//         assert_eq!(
-//             dummy_handler.set(DummyResource::new("a", 1), 0),
-//             Some(YyResourceData {
-//                 yy_resource: DummyResource::new("a", 0),
-//                 associated_data: Some(0)
-//             })
-//         );
-//     }
+        dirty_handler.add("a".to_string());
+        dirty_handler.add("b".to_string());
 
-//     #[test]
-//     fn replace() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
+        assert_eq!(
+            dirty_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::New,
+                "b".to_string() => DirtyState::New
+            }
+        );
+        assert_eq!(dirty_handler.resources_to_remove, HashMap::default());
+    }
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.set(DummyResource::new("b", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+    #[test]
+    fn replace() {
+        let mut dirty_handler = dirty_handler();
 
-//         assert_eq!(
-//             dummy_handler.set(DummyResource::new("a", 1), 0),
-//             Some(YyResourceData {
-//                 yy_resource: DummyResource::new("a", 0),
-//                 associated_data: Some(0)
-//             })
-//         );
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-//         assert_eq!(
-//             dummy_handler.associated_files_to_cleanup,
-//             hashmap! {
-//                 "a".to_string() => vec![Path::new("a/0.txt").to_owned()]
-//             }
-//         );
-//         assert_eq!(
-//             dummy_handler.associated_folders_to_cleanup,
-//             hashmap! {
-//                 "a".to_string() => vec![Path::new("a/0").to_owned()]
-//             }
-//         );
-//     }
+        dirty_handler.add("a".to_string());
+        dirty_handler.resources_to_reserialize.clear();
+        dirty_handler.replace_associated("a".to_string(), |v| v.0.push(0));
 
-//     #[test]
-//     fn remove() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+        assert_eq!(
+            dirty_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert_eq!(
+            dirty_handler.associated_values,
+            Some(hashmap! {
+                "a".to_string() => vec![0]
+            })
+        );
+    }
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+    #[test]
+    fn remove() {
+        let mut dirty_handler = dirty_handler();
 
-//         assert!(dummy_handler.resources_to_reserialize.is_empty());
-//         assert!(dummy_handler.resources_to_remove.is_empty());
+        dirty_handler.add(a());
+        dirty_handler.resources_to_reserialize.clear();
 
-//         assert_eq!(
-//             dummy_handler.remove("a", &tcu),
-//             Some((DummyResource::new("a", 0), Some(0)))
-//         );
-//         assert_eq!(dummy_handler.remove("a", &tcu), None);
+        assert!(dirty_handler.resources_to_reserialize.is_empty());
+        assert!(dirty_handler.resources_to_remove.is_empty());
+        dirty_handler.remove("a");
 
-//         assert_eq!(dummy_handler.resources_to_reserialize, hashmap! {});
-//         assert_eq!(
-//             dummy_handler.resources_to_remove,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-//     }
+        assert_eq!(dirty_handler.resources_to_reserialize, hashmap! {});
+        assert_eq!(
+            dirty_handler.resources_to_remove,
+            hashmap! {
+                a() => DirtyState::Edit,
+            }
+        );
+    }
 
-//     #[test]
-//     fn add_remove_simple_symmetry() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+    #[test]
+    fn add_remove_simple_symmetry() {
+        let mut dirty_handler = dirty_handler();
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         assert!(dummy_handler.remove("a", &tcu).is_some());
+        dirty_handler.add(a());
+        dirty_handler.remove("a");
 
-//         assert!(dummy_handler.resources_to_reserialize.is_empty());
-//         assert!(dummy_handler.resources_to_remove.is_empty());
-//     }
+        assert!(dirty_handler.resources_to_reserialize.is_empty());
+        assert!(dirty_handler.resources_to_remove.is_empty());
+    }
 
-//     #[test]
-//     fn remove_add_simple_symmetry() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+    #[test]
+    fn remove_add_simple_symmetry() {
+        let mut dirty_handler = dirty_handler();
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+        dirty_handler.add(a());
+        dirty_handler.resources_to_reserialize.clear();
 
-//         // we removed it!
-//         assert_eq!(
-//             dummy_handler.remove("a", &tcu),
-//             Some((DummyResource::new("a", 0), Some(0)))
-//         );
+        // we removed it!
+        dirty_handler.remove("a");
 
-//         // reset the thing...
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
+        // reset the thing...
+        dirty_handler.add(a());
 
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-//         assert!(dummy_handler.resources_to_remove.is_empty());
-//     }
+        assert_eq!(
+            dirty_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert!(dirty_handler.resources_to_remove.is_empty());
+    }
 
-//     #[test]
-//     fn remove_add_complex_symmetry() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+    #[test]
+    fn remove_add_complex_symmetry() {
+        let mut dirty_handler = dirty_handler();
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+        dirty_handler.add(a());
+        dirty_handler.resources_to_reserialize.clear();
 
-//         // we removed it!
-//         dummy_handler.remove("a", &tcu);
-//         dummy_handler.set(DummyResource::new("a", 1), 0);
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-//         assert!(dummy_handler.resources_to_remove.is_empty());
+        // we removed it!
+        dirty_handler.remove("a");
+        dirty_handler.add(a());
+        assert_eq!(
+            dirty_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert!(dirty_handler.resources_to_remove.is_empty());
 
-//         // and now a complex case...
-//         dummy_handler.resources_to_reserialize.clear();
-//         dummy_handler.remove("a", &tcu);
-//         dummy_handler.set(DummyResource::new("a", 1), 1);
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-//         assert!(dummy_handler.resources_to_remove.is_empty());
-//     }
+        // and now a complex case...
+        dirty_handler.resources_to_reserialize.clear();
+        dirty_handler.remove("a");
+        dirty_handler.add(a());
+        assert_eq!(
+            dirty_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+        assert!(dirty_handler.resources_to_remove.is_empty());
+    }
 
-//     #[test]
-//     fn remove_add_remove_symmetry() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+    #[test]
+    fn remove_add_remove_symmetry() {
+        let mut dirty_handler = dirty_handler();
 
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+        dirty_handler.add(a());
+        dirty_handler.resources_to_reserialize.clear();
 
-//         // we removed it!
-//         dummy_handler.remove("a", &tcu);
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
+        // we removed it!
+        dirty_handler.remove("a");
+        dirty_handler.add(a());
 
-//         dummy_handler.remove("a", &tcu);
+        dirty_handler.remove("a");
 
-//         assert!(dummy_handler.resources_to_reserialize.is_empty(),);
-//         assert_eq!(
-//             dummy_handler.resources_to_remove,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
+        assert!(dirty_handler.resources_to_reserialize.is_empty(),);
+        assert_eq!(
+            dirty_handler.resources_to_remove,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
 
-//         assert!(dummy_handler.associated_files_to_cleanup.is_empty());
-//         assert!(dummy_handler.associated_folders_to_cleanup.is_empty());
-//     }
+        assert!(dirty_handler.associated_values.as_ref().unwrap().is_empty());
+    }
 
-//     #[test]
-//     fn add_remove_add_symmetry() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+    #[test]
+    fn add_remove_add_symmetry() {
+        let mut dummy_handler = dirty_handler();
 
-//         // we removed it!
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.remove("a", &tcu);
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
+        // we removed it!
+        dummy_handler.add(a());
+        dummy_handler.remove("a");
+        dummy_handler.add(a());
 
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::New
-//             }
-//         );
-//         assert_eq!(dummy_handler.resources_to_remove, hashmap! {});
+        assert_eq!(
+            dummy_handler.resources_to_reserialize,
+            hashmap! {
+                "a".to_string() => DirtyState::New
+            }
+        );
+        assert_eq!(dummy_handler.resources_to_remove, hashmap! {});
 
-//         assert!(dummy_handler.associated_files_to_cleanup.is_empty());
-//         assert!(dummy_handler.associated_folders_to_cleanup.is_empty());
-//     }
+        assert!(dummy_handler.associated_values.as_ref().unwrap().is_empty());
+    }
 
-//     #[test]
-//     fn replace_associated_files() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
+    #[test]
+    fn replace_remove() {
+        let mut dirty_handler = dirty_handler();
 
-//         // we removed it!
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
+        // add resource...
+        dirty_handler.add(a());
+        dirty_handler.resources_to_reserialize.clear();
 
-//         assert_eq!(
-//             dummy_handler.resources_to_reserialize,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::New,
-//             }
-//         );
-//         assert_eq!(dummy_handler.resources_to_remove, hashmap! {});
+        // replace it..
+        dirty_handler.replace_associated(a(), |v| v.0.push(0));
 
-//         // notice how there's nothing to remove yet here...
-//         assert_eq!(dummy_handler.associated_files_to_cleanup, hashmap![]);
-//         assert_eq!(dummy_handler.associated_folders_to_cleanup, hashmap![]);
-//     }
+        // and then remove it
+        dirty_handler.remove("a");
 
-//     #[test]
-//     fn replace_remove() {
-//         let mut dummy_handler: YyResourceHandler<DummyResource> = YyResourceHandler::new();
-//         let tcu = TrailingCommaUtility::new();
+        assert_eq!(dirty_handler.resources_to_reserialize, hashmap! {});
+        assert_eq!(
+            dirty_handler.resources_to_remove,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
 
-//         // add resource...
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-//         dummy_handler.resources_to_reserialize.clear();
+        // aaaaand no files to cleanup!
+        assert_eq!(dirty_handler.associated_values, Some(hashmap![]));
 
-//         // replace it..
-//         dummy_handler.set(DummyResource::new("a", 0), 0);
-
-//         // and then remove it
-//         dummy_handler.remove("a", &tcu);
-
-//         assert_eq!(dummy_handler.resources_to_reserialize, hashmap! {});
-//         assert_eq!(
-//             dummy_handler.resources_to_remove,
-//             hashmap! {
-//                 "a".to_string() => DirtyState::Edit,
-//             }
-//         );
-
-//         // aaaaand no files to cleanup!
-//         assert_eq!(dummy_handler.associated_files_to_cleanup, hashmap![]);
-//         assert_eq!(dummy_handler.associated_folders_to_cleanup, hashmap![]);
-//     }
-// }
+        dirty_handler.add(a());
+        panic!("{:#?}", dirty_handler);
+    }
+}

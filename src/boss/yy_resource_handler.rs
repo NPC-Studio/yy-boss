@@ -252,3 +252,11 @@ impl<T: YyResource + std::fmt::Debug> std::fmt::Debug for YyResourceData<T> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn crazy() {
+        
+    }
+}

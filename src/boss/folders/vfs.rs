@@ -484,11 +484,21 @@ impl Vfs {
 #[cfg(test)]
 mod test {
     use super::*;
-    use pretty_assertions::assert_eq;
+    use crate::boss::dirty_handler::DirtyState;
+    use maplit::hashmap;
+    // use pretty_assertions::assert_eq;
     use std::collections::HashSet;
     #[test]
     fn folder_manipulations() {
         let mut fgm = Vfs::new("project");
+        assert_eq!(
+            fgm.root_resource,
+            ViewPath {
+                name: "project".to_string(),
+                path: ViewPathLocation::root_file("project"),
+            },
+        );
+
         let new_folder = fgm.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
 
         let root = FolderGraph {
@@ -507,49 +517,47 @@ mod test {
             tags: vec![],
         };
 
-        let mut proof = Vfs {
-            root,
-            root_resource: ViewPath {
-                name: "project".to_string(),
-                path: ViewPathLocation::root_file("project"),
-            },
-            // to_serialize: maplit::hashmap! {
-            //     ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New
-            // },
-            // to_remove: HashMap::new(),
-            resource_names: ResourceNames::new(),
-            dirty_handler: DirtyHandler::new(),
-        };
-        assert_eq!(fgm, proof);
+        assert_eq!(fgm.root, root);
+        assert_eq!(
+            *fgm.dirty_handler.resources_to_reserialize(),
+            hashmap! {
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New
+            }
+        );
 
         fgm.remove_folder(&new_folder.path).unwrap();
-        // proof.to_serialize = HashMap::new();
-        proof.root.folders.clear();
-        assert_eq!(fgm, proof);
+        assert_eq!(fgm.root.folders, vec![]);
+        assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap![]);
+        assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap![]);
 
         // bit of nesting...
         let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
         let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
-        // proof.to_serialize = maplit::hashmap! {
-        //     ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New,
-        //     ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::New,
-        // };
-        proof.root.folders = vec![FolderGraph {
-            name: "Sprites".to_string(),
-            path_to_parent: Some(ViewPathLocation::new("folders")),
-            tags: vec![],
-            order: 0,
-            folders: vec![FolderGraph {
-                name: "Npcs".to_string(),
-                path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy")),
+        assert_eq!(
+            *fgm.dirty_handler.resources_to_reserialize(),
+            hashmap! {
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New,
+                ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::New,
+            }
+        );
+        assert_eq!(
+            fgm.root.folders,
+            vec![FolderGraph {
+                name: "Sprites".to_string(),
+                path_to_parent: Some(ViewPathLocation::new("folders")),
                 tags: vec![],
                 order: 0,
-                folders: vec![],
+                folders: vec![FolderGraph {
+                    name: "Npcs".to_string(),
+                    path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy")),
+                    tags: vec![],
+                    order: 0,
+                    folders: vec![],
+                    files: Files::new(),
+                }],
                 files: Files::new(),
-            }],
-            files: Files::new(),
-        }];
-        assert_eq!(fgm, proof);
+            }]
+        );
 
         // removal test...
         assert_eq!(
@@ -558,8 +566,8 @@ mod test {
         );
         fgm.remove_folder(&subfolder.path).unwrap();
         fgm.remove_folder(&new_folder.path).unwrap();
-        // assert_eq!(fgm.to_remove, HashMap::new());
-        // assert_eq!(fgm.to_serialize, HashMap::new());
+        assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap! {});
+        assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap! {});
 
         // add and then check removal...
         let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
@@ -590,13 +598,13 @@ mod test {
 
         fgm.remove_folder(&subfolder.path).unwrap();
         fgm.remove_folder(&new_folder.path).unwrap();
-        // assert_eq!(
-        //     fgm.to_remove,
-        //     maplit::hashmap! {
-        //         ViewPathLocation::new("folders/Sprites.yy") => DirtyState::New,
-        //         ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::New,
-        //     }
-        // );
-        // assert_eq!(fgm.to_serialize, HashMap::new());
+        assert_eq!(
+            *fgm.dirty_handler.resources_to_remove(),
+            maplit::hashmap! {
+                ViewPathLocation::new("folders/Sprites.yy") => DirtyState::Edit,
+                ViewPathLocation::new("folders/Sprites/Npcs.yy") => DirtyState::Edit,
+            }
+        );
+        assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap! {});
     }
 }
