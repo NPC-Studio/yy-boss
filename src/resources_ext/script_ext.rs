@@ -1,6 +1,6 @@
 use crate::{
-    utils, AssocDataLocation, FileHandler, FolderHandler, Resource, SerializedData,
-    SerializedDataError, YyResource, YyResourceHandler, YypBoss,
+    utils, AssocDataLocation, FileHolder, Resource, SerializedData, SerializedDataError,
+    YyResource, YyResourceHandler, YypBoss,
 };
 use yy_typings::{sprite_yy::script::Script, utils::TrailingCommaUtility, ViewPath};
 
@@ -60,5 +60,5 @@ impl YyResource for Script {
         }
     }
 
-    fn cleanup_on_replace(&self, _: FileHandler<'_, '_>, _: FolderHandler<'_, '_>) {}
+    fn cleanup_on_replace(&self, _: impl FileHolder) {}
 }

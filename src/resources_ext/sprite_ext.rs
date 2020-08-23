@@ -1,6 +1,6 @@
 use crate::{
-    AssocDataLocation, FileHandler, FolderHandler, Resource, SerializedData, SerializedDataError,
-    YyResource, YyResourceHandler, YypBoss,
+    AssocDataLocation, FileHolder, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
 };
 use anyhow::Context;
 use anyhow::Result as AnyResult;
@@ -437,11 +437,7 @@ impl YyResource for Sprite {
         })
     }
 
-    fn cleanup_on_replace(
-        &self,
-        mut files_to_delete: FileHandler<'_, '_>,
-        mut folders_to_delete: FolderHandler<'_, '_>,
-    ) {
+    fn cleanup_on_replace(&self, mut files: impl FileHolder) {
         // first, clean up the layer folders...
         let base_path = Path::new(&self.name);
         let layers_path = base_path.join("layers");
@@ -450,11 +446,11 @@ impl YyResource for Sprite {
         for frame in self.frames.iter() {
             let name = frame.name.inner().to_string();
             let path = Path::new(&name);
-            folders_to_delete.push_folder(layers_path.join(path));
+            files.push(layers_path.join(path));
 
             let mut file = path.to_owned();
             file.set_extension("png");
-            files_to_delete.push_file(base_path.join(file));
+            files.push(base_path.join(file));
         }
     }
 }

@@ -81,7 +81,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     ///
     /// This function is ONLY called when a resource is being replaced. When a resource is being removed
     /// outright, then the entire folder is removed, so we don't need to carefully handle this.
-    fn cleanup_on_replace(&self, paths_to_delete: &mut Vec<PathBuf>);
+    fn cleanup_on_replace(&self, paths_to_delete: impl FileHolder);
 }
 
 /// The data which is passed in as part of a Command. Each tag represents a different way to
@@ -156,4 +156,8 @@ pub enum AssocDataLocation<'a> {
     Value(&'a str),
     Path(&'a Path),
     Default,
+}
+
+pub trait FileHolder {
+    fn push(&mut self, f: PathBuf);
 }

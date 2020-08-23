@@ -5,8 +5,7 @@ mod boss {
 
     mod yy_resource;
     pub use yy_resource::{
-        AssocDataLocation, FileHandler, FolderHandler, SerializedData, SerializedDataError,
-        YyResource,
+        AssocDataLocation, FileHolder, SerializedData, SerializedDataError, YyResource,
     };
 
     mod yyp_boss;
@@ -26,14 +25,10 @@ mod boss {
     pub use errors::*;
 
     mod dirty_handler;
-    pub use dirty_handler::DirtyHandler;
-
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
     pub mod folders {
-        use super::utils;
-
         mod folder_graph;
         pub use folder_graph::*;
 

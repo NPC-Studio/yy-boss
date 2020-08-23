@@ -1,9 +1,9 @@
 use super::{
     directory_manager::DirectoryManager,
-    dirty_handler::{DirtyAssociatedValue, DirtyDrain, DirtyHandler},
+    dirty_handler::{DirtyDrain, DirtyHandler},
     utils, FilesystemPath, YyResource,
 };
-use crate::{AssocDataLocation, FileHandler, FolderHandler, YyResourceHandlerErrors};
+use crate::{AssocDataLocation, YyResourceHandlerErrors};
 use anyhow::Result as AnyResult;
 use log::{error, info};
 use std::{
@@ -13,7 +13,7 @@ use std::{
 };
 use yy_typings::utils::TrailingCommaUtility;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct YyResourceHandler<T: YyResource> {
     resources: HashMap<String, YyResourceData<T>>,
     dirty_handler: DirtyHandler<String, PathBuf>,
@@ -21,7 +21,10 @@ pub struct YyResourceHandler<T: YyResource> {
 
 impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn new() -> Self {
-        Self::default()
+        Self {
+            resources: HashMap::new(),
+            dirty_handler: DirtyHandler::new_assoc(),
+        }
     }
 
     /// Adds a new sprite into the game. It requires a `CreatedResource`,
@@ -39,10 +42,8 @@ impl<T: YyResource> YyResourceHandler<T> {
         let ret = self.insert_resource(value, Some(associated_data));
 
         if let Some(old) = &ret {
-            self.dirty_handler.replace_associated(name, |f| {
-        old.yy_resource.cleanup_on_replace(
-
-            ));
+            self.dirty_handler
+                .replace_associated(name, |f| old.yy_resource.cleanup_on_replace(f));
         } else {
             self.dirty_handler.add(name);
         }
@@ -141,9 +142,9 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// Writes all of the resources to disk, and cleans up excess files.
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         let DirtyDrain {
-            mut resources_to_remove,
-            mut resources_to_reserialize,
-            mut associated_values,
+            resources_to_remove,
+            resources_to_reserialize,
+            associated_values,
         } = self.dirty_handler.drain_all();
 
         // Removes the resources!
@@ -179,27 +180,37 @@ impl<T: YyResource> YyResourceHandler<T> {
             utils::serialize_json(&yy_path, &resource.yy_resource)?;
         }
 
-        // Remove folders
-        // for (_, mut folder) in associated_folders_to_cleanup {
-        //     for folder in folder.drain(..) {
-        //         let path = directory_manager
-        //             .resource_file(Path::new(T::SUBPATH_NAME))
-        //             .join(folder);
-        //         info!("remove folder {:?}", path);
-        //         fs::remove_dir_all(path)?;
-        //     }
-        // }
+        // Remove files or folders...
+        if let Some(ass_values) = associated_values {
+            for (name, mut filepaths) in ass_values {
+                let base_path = directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(name);
 
-        // // Remove files
-        // for (_, mut file) in associated_files_to_cleanup {
-        //     for file in file.drain(..) {
-        //         let path = directory_manager
-        //             .resource_file(Path::new(T::SUBPATH_NAME))
-        //             .join(file);
-        //         info!("removing path {:?}", path);
-        //         fs::remove_file(path)?;
-        //     }
-        // }
+                for fpath in filepaths.drain(..) {
+                    let path = base_path.join(fpath);
+                    if path.is_dir() {
+                        match fs::remove_dir_all(&path) {
+                            Ok(()) => {
+                                info!("removed folder {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove folder {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    } else {
+                        match fs::remove_file(&path) {
+                            Ok(()) => {
+                                info!("removed file {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove file {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         Ok(())
     }

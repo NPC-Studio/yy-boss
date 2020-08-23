@@ -1,17 +1,22 @@
-use crate::Resource;
-use std::collections::{HashMap, HashSet};
+use crate::{
+    boss::dirty_handler::{DirtyDrain, DirtyHandler},
+    Resource,
+};
+use std::collections::HashMap;
 use yy_typings::{FilesystemPath, ViewPathLocation, YypResource};
 
-#[derive(Debug, PartialEq, Eq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ResourceNames {
     names: HashMap<String, ResourceDescriptor>,
-    to_serialize: HashSet<String>,
-    to_remove: HashMap<String, ResourceDescriptor>,
+    dirty_handler: DirtyHandler<String, ()>,
 }
 
 impl ResourceNames {
     pub(crate) fn new() -> Self {
-        ResourceNames::default()
+        Self {
+            names: HashMap::new(),
+            dirty_handler: DirtyHandler::new(),
+        }
     }
 
     pub(crate) fn load_in_resource(&mut self, name: String, resource: ResourceDescriptor) {
@@ -23,19 +28,18 @@ impl ResourceNames {
         name: String,
         resource: ResourceDescriptor,
     ) -> Option<ResourceDescriptor> {
-        self.to_serialize.insert(name.clone());
-        // just in case...
-        self.to_remove.remove(&name);
-
-        self.names.insert(name, resource)
+        if let Some(ret) = self.names.insert(name.clone(), resource) {
+            self.dirty_handler.replace(name);
+            Some(ret)
+        } else {
+            self.dirty_handler.add(name);
+            None
+        }
     }
 
     pub(crate) fn remove(&mut self, name: &str) -> Option<ResourceDescriptor> {
-        // just in case
-        self.to_serialize.remove(name);
-
         if let Some(output) = self.names.remove(name) {
-            self.to_remove.insert(name.to_string(), output.clone());
+            self.dirty_handler.remove(name);
             Some(output)
         } else {
             None
@@ -52,8 +56,15 @@ impl ResourceNames {
     }
 
     pub(crate) fn serialize(&mut self, yyp_resources: &mut Vec<YypResource>) {
-        for refried_bean in self.to_serialize.drain() {
+        let DirtyDrain {
+            resources_to_reserialize,
+            resources_to_remove,
+            associated_values: _,
+        } = self.dirty_handler.drain_all();
+
+        for (refried_bean, _) in resources_to_reserialize {
             let desc = &self.names[&refried_bean];
+
             if let Some(pos) = yyp_resources.iter().position(|v| v.id.name == refried_bean) {
                 yyp_resources[pos] = desc.to_yyp_resource(&refried_bean);
             } else {
@@ -61,7 +72,7 @@ impl ResourceNames {
             }
         }
 
-        for (name, _) in self.to_remove.drain() {
+        for (name, _) in resources_to_remove {
             if let Some(pos) = yyp_resources.iter().position(|v| v.id.name == name) {
                 yyp_resources.remove(pos);
             }

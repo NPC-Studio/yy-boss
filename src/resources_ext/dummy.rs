@@ -1,5 +1,5 @@
 use super::YyResource;
-use crate::{FileHandler, FolderHandler};
+use crate::FileHolder;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -56,12 +56,8 @@ impl YyResource for DummyResource {
         })
     }
 
-    fn cleanup_on_replace(
-        &self,
-        mut files_to_delete: FileHandler<'_, '_>,
-        mut folders_to_delete: FolderHandler<'_, '_>,
-    ) {
-        files_to_delete.push_file(Path::new(&format!("{}/{}.txt", self.0, self.1)).to_owned());
-        folders_to_delete.push_folder(Path::new(&format!("{}/{}", self.0, self.1)).to_owned());
+    fn cleanup_on_replace(&self, mut paths: impl FileHolder) {
+        paths.push(Path::new(&format!("{}/{}.txt", self.0, self.1)).to_owned());
+        paths.push(Path::new(&format!("{}/{}", self.0, self.1)).to_owned());
     }
 }

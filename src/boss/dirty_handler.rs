@@ -1,3 +1,4 @@
+use crate::FileHolder;
 use std::{
     borrow::Borrow,
     collections::{hash_map::Drain, HashMap},
@@ -9,7 +10,7 @@ pub enum DirtyState {
     Edit,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DirtyHandler<R: std::hash::Hash + Eq + Clone, A> {
     resources_to_reserialize: HashMap<R, DirtyState>,
     resources_to_remove: HashMap<R, DirtyState>,
@@ -17,6 +18,22 @@ pub struct DirtyHandler<R: std::hash::Hash + Eq + Clone, A> {
 }
 
 impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
+    pub fn new_assoc() -> Self {
+        Self {
+            resources_to_reserialize: Default::default(),
+            resources_to_remove: Default::default(),
+            associated_values: Some(Default::default()),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            resources_to_reserialize: Default::default(),
+            resources_to_remove: Default::default(),
+            associated_values: None,
+        }
+    }
+
     pub fn add(&mut self, new_value: R) {
         match self.resources_to_remove.remove(&new_value) {
             Some(DirtyState::New) => {
@@ -35,7 +52,7 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
 
     pub fn replace_associated<'a, F>(&'a mut self, new_value: R, f: F)
     where
-        F: Fn(DirtyAssociatedValue<'a, A>),
+        F: Fn(DirtyValueHolder<'a, A>),
     {
         let dirty_state = match self.resources_to_reserialize.remove(&new_value) {
             Some(DirtyState::New) => DirtyState::New,
@@ -46,15 +63,15 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
                     .unwrap()
                     .entry(new_value.clone())
                     .or_default();
-                f(DirtyAssociatedValue(inner));
+                f(DirtyValueHolder(inner));
                 DirtyState::Edit
             }
         };
 
         self.resources_to_reserialize.insert(new_value, dirty_state);
     }
-    
-    pub fn replace<'a>(&'a mut self, new_value: R) {
+
+    pub fn replace(&mut self, new_value: R) {
         let dirty_state = match self.resources_to_reserialize.remove(&new_value) {
             Some(DirtyState::New) => DirtyState::New,
             Some(DirtyState::Edit) | None => DirtyState::Edit,
@@ -92,11 +109,10 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
     }
 }
 
-pub struct DirtyAssociatedValue<'a, A>(&'a mut Vec<A>);
-
-impl<'a, A> DirtyAssociatedValue<'a, A> {
-    pub fn push(&mut self, a: A) {
-        self.0.push(a);
+pub struct DirtyValueHolder<'a, A>(&'a mut Vec<A>);
+impl<'a> FileHolder for DirtyValueHolder<'a, std::path::PathBuf> {
+    fn push(&mut self, f: std::path::PathBuf) {
+        self.0.push(f)
     }
 }
 
