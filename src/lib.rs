@@ -25,6 +25,9 @@ mod boss {
     mod errors;
     pub use errors::*;
 
+    mod dirty_handler;
+    pub use dirty_handler::DirtyHandler;
+
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 

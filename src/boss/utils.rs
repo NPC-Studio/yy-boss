@@ -1,5 +1,6 @@
+
 use serde::{Deserialize, Serialize};
-use std::{fs, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 use thiserror::Error;
 use yy_typings::utils::TrailingCommaUtility;
 
@@ -15,12 +16,6 @@ pub enum FileSerializationError {
 pub enum SerializationFormat {
     Json,
     Yaml,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub enum DirtyState {
-    Edit,
-    New,
 }
 
 impl SerializationFormat {

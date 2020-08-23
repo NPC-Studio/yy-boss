@@ -1,5 +1,7 @@
-use super::{utils::DirtyState, Files, FolderGraph, FolderGraphError, ResourceNames};
-use crate::{PathStrExt, Resource, ViewPathLocationExt, YyResource};
+use super::{Files, FolderGraph, FolderGraphError, ResourceNames};
+use crate::{
+    boss::dirty_handler::DirtyState, PathStrExt, Resource, ViewPathLocationExt, YyResource,
+};
 use std::collections::HashMap;
 use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
 

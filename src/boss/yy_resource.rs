@@ -81,11 +81,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     ///
     /// This function is ONLY called when a resource is being replaced. When a resource is being removed
     /// outright, then the entire folder is removed, so we don't need to carefully handle this.
-    fn cleanup_on_replace(
-        &self,
-        files_to_delete: FileHandler<'_, '_>,
-        folders_to_delete: FolderHandler<'_, '_>,
-    );
+    fn cleanup_on_replace(&self, paths_to_delete: &mut Vec<PathBuf>);
 }
 
 /// The data which is passed in as part of a Command. Each tag represents a different way to
@@ -160,28 +156,4 @@ pub enum AssocDataLocation<'a> {
     Value(&'a str),
     Path(&'a Path),
     Default,
-}
-
-pub trait AssociatedFoo: Serialize + for<'de> Deserialize<'de> + Clone + Default {
-    type SomeType: Serialize + for<'de> Deserialize<'de>;
-}
-
-pub struct FileHandler<'a, 'b>(
-    pub &'a mut std::collections::HashMap<String, Vec<PathBuf>>,
-    pub &'b str,
-);
-impl<'a, 'b> FileHandler<'a, 'b> {
-    pub fn push_file(&mut self, p: PathBuf) {
-        self.0.entry(self.1.to_string()).or_default().push(p);
-    }
-}
-
-pub struct FolderHandler<'a, 'b>(
-    pub &'a mut std::collections::HashMap<String, Vec<PathBuf>>,
-    pub &'b str,
-);
-impl<'a, 'b> FolderHandler<'a, 'b> {
-    pub fn push_folder(&mut self, p: PathBuf) {
-        self.0.entry(self.1.to_string()).or_default().push(p);
-    }
 }
