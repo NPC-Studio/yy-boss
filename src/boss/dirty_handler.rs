@@ -56,7 +56,8 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
     {
         let dirty_state = match self.resources_to_reserialize.remove(&new_value) {
             Some(DirtyState::New) => DirtyState::New,
-            Some(DirtyState::Edit) | None => {
+            Some(DirtyState::Edit) => DirtyState::Edit,
+            None => {
                 let inner = self
                     .associated_values
                     .as_mut()
@@ -334,10 +335,43 @@ mod tests {
             }
         );
 
-        // aaaaand no files to cleanup!
-        assert_eq!(dirty_handler.associated_values, Some(hashmap![]));
+        // aaaaand we keep the files...
+        assert_eq!(
+            dirty_handler.associated_values,
+            Some(hashmap! {
+                "a".to_string() => vec![0]
+            })
+        );
+    }
 
+    #[test]
+    fn replace_remove_add() {
+        let mut dirty_handler = dirty_handler();
+
+        // add resource...
         dirty_handler.add(a());
-        panic!("{:#?}", dirty_handler);
+        dirty_handler.resources_to_reserialize.clear();
+
+        // replace it..
+        dirty_handler.replace_associated(a(), |v| v.0.push(0));
+
+        // and then remove it
+        dirty_handler.remove("a");
+
+        assert_eq!(dirty_handler.resources_to_reserialize, hashmap! {});
+        assert_eq!(
+            dirty_handler.resources_to_remove,
+            hashmap! {
+                "a".to_string() => DirtyState::Edit,
+            }
+        );
+
+        // aaaaand we keep the files...
+        assert_eq!(
+            dirty_handler.associated_values,
+            Some(hashmap! {
+                "a".to_string() => vec![0]
+            })
+        );
     }
 }

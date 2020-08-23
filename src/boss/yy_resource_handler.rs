@@ -147,6 +147,38 @@ impl<T: YyResource> YyResourceHandler<T> {
             associated_values,
         } = self.dirty_handler.drain_all();
 
+        // Remove files or folders...
+        if let Some(ass_values) = associated_values {
+            for (name, mut filepaths) in ass_values {
+                let base_path = directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(name);
+
+                for fpath in filepaths.drain(..) {
+                    let path = base_path.join(fpath);
+                    if path.is_dir() {
+                        match fs::remove_dir_all(&path) {
+                            Ok(()) => {
+                                info!("removed folder {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove folder {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    } else {
+                        match fs::remove_file(&path) {
+                            Ok(()) => {
+                                info!("removed file {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove file {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Removes the resources!
         for (resource_to_remove, _) in resources_to_remove {
             let path = FilesystemPath::new_path(T::SUBPATH_NAME, &resource_to_remove);
@@ -178,38 +210,6 @@ impl<T: YyResource> YyResourceHandler<T> {
             }
 
             utils::serialize_json(&yy_path, &resource.yy_resource)?;
-        }
-
-        // Remove files or folders...
-        if let Some(ass_values) = associated_values {
-            for (name, mut filepaths) in ass_values {
-                let base_path = directory_manager
-                    .resource_file(Path::new(T::SUBPATH_NAME))
-                    .join(name);
-
-                for fpath in filepaths.drain(..) {
-                    let path = base_path.join(fpath);
-                    if path.is_dir() {
-                        match fs::remove_dir_all(&path) {
-                            Ok(()) => {
-                                info!("removed folder {:?}", path);
-                            }
-                            Err(e) => {
-                                error!("couldn't remove folder {:#?}, {:#?}", path, e);
-                            }
-                        }
-                    } else {
-                        match fs::remove_file(&path) {
-                            Ok(()) => {
-                                info!("removed file {:?}", path);
-                            }
-                            Err(e) => {
-                                error!("couldn't remove file {:#?}, {:#?}", path, e);
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         Ok(())
@@ -250,13 +250,5 @@ impl<T: YyResource + std::fmt::Debug> std::fmt::Debug for YyResourceData<T> {
             "{:?} !!**ASSOCIATED DATA IS NOT PRINTED IN DEBUG OUTPUT**!!",
             self.yy_resource
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn crazy() {
-        
     }
 }
