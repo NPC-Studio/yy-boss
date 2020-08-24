@@ -249,7 +249,7 @@ pub enum VfsCommand {
     ///
     /// ## Errors
     /// If the [`ViewPathLocation`] provided does not describe a valid Folder, this command aborts and returns an error.
-    GetFolder(ViewPathLocation),
+    GetFolder { folder: ViewPathLocation },
 
     /// Returns a [`FolderGraph`] for the entire Virtual File System.
     /// Please note, this can result in a fairly massive Json being sent back.
@@ -311,9 +311,9 @@ mod tests {
             folder_to_remove: ViewPathLocation::new("okay"),
         }));
 
-        harness(Command::VirtualFileSystem(VfsCommand::GetFolder(
-            ViewPathLocation::default(),
-        )));
+        harness(Command::VirtualFileSystem(VfsCommand::GetFolder {
+            folder: ViewPathLocation::default(),
+        }));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFullVfs));
         harness(Command::VirtualFileSystem(VfsCommand::GetPathType(

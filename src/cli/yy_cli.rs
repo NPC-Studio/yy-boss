@@ -93,10 +93,10 @@ impl YyCli {
                         }
                     }
                 }
-                VfsCommand::GetFolder(folder_name) => match yyp_boss.vfs.get_folder(&folder_name) {
+                VfsCommand::GetFolder { folder } => match yyp_boss.vfs.get_folder(&folder) {
                     Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
                     None => Err(YypBossError::FolderGraphError(
-                        FolderGraphError::PathNotFound(folder_name.to_string()),
+                        FolderGraphError::PathNotFound(folder.to_string()),
                     )),
                 },
                 VfsCommand::GetFullVfs => {
