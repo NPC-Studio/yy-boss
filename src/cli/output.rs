@@ -2,7 +2,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yy_boss::{
-    folders::{FolderGraph, Item},
+    folders::{FolderGraph, FolderGraphError, Item},
     ResourceManipulationError, SerializedData, StartupError,
 };
 
@@ -123,6 +123,9 @@ pub enum YypBossError {
 
     #[error(transparent)]
     ResourceManipulation(#[from] ResourceManipulationError),
+
+    #[error(transparent)]
+    FolderGraphError(#[from] FolderGraphError),
 
     #[error("could not read yyfile, error: {}", .0)]
     YyParseError(String),

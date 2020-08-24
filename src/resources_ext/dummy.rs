@@ -25,7 +25,7 @@ impl YyResource for DummyResource {
         self.0 = name;
     }
 
-    fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
+    fn set_parent_view_path(&mut self, _: yy_typings::ViewPath) {
         unimplemented!()
     }
 

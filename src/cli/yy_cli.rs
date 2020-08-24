@@ -9,7 +9,7 @@ use yy_boss::{
     SerializedDataError,
 };
 use yy_typings::{
-    object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility, ViewPath,
+    object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility,
 };
 
 pub struct YyCli {
@@ -22,9 +22,9 @@ impl YyCli {
     }
 
     pub fn parse_command(&self, command: Command, yyp_boss: &mut YypBoss) -> Output {
-        match command {
+        let command_output = match command {
             Command::Resource(resource_command) => {
-                let command_output = match resource_command.command_type {
+                match resource_command.command_type {
                     ResourceCommandType::Add(new_resource) => match resource_command.resource {
                         Resource::Sprite => self.add::<Sprite>(yyp_boss, new_resource),
                         Resource::Script => self.add::<Script>(yyp_boss, new_resource),
@@ -55,71 +55,64 @@ impl YyCli {
                         Resource::Script => self.exists::<Script>(yyp_boss, identifier),
                         Resource::Object => self.exists::<Object>(yyp_boss, identifier),
                     },
-                };
-
-                Output::Command(command_output.unwrap_or_else(CommandOutput::error))
+                }
             }
-            Command::VirtualFileSystem(vfs_command) => {
-                let command_output: Result<CommandOutput, YypBossError> = match vfs_command {
-                    VfsCommand::MoveFolder {
-                        folder_to_move,
-                        new_parent,
-                    } => match yyp_boss.vfs.move_folder(folder_to_move, &new_parent) {
+            Command::VirtualFileSystem(vfs_command) => match vfs_command {
+                VfsCommand::MoveFolder {
+                    folder_to_move,
+                    new_parent,
+                } => match yyp_boss.vfs.move_folder(folder_to_move, &new_parent) {
+                    Ok(()) => Ok(CommandOutput::ok()),
+                    Err(e) => Err(YypBossError::ResourceManipulation(
+                        ResourceManipulationError::FolderGraphError(e),
+                    )),
+                },
+                VfsCommand::MoveResource {
+                    resource_to_move,
+                    resource,
+                    new_parent,
+                } => {
+                    match yyp_boss.move_resource_dynamic(&resource_to_move, new_parent, resource) {
                         Ok(()) => Ok(CommandOutput::ok()),
-                        Err(e) => Err(YypBossError::ResourceManipulation(
-                            ResourceManipulationError::FolderGraphError(e),
-                        )),
-                    },
-                    VfsCommand::MoveResource {
-                        resource_to_move,
-                        resource,
-                        new_parent,
-                    } => match resource {
-                        Resource::Sprite => {
-                            self.move_resource::<Sprite>(yyp_boss, &resource_to_move, new_parent)
+                        Err(e) => Err(YypBossError::ResourceManipulation(e)),
+                    }
+                }
+                VfsCommand::RemoveFolder {
+                    folder_to_remove,
+                    recursive,
+                } => {
+                    if recursive {
+                        match yyp_boss.remove_folder(&folder_to_remove) {
+                            Ok(()) => Ok(CommandOutput::ok()),
+                            Err(e) => Err(YypBossError::ResourceManipulation(e)),
                         }
-                        Resource::Script => {
-                            self.move_resource::<Script>(yyp_boss, &resource_to_move, new_parent)
-                        }
-                        Resource::Object => {
-                            self.move_resource::<Object>(yyp_boss, &resource_to_move, new_parent)
-                        }
-                    },
-                    VfsCommand::RemoveFolder { folder_to_remove, recursive } => {
-                        match yyp_boss.remove_folder() {
-                            
-                        }
-                    },
-                    VfsCommand::GetFolder(folder_name) => {
-                        match yyp_boss.vfs.get_folder(&folder_name) {
-                            Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
-                            None => Err(YypBossError::ResourceManipulation(
-                                ResourceManipulationError::FolderGraphError(
-                                    FolderGraphError::PathNotFound(folder_name.to_string()),
-                                ),
-                            )),
+                    } else {
+                        match yyp_boss.vfs.remove_empty_folder(&folder_to_remove) {
+                            Ok(()) => Ok(CommandOutput::ok()),
+                            Err(e) => Err(YypBossError::FolderGraphError(e)),
                         }
                     }
-                    VfsCommand::GetFullVfs => {
-                        let vfs = yyp_boss.vfs.get_root_folder().clone();
+                }
+                VfsCommand::GetFolder(folder_name) => match yyp_boss.vfs.get_folder(&folder_name) {
+                    Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
+                    None => Err(YypBossError::FolderGraphError(
+                        FolderGraphError::PathNotFound(folder_name.to_string()),
+                    )),
+                },
+                VfsCommand::GetFullVfs => {
+                    let vfs = yyp_boss.vfs.get_root_folder().clone();
 
-                        Ok(CommandOutput::ok_folder_graph(vfs))
-                    }
-                    VfsCommand::GetPathType(path_type) => {
-                        match yyp_boss.vfs.path_kind(&path_type) {
-                            Some(v) => Ok(CommandOutput::ok_path_kind(v)),
-                            None => Err(YypBossError::ResourceManipulation(
-                                ResourceManipulationError::FolderGraphError(
-                                    FolderGraphError::PathNotFound(path_type.path.to_string()),
-                                ),
-                            )),
-                        }
-                    }
-                };
-
-                Output::Command(command_output.unwrap_or_else(CommandOutput::error))
-            }
-        }
+                    Ok(CommandOutput::ok_folder_graph(vfs))
+                }
+                VfsCommand::GetPathType(path_type) => match yyp_boss.vfs.path_kind(&path_type) {
+                    Some(v) => Ok(CommandOutput::ok_path_kind(v)),
+                    None => Err(YypBossError::FolderGraphError(
+                        FolderGraphError::PathNotFound(path_type.path.to_string()),
+                    )),
+                },
+            },
+        };
+        Output::Command(command_output.unwrap_or_else(CommandOutput::error))
     }
 
     fn add<T: YyResource>(
@@ -319,17 +312,5 @@ impl YyCli {
         };
 
         Ok((yy_data, assoc_output))
-    }
-
-    fn move_resource<T: YyResource>(
-        &self,
-        yyp_boss: &mut YypBoss,
-        resource_name: &str,
-        new_parent: ViewPath,
-    ) -> Result<CommandOutput, YypBossError> {
-        match yyp_boss.move_resource::<T>(resource_name, new_parent) {
-            Ok(()) => Ok(CommandOutput::ok()),
-            Err(e) => Err(YypBossError::ResourceManipulation(e)),
-        }
     }
 }

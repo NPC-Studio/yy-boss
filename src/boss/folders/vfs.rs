@@ -1,9 +1,10 @@
-use super::{Files, FolderGraph, FolderGraphError, Item, ResourceNames};
+use super::{Files, FolderGraph, FolderGraphError, Item, ResourceDescriptor, ResourceNames};
 use crate::{
     boss::dirty_handler::{DirtyDrain, DirtyHandler},
     PathStrExt, Resource, ViewPathLocationExt, YyResource,
 };
-use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
+use std::collections::HashMap;
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
 static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPathLocation> =
     once_cell::sync::Lazy::new(ViewPathLocation::root_folder);
@@ -239,11 +240,7 @@ impl Vfs {
     /// Removes an empty folder from the virtual file system. If *anything* is within this folder, it will not be deleted,
     /// including other empty folders.
     ///
-    /// ```
-    ///
-    ///
-    /// ```
-    pub fn remove_folder(
+    pub fn remove_empty_folder(
         &mut self,
         folder_path: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
@@ -270,6 +267,47 @@ impl Vfs {
         } else {
             Err(FolderGraphError::CannotRemoveRootFolder)
         }
+    }
+
+    pub(crate) fn remove_non_empty_folder(
+        &mut self,
+        folder_path: &ViewPathLocation,
+    ) -> Result<HashMap<FilesystemPath, ResourceDescriptor>, FolderGraphError> {
+        if *folder_path == *ROOT_FOLDER_VIEW_PATH
+            || *folder_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
+        {
+            return Err(FolderGraphError::CannotRemoveRootFolder);
+        }
+
+        let original_folder = Self::get_folder_mut(&mut self.root, &folder_path)
+            .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
+
+        fn remove_resource(
+            fg: &mut FolderGraph,
+            rn: &mut ResourceNames,
+            dh: &mut DirtyHandler<ViewPathLocation, ()>,
+            buffer: &mut HashMap<FilesystemPath, ResourceDescriptor>,
+        ) {
+            fg.files.drain_into(rn, buffer);
+            for mut folder in fg.folders.drain(..) {
+                remove_resource(&mut folder, rn, dh, buffer);
+
+                // mark the remove as dirty...
+                dh.remove(&folder.view_path_location());
+            }
+        }
+
+        let mut buf = Default::default();
+        remove_resource(
+            original_folder,
+            &mut self.resource_names,
+            &mut self.dirty_handler,
+            &mut buf,
+        );
+
+        self.remove_empty_folder(folder_path)?;
+
+        Ok(buf)
     }
 
     /// Checks if a resource with a given name exists. If it does, it will return information
@@ -581,7 +619,7 @@ mod test {
             }
         );
 
-        fgm.remove_folder(&new_folder.path).unwrap();
+        fgm.remove_empty_folder(&new_folder.path).unwrap();
         assert_eq!(fgm.root.folders, vec![]);
         assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap![]);
         assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap![]);
@@ -617,11 +655,11 @@ mod test {
 
         // removal test...
         assert_eq!(
-            fgm.remove_folder(&new_folder.path),
+            fgm.remove_empty_folder(&new_folder.path),
             Err(FolderGraphError::CannotRemoveFolder)
         );
-        fgm.remove_folder(&subfolder.path).unwrap();
-        fgm.remove_folder(&new_folder.path).unwrap();
+        fgm.remove_empty_folder(&subfolder.path).unwrap();
+        fgm.remove_empty_folder(&new_folder.path).unwrap();
         assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap! {});
         assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap! {});
 
@@ -652,8 +690,8 @@ mod test {
         );
         assert_eq!(dummy1, vec![]);
 
-        fgm.remove_folder(&subfolder.path).unwrap();
-        fgm.remove_folder(&new_folder.path).unwrap();
+        fgm.remove_empty_folder(&subfolder.path).unwrap();
+        fgm.remove_empty_folder(&new_folder.path).unwrap();
         assert_eq!(
             *fgm.dirty_handler.resources_to_remove(),
             maplit::hashmap! {

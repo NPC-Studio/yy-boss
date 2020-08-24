@@ -308,6 +308,7 @@ mod tests {
 
         harness(Command::VirtualFileSystem(VfsCommand::RemoveFolder {
             recursive: true,
+            folder_to_remove: ViewPathLocation::new("okay"),
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFolder(

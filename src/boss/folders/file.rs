@@ -1,6 +1,7 @@
 use super::{ResourceDescriptor, ResourceNames};
 use crate::YyResource;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use yy_typings::FilesystemPath;
 
 #[derive(Serialize, Deserialize, Default, Debug, Eq, PartialEq, Clone, Hash, Ord, PartialOrd)]
@@ -34,6 +35,17 @@ impl Files {
             yy.name().to_string(),
             ResourceDescriptor::new(T::RESOURCE, order, yy.parent_view_path().path),
         );
+    }
+
+    pub fn drain_into(
+        &mut self,
+        rn: &mut ResourceNames,
+        buf: &mut HashMap<FilesystemPath, ResourceDescriptor>,
+    ) {
+        for file in self.0.drain(..) {
+            let v = rn.remove(&file.name).unwrap();
+            buf.insert(file, v);
+        }
     }
 
     pub fn remove(&mut self, name: &str, rn: &mut ResourceNames) {

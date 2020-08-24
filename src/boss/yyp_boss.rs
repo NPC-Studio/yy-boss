@@ -2,6 +2,7 @@ use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
     YyResource, YyResourceData, YyResourceHandler, YypSerialization,
 };
+use crate::Resource;
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
 use std::{fs, path::Path};
@@ -99,77 +100,34 @@ impl YypBoss {
             .map(|texture_group| texture_group.into())
     }
 
-    /// Adds a new resource, which must not already exist within the project.
-    pub fn add_resource<T: YyResource>(
-        &mut self,
-        yy_file: T,
-        associated_data: T::AssociatedData,
-    ) -> Result<(), ResourceManipulationError> {
-        if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
-            return Err(ResourceManipulationError::BadAdd(r.resource));
-        }
-
-        self.vfs.new_resource_end(&yy_file)?;
-        let handler = T::get_handler_mut(self);
-
-        if handler.set(yy_file, associated_data).is_some() {
-            Err(ResourceManipulationError::InternalError)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Adds a new resource, which must not already exist within the project.
-    pub fn remove_resource<T: YyResource>(
-        &mut self,
-        name: &str,
-    ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
-        // remove the file from the VFS...
-        self.vfs.remove_resource(name, T::RESOURCE)?;
-
-        let handler = T::get_handler_mut(self);
-        handler
-            .remove(name, &TCU)
-            .ok_or_else(|| ResourceManipulationError::InternalError)
-    }
-
     /// Removes a folder RECURSIVELY. **All resources within will be removed**. Be careful out there.
     pub fn remove_folder(
         &mut self,
         folder: &ViewPathLocation,
     ) -> Result<(), ResourceManipulationError> {
-        
-    }
+        // easy!
+        if self.vfs.remove_empty_folder(folder).is_ok() {
+            return Ok(());
+        }
 
-    pub fn move_resource<T: YyResource>(
-        &mut self,
-        name: &str,
-        new_parent: ViewPath,
-    ) -> Result<(), ResourceManipulationError> {
-        // vfs
-        self.vfs
-            .move_resource(name, T::RESOURCE, &new_parent.path)
-            .map_err(ResourceManipulationError::FolderGraphError)?;
+        // okay okay, more complex operation
+        let deleted_resources = self.vfs.remove_non_empty_folder(folder)?;
 
-        let handler = T::get_handler_mut(self);
-        handler
-            .remove(name, &TCU)
-            .ok_or_else(|| ResourceManipulationError::InternalError)?;
-
-        handler.edit_parent(name, new_parent);
+        for (fsys, descriptor) in deleted_resources {
+            match descriptor.resource {
+                Resource::Sprite => {
+                    self.scripts.remove(&fsys.name, &TCU);
+                }
+                Resource::Script => {
+                    self.scripts.remove(&fsys.name, &TCU);
+                }
+                Resource::Object => {
+                    self.objects.remove(&fsys.name, &TCU);
+                }
+            }
+        }
 
         Ok(())
-    }
-
-    /// Gets a resource via the type. Users should probably not use this method unless they're doing
-    /// some generic code. Instead, simply use each resources manager as appropriate -- for example,
-    /// to get an object's data, use `yyp_boss.objects.get`.
-    ///
-    /// *Nb*: `YyResourceData` might not have any AssociatedData on it. See its warning on how Associated
-    /// Data is held lazily.
-    pub fn get_resource<T: YyResource>(&self, name: &str) -> Option<&YyResourceData<T>> {
-        let handler = T::get_handler(self);
-        handler.get(name)
     }
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
@@ -214,5 +172,91 @@ impl Into<Yyp> for YypBoss {
 impl PartialEq for YypBoss {
     fn eq(&self, other: &Self) -> bool {
         self.yyp == other.yyp && self.vfs == other.vfs
+    }
+}
+
+// for generics
+impl YypBoss {
+    /// Adds a new resource, which must not already exist within the project.
+    pub fn add_resource<T: YyResource>(
+        &mut self,
+        yy_file: T,
+        associated_data: T::AssociatedData,
+    ) -> Result<(), ResourceManipulationError> {
+        if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
+            return Err(ResourceManipulationError::BadAdd(r.resource));
+        }
+
+        self.vfs.new_resource_end(&yy_file)?;
+        let handler = T::get_handler_mut(self);
+
+        if handler.set(yy_file, associated_data).is_some() {
+            Err(ResourceManipulationError::InternalError)
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Adds a new resource, which must not already exist within the project.
+    pub fn remove_resource<T: YyResource>(
+        &mut self,
+        name: &str,
+    ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
+        // remove the file from the VFS...
+        self.vfs.remove_resource(name, T::RESOURCE)?;
+
+        let handler = T::get_handler_mut(self);
+        handler
+            .remove(name, &TCU)
+            .ok_or_else(|| ResourceManipulationError::InternalError)
+    }
+
+    /// Move a resource within the Asset Tree
+    pub fn move_resource<T: YyResource>(
+        &mut self,
+        name: &str,
+        new_parent: ViewPath,
+    ) -> Result<(), ResourceManipulationError> {
+        // vfs
+        self.vfs
+            .move_resource(name, T::RESOURCE, &new_parent.path)
+            .map_err(ResourceManipulationError::FolderGraphError)?;
+
+        let handler = T::get_handler_mut(self);
+        handler
+            .remove(name, &TCU)
+            .ok_or_else(|| ResourceManipulationError::InternalError)?;
+
+        handler.edit_parent(name, new_parent);
+
+        Ok(())
+    }
+
+    /// Gets a resource via the type. Users should probably not use this method unless they're doing
+    /// some generic code. Instead, simply use each resources manager as appropriate -- for example,
+    /// to get an object's data, use `yyp_boss.objects.get`.
+    ///
+    /// *Nb*: `YyResourceData` might not have any AssociatedData on it. See its warning on how Associated
+    /// Data is held lazily.
+    pub fn get_resource<T: YyResource>(&self, name: &str) -> Option<&YyResourceData<T>> {
+        let handler = T::get_handler(self);
+        handler.get(name)
+    }
+}
+
+// for methods which can be done using runtime dispatching
+impl YypBoss {
+    /// Move a resource within the Asset Tree, using the passed in resource type
+    pub fn move_resource_dynamic(
+        &mut self,
+        name: &str,
+        new_parent: ViewPath,
+        resource: Resource,
+    ) -> Result<(), ResourceManipulationError> {
+        match resource {
+            Resource::Sprite => self.move_resource::<Sprite>(name, new_parent),
+            Resource::Script => self.move_resource::<Script>(name, new_parent),
+            Resource::Object => self.move_resource::<Object>(name, new_parent),
+        }
     }
 }
