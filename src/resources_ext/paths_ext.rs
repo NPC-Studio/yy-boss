@@ -6,7 +6,7 @@ pub trait ViewPathLocationExt {
     /// Iterates over the folder subpaths -- not including the root `folders`.
     /// This can, therefore, be empty.
     fn component_paths(&self) -> Skip<Split<'_, char>>;
-    fn join(&self, other: &str) -> ViewPathLocation;
+    fn join<S: AsRef<str>>(&self, other: S) -> ViewPathLocation;
 }
 
 impl ViewPathLocationExt for ViewPathLocation {
@@ -14,10 +14,10 @@ impl ViewPathLocationExt for ViewPathLocation {
         self.0.split('/').skip(1)
     }
 
-    fn join(&self, other: &str) -> ViewPathLocation {
+    fn join<S: AsRef<str>>(&self, other: S) -> ViewPathLocation {
         let path_name = self.0.trim_end_matches(".yy");
 
-        ViewPathLocation(format!("{}/{}.yy", path_name, other))
+        ViewPathLocation(format!("{}/{}.yy", path_name, other.as_ref()))
     }
 }
 

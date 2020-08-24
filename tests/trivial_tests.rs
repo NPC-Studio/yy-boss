@@ -25,8 +25,8 @@ fn no_mangle_yyp() {
             let original_pure_parsed_yyp: Yyp =
                 serde_json::from_str(&tcu.clear_trailing_comma(original)).unwrap();
 
-            assert_eq!(original_pure_parsed_yyp, parsed_yyp);
-            assert_eq!(original, parsed_yyp.yyp_serialization(0));
+            assert_eq!(original_pure_parsed_yyp, parsed_yyp, "through serde and yypboss");
+            assert_eq!(original, parsed_yyp.yyp_serialization(0), "just serde pure");
         }
     }
 }

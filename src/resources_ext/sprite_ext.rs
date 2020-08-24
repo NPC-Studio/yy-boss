@@ -1,18 +1,24 @@
-use super::YyResource;
+use crate::{
+    AssocDataLocation, FileHolder, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
+};
+use anyhow::Context;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
-use std::{
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
-use yy_typings::{sprite_yy::*, TexturePath};
+use std::{collections::HashMap, num::NonZeroUsize, path::Path};
+use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
 pub trait SpriteExt {
     fn with(self, edit: impl Fn(&mut Self)) -> Self;
-    fn new(name: &str, texture_group_id: TexturePath) -> Sprite;
-    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite;
+    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Sprite;
+    fn with_layer(
+        name: &str,
+        texture_group_id: TexturePath,
+        layer: Layer,
+        parent: ViewPath,
+    ) -> Sprite;
     fn parent(self, parent: ViewPath) -> Sprite;
     fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
@@ -39,7 +45,31 @@ impl SpriteExt for Sprite {
         self
     }
 
-    fn with_layer(name: &str, texture_group_id: TexturePath, layer: Layer) -> Sprite {
+    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Sprite {
+        Sprite::with_layer(
+            name,
+            texture_group_id,
+            Layer {
+                visible: true,
+                is_locked: false,
+                blend_mode: 0,
+                opacity: 100.0,
+                display_name: "default".to_string(),
+                resource_version: ResourceVersion::default(),
+                name: LayerId::new(),
+                tags: vec![],
+                resource_type: ConstGmImageLayer::Const,
+            },
+            parent,
+        )
+    }
+
+    fn with_layer(
+        name: &str,
+        texture_group_id: TexturePath,
+        layer: Layer,
+        parent: ViewPath,
+    ) -> Sprite {
         Sprite {
             name: name.to_string(),
             texture_group_id,
@@ -63,27 +93,10 @@ impl SpriteExt for Sprite {
                 },
                 ..SpriteSequence::default()
             },
+            parent,
             layers: vec![layer],
             ..Sprite::default()
         }
-    }
-
-    fn new(name: &str, texture_group_id: TexturePath) -> Sprite {
-        Sprite::with_layer(
-            name,
-            texture_group_id,
-            Layer {
-                visible: true,
-                is_locked: false,
-                blend_mode: 0,
-                opacity: 100.0,
-                display_name: "default".to_string(),
-                resource_version: ResourceVersion::default(),
-                name: LayerId::new(),
-                tags: vec![],
-                resource_type: ConstGmImageLayer::Const,
-            },
-        )
     }
 
     fn parent(self, parent: ViewPath) -> Sprite {
@@ -266,12 +279,10 @@ impl SpriteExt for Sprite {
     }
 }
 
-use crate::Resource;
-use anyhow::Context;
 impl YyResource for Sprite {
-    type AssociatedData = Vec<(FrameId, SpriteImageBuffer)>;
+    type AssociatedData = HashMap<FrameId, SpriteImageBuffer>;
     const SUBPATH_NAME: &'static str = "sprites";
-    const RESOURCE: Resource = Resource::Script;
+    const RESOURCE: Resource = Resource::Sprite;
 
     fn name(&self) -> &str {
         &self.name
@@ -306,32 +317,69 @@ impl YyResource for Sprite {
             kf.channels.zero.id.path = new_path.to_owned();
         }
     }
-    fn parent_path(&self) -> ViewPath {
+
+    fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
+        self.parent = vp;
+    }
+
+    fn parent_view_path(&self) -> ViewPath {
         self.parent.clone()
+    }
+
+    fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
+        &yyp_boss.sprites
+    }
+
+    fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self> {
+        &mut yyp_boss.sprites
     }
 
     fn deserialize_associated_data(
         &self,
-        directory_path: &Path,
-    ) -> AnyResult<Option<Self::AssociatedData>> {
-        let output = self
-            .frames
-            .iter()
-            .filter_map(|frame: &Frame| {
-                let path_to_image = directory_path
-                    .join(Path::new(&frame.name.inner().to_string()).with_extension("png"));
+        incoming_data: AssocDataLocation<'_>,
+        _: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        match incoming_data {
+            AssocDataLocation::Value(_) => Err(SerializedDataError::CannotUseValue),
+            AssocDataLocation::Path(p) => {
+                let output = self
+                    .frames
+                    .iter()
+                    .filter_map(|frame: &Frame| {
+                        let path_to_image = p.join(&format!("{}.png", frame.name.inner()));
 
-                match image::open(&path_to_image) {
-                    Ok(image) => Some((frame.name, image.to_rgba())),
-                    Err(e) => {
-                        log::error!("We couldn't read {:?} -- {}", path_to_image, e);
-                        None
-                    }
-                }
-            })
-            .collect();
+                        match image::open(&path_to_image) {
+                            Ok(image) => Some((frame.name, image.to_rgba())),
+                            Err(e) => {
+                                log::error!("We couldn't read {:?} -- {}", path_to_image, e);
+                                None
+                            }
+                        }
+                    })
+                    .collect();
 
-        Ok(Some(output))
+                Ok(output)
+            }
+            AssocDataLocation::Default => {
+                let output = self
+                    .frames
+                    .iter()
+                    .map(|frame: &Frame| {
+                        (
+                            frame.name,
+                            SpriteImageBuffer::from_raw(
+                                self.width.get() as u32,
+                                self.height.get() as u32,
+                                vec![0; self.width.get() * self.height.get() * 4],
+                            )
+                            .expect("Jack messed up the math in the Frame Buffer defaults"),
+                        )
+                    })
+                    .collect();
+
+                Ok(output)
+            }
+        }
     }
 
     fn serialize_associated_data(
@@ -377,11 +425,23 @@ impl YyResource for Sprite {
         Ok(())
     }
 
-    fn cleanup_on_replace(
-        &self,
-        files_to_delete: &mut Vec<PathBuf>,
-        folders_to_delete: &mut Vec<PathBuf>,
-    ) {
+    fn serialize_associated_data_into_data(
+        working_directory: &Path,
+        associated_data: &Self::AssociatedData,
+    ) -> Result<SerializedData, SerializedDataError> {
+        for (frame_id, img) in associated_data {
+            let path = working_directory.join(format!("{}.png", frame_id.inner()));
+
+            img.save(&path)
+                .map_err(SerializedDataError::CouldNotWriteImage)?;
+        }
+
+        Ok(SerializedData::Filepath {
+            data: working_directory.to_owned(),
+        })
+    }
+
+    fn cleanup_on_replace(&self, mut files: impl FileHolder) {
         // first, clean up the layer folders...
         let base_path = Path::new(&self.name);
         let layers_path = base_path.join("layers");
@@ -390,11 +450,11 @@ impl YyResource for Sprite {
         for frame in self.frames.iter() {
             let name = frame.name.inner().to_string();
             let path = Path::new(&name);
-            folders_to_delete.push(layers_path.join(path));
+            files.push(layers_path.join(path));
 
             let mut file = path.to_owned();
             file.set_extension("png");
-            files_to_delete.push(base_path.join(file));
+            files.push(base_path.join(file));
         }
     }
 }

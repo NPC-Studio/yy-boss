@@ -7,21 +7,34 @@ use std::{
     hash::Hash,
     path::{Path, PathBuf},
 };
+use utils::SerializationFormat;
 
 type PipelineResult = Result<(), PipelineError>;
+const CURRENT_PIPELINE_MANIFEST_SEMVER: semver::Version = semver::Version {
+    major: 0,
+    minor: 1,
+    patch: 0,
+    build: Vec::new(),
+    pre: Vec::new(),
+};
 
 #[derive(Debug, Default, Clone, Eq)]
 pub struct PipelineManager {
     pipelines: BTreeMap<String, Pipeline>,
+    pipelines_to_remove: Vec<PathBuf>,
     dirty: bool,
 }
 
 impl PipelineManager {
     const PIPELINE_MANIFEST: &'static str = "pipeline_manifest.json";
 
-    pub(crate) fn new(directory_manager: &DirectoryManager) -> AnyResult<PipelineManager> {
+    pub(crate) fn new(
+        directory_manager: &DirectoryManager,
+    ) -> Result<PipelineManager, utils::FileSerializationError> {
         let pipeline_manifest_path =
             directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
+
+        let mut dirty = false;
 
         // If there's no pipeline manifest file, then no worries,
         // just return. Users might not want to make a manifest!
@@ -32,28 +45,59 @@ impl PipelineManager {
             );
             Ok(Self::default())
         } else {
-            let pipeline_manifest: BTreeSet<PathBuf> =
-                utils::deserialize(&pipeline_manifest_path, None)?;
+            let pipeline_manifest: PipelineManifest = {
+                match utils::deserialize_json::<PipelineManifest>(&pipeline_manifest_path) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        if let Ok(pipeline_manifest) =
+                            utils::deserialize_json::<BTreeSet<PathBuf>>(&pipeline_manifest_path)
+                        {
+                            let pipelines: BTreeSet<PipelineDescriptor> =
+                                pipeline_manifest.into_iter().map(|v| v.into()).collect();
+                            dirty = true;
+
+                            PipelineManifest {
+                                pipelines,
+                                version: CURRENT_PIPELINE_MANIFEST_SEMVER,
+                            }
+                        } else {
+                            error!(
+                                "We couldn't parse the pipeline manifest! It looked like {:?}",
+                                std::fs::read_to_string(&pipeline_manifest_path)
+                            );
+                            return Ok(Self::default());
+                        }
+                    }
+                }
+            };
 
             let mut pipelines = BTreeMap::new();
 
             let found_paths = pipeline_manifest
+                .pipelines
                 .clone()
                 .into_iter()
-                .filter(|path| {
-                    let mut joint_path = directory_manager.boss_file(path);
-                    joint_path.set_extension("json");
+                .filter(|pipeline_desc| {
+                    let mut joint_path = directory_manager.boss_file(&pipeline_desc.path);
+                    joint_path.set_extension(pipeline_desc.serialization_format.file_ending());
 
                     if joint_path.exists() {
-                        match utils::deserialize(&joint_path, None) {
-                            Ok(datum) => {
-                                pipelines.insert(path.to_string_lossy().to_string(), datum);
+                        match pipeline_desc
+                            .serialization_format
+                            .deserialize_and_read::<Pipeline>(&joint_path)
+                        {
+                            Ok(mut datum) => {
+                                datum.serialization_format = pipeline_desc.serialization_format;
+                                pipelines.insert(
+                                    pipeline_desc.path.to_string_lossy().to_string(),
+                                    datum,
+                                );
                                 true
                             }
                             Err(e) => {
                                 error!(
                                     "problem reading {:#?}, even though it was in manifest: {:}.",
-                                    path, e
+                                    pipeline_desc.path, e
                                 );
                                 false
                             }
@@ -65,10 +109,11 @@ impl PipelineManager {
                 .collect::<BTreeSet<_>>();
 
             // If the found paths are not right, then don't do the thing!
-            if found_paths.len() != pipeline_manifest.len() {
+            if found_paths.len() != pipeline_manifest.pipelines.len() {
+                dirty = true;
                 let difference = found_paths
-                    .difference(&pipeline_manifest)
-                    .map(|entry| entry.to_string_lossy().to_string())
+                    .difference(&pipeline_manifest.pipelines)
+                    .map(|entry| entry.path.to_string_lossy().to_string())
                     .collect::<Vec<String>>()
                     .join(", ");
                 error!("pipeline manifest had invalid entries: [{}]. they will be removed on serialization...", difference);
@@ -76,10 +121,11 @@ impl PipelineManager {
 
             let output = Self {
                 pipelines,
-                dirty: found_paths.len() != pipeline_manifest.len(),
+                dirty,
+                pipelines_to_remove: vec![],
             };
 
-            info!("pipelines loaded in...{:?}", output);
+            info!("pipelines loaded in...{:?}", output.pipelines);
 
             Ok(output)
         }
@@ -88,28 +134,48 @@ impl PipelineManager {
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
         if self.dirty {
             // Serialize Manifest...
-            let pipeline_manifest = self
+            let pipelines = self
                 .pipelines
-                .keys()
-                .map(|name| Path::new(name).to_owned())
-                .collect::<BTreeSet<_>>();
+                .iter()
+                .map(|(name, val)| PipelineDescriptor {
+                    path: Path::new(name).to_owned(),
+                    serialization_format: val.serialization_format,
+                })
+                .collect::<BTreeSet<PipelineDescriptor>>();
 
-            directory_manager
-                .serialize_boss_file(Path::new(Self::PIPELINE_MANIFEST), &pipeline_manifest)?;
+            let pipeline_manifest = PipelineManifest {
+                pipelines,
+                version: CURRENT_PIPELINE_MANIFEST_SEMVER,
+            };
 
-            // Serialize each Pipeline..
-            for pipeline in self.pipelines.values_mut() {
-                if pipeline.dirty {
-                    directory_manager.serialize_boss_file(
-                        &Path::new(&pipeline.name).with_extension("json"),
-                        &pipeline,
-                    )?;
-                    pipeline.dirty = false;
-                }
-            }
-
+            directory_manager.serialize_boss_file(
+                Path::new(Self::PIPELINE_MANIFEST),
+                serde_json::to_string_pretty(&pipeline_manifest).unwrap(),
+            )?;
             // reset dirty
             self.dirty = false;
+        }
+
+        for pipeline in self.pipelines_to_remove.drain(..) {
+            let path = directory_manager.boss_file(&pipeline);
+
+            if let Err(e) = std::fs::remove_file(&path) {
+                error!("Couldn't remove path {:?}...{:#?}", path, e);
+            }
+        }
+
+        // Serialize each Pipeline..
+        for pipeline in self.pipelines.values_mut() {
+            if pipeline.dirty {
+                let pipeline_datum = pipeline.serialization_format.serialize(pipeline)?;
+
+                directory_manager.serialize_boss_file(
+                    &Path::new(&pipeline.name)
+                        .with_extension(pipeline.serialization_format.file_ending()),
+                    pipeline_datum,
+                )?;
+                pipeline.dirty = false;
+            }
         }
 
         Ok(())
@@ -138,7 +204,11 @@ impl PipelineManager {
     }
 
     /// Creates a pipeline. If a pipeline of that name already exists, an error is returned.
-    pub fn add_pipeline(&mut self, name: impl Into<String>) -> PipelineResult {
+    pub fn add_pipeline(
+        &mut self,
+        name: impl Into<String>,
+        sf: SerializationFormat,
+    ) -> PipelineResult {
         let name = name.into();
 
         if self.pipelines.contains_key(&name) {
@@ -150,10 +220,38 @@ impl PipelineManager {
                     name,
                     source_destinations: Default::default(),
                     dirty: true,
+                    serialization_format: sf,
                 },
             );
             self.dirty = true;
             Ok(())
+        }
+    }
+
+    /// Changes the pipeline serialization format on a given pipeline.
+    ///
+    /// If the pipeline doesn't exist, an error is returned.
+    pub fn set_pipeline_serialization(
+        &mut self,
+        name: impl Into<String>,
+        sf: SerializationFormat,
+    ) -> PipelineResult {
+        let name = name.into();
+
+        if let Some(pipeline) = self.pipelines.get_mut(&name) {
+            if pipeline.serialization_format != sf {
+                self.pipelines_to_remove.push(
+                    Path::new(&pipeline.name)
+                        .to_owned()
+                        .with_extension(pipeline.serialization_format.file_ending()),
+                );
+
+                pipeline.serialization_format = sf;
+                pipeline.dirty = true;
+            }
+            Ok(())
+        } else {
+            Err(PipelineError::PipelineDoesNotExist)
         }
     }
 
@@ -236,8 +334,8 @@ impl PipelineManager {
         self.dirty = true;
     }
 
-    /// Removes a given **pipeline** from the manager. If any data is on the pipeline,
-    /// it will be lost permanently!
+    /// Removes a given **pipeline** from the manager. If any sources are on the pipeline,
+    /// they will be lost permanently!
     ///
     /// If the *pipeline* does not exist, an error is
     /// returned.
@@ -299,12 +397,34 @@ impl PipelineManager {
     }
 }
 
-pub type PipelineDesinations = BTreeMap<String, FilesystemPath>;
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
+struct PipelineManifest {
+    pipelines: BTreeSet<PipelineDescriptor>,
+    version: semver::Version,
+}
 
+#[derive(Debug, Eq, PartialEq, Serialize, Deserialize, Clone, PartialOrd, Ord)]
+struct PipelineDescriptor {
+    path: PathBuf,
+    serialization_format: SerializationFormat,
+}
+
+impl From<PathBuf> for PipelineDescriptor {
+    fn from(path: PathBuf) -> Self {
+        Self {
+            path,
+            serialization_format: SerializationFormat::default(),
+        }
+    }
+}
+
+pub type PipelineDesinations = BTreeMap<String, FilesystemPath>;
 #[derive(Debug, Eq, Serialize, Deserialize, Clone, Default)]
 pub struct Pipeline {
     pub name: String,
     pub source_destinations: BTreeMap<String, PipelineDesinations>,
+    #[serde(default)]
+    pub serialization_format: SerializationFormat,
     #[serde(skip)]
     dirty: bool,
 }
@@ -340,8 +460,7 @@ impl PartialEq for PipelineManager {
     }
 }
 
-use thiserror::Error;
-#[derive(Debug, Copy, Clone, Error, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum PipelineError {
     #[error("no pipeline by that name exists")]
     PipelineDoesNotExist,
@@ -365,7 +484,9 @@ mod tests {
     #[test]
     fn trivial() {
         let mut pipelines = PipelineManager::default();
-        pipelines.add_pipeline("sprites").unwrap();
+        pipelines
+            .add_pipeline("sprites", SerializationFormat::Json)
+            .unwrap();
         pipelines
             .add_source_to_pipeline("sprites", "spr_source_sprite")
             .unwrap();
@@ -422,7 +543,9 @@ mod tests {
             Err(PipelineError::PipelineDoesNotExist)
         );
 
-        pipelines.add_pipeline("sprites").unwrap();
+        pipelines
+            .add_pipeline("sprites", SerializationFormat::Json)
+            .unwrap();
         assert_eq!(
             pipelines.add_destination_to_source(
                 "sprites",
@@ -438,7 +561,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            pipelines.add_pipeline("sprites"),
+            pipelines.add_pipeline("sprites", SerializationFormat::Json),
             Err(PipelineError::PipelineAlreadyExists)
         );
 
@@ -492,7 +615,7 @@ mod tests {
         println!("Adding pipeline...");
         let p = harness(
             PipelineManager::default(),
-            |p| p.add_pipeline("sprites"),
+            |p| p.add_pipeline("sprites", SerializationFormat::Json),
             |p| p.remove_pipeline("sprites"),
         );
 
@@ -542,7 +665,7 @@ mod tests {
     #[test]
     fn dirty() {
         let mut p = PipelineManager::default();
-        p.add_pipeline("s").unwrap();
+        p.add_pipeline("s", SerializationFormat::Json).unwrap();
         assert!(p.dirty);
         assert!(p.pipelines["s"].dirty);
 

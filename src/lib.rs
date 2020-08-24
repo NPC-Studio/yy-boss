@@ -1,10 +1,13 @@
 #![allow(clippy::bool_comparison)]
+#![warn(elided_lifetimes_in_paths)]
 
 mod boss {
     use super::*;
 
     mod yy_resource;
-    pub use yy_resource::YyResource;
+    pub use yy_resource::{
+        AssocDataLocation, FileHolder, SerializedData, SerializedDataError, YyResource,
+    };
 
     mod yyp_boss;
     pub use yyp_boss::YypBoss;
@@ -13,17 +16,37 @@ mod boss {
     pub use resources::Resource;
 
     mod yy_resource_handler;
-    pub use yy_resource_handler::YyResourceHandler;
+    pub use yy_resource_handler::{YyResourceData, YyResourceHandler};
 
     mod directory_manager;
-    mod utils;
+    pub mod utils;
+    pub use utils::{FileSerializationError, SerializationFormat};
 
+    mod errors;
+    pub use errors::*;
+
+    mod dirty_handler;
     mod pipelines;
     pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
-    mod folder_graph;
-    pub use folder_graph::FolderGraph;
+    pub mod folders {
+        mod folder_graph;
+        pub use folder_graph::*;
+
+        mod folder_graph_error;
+        pub use folder_graph_error::*;
+
+        mod vfs;
+        pub use vfs::*;
+
+        mod resource_names;
+        pub use resource_names::*;
+
+        mod file;
+        pub(crate) use file::*;
+    }
 }
+
 mod resources_ext {
     use super::*;
 
@@ -41,6 +64,8 @@ mod resources_ext {
 
     mod object_ext;
     pub use object_ext::*;
+
+    pub(crate) mod dummy;
 
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }

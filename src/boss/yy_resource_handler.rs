@@ -1,28 +1,30 @@
 use super::{
     directory_manager::DirectoryManager,
-    resources::{CreatedResource, RemovedResource},
+    dirty_handler::{DirtyDrain, DirtyHandler},
     utils, FilesystemPath, YyResource,
 };
+use crate::{AssocDataLocation, YyResourceHandlerErrors};
 use anyhow::Result as AnyResult;
-use log::info;
+use log::{error, info};
 use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
+use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
-#[derive(Debug, Default)]
+#[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
-    resources: HashMap<FilesystemPath, YyResourceData<T>>,
-    pub(crate) resources_to_reserialize: Vec<FilesystemPath>,
-    pub(crate) associated_files_to_cleanup: Vec<PathBuf>,
-    pub(crate) associated_folders_to_cleanup: Vec<PathBuf>,
-    pub(crate) resources_to_remove: Vec<FilesystemPath>,
+    resources: HashMap<String, YyResourceData<T>>,
+    dirty_handler: DirtyHandler<String, PathBuf>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn new() -> Self {
-        Self::default()
+        Self {
+            resources: HashMap::new(),
+            dirty_handler: DirtyHandler::new_assoc(),
+        }
     }
 
     /// Adds a new sprite into the game. It requires a `CreatedResource`,
@@ -31,51 +33,111 @@ impl<T: YyResource> YyResourceHandler<T> {
     ///
     /// This operation is used to `add` or to `replace` the resource. If it is used
     /// to replace a resource, the resource will be returned.
-    pub fn set(
+    pub(crate) fn set(
         &mut self,
         value: T,
         associated_data: T::AssociatedData,
-        _frt: CreatedResource,
     ) -> Option<YyResourceData<T>> {
-        self.resources_to_reserialize
-            .push(FilesystemPath::new(T::SUBPATH_NAME, value.name()));
+        let name = value.name().to_owned();
         let ret = self.insert_resource(value, Some(associated_data));
 
         if let Some(old) = &ret {
-            old.yy_resource.cleanup_on_replace(
-                &mut self.associated_files_to_cleanup,
-                &mut self.associated_folders_to_cleanup,
-            );
+            self.dirty_handler
+                .replace_associated(name, |f| old.yy_resource.cleanup_on_replace(f));
+        } else {
+            self.dirty_handler.add(name);
         }
 
         ret
     }
 
-    /// Returns the data on the sprite yy, if it exists.
+    /// Returns an immutable reference to a resource's data, if it exists.
     ///
-    /// In general, this will return a `Some`, but if users add
-    /// a resource, without using the `FilledResource`token, then this will return a `None`.
+    /// Since associated data is lazily loaded, and be unloaded at any time,
+    /// there may not be any associated data returned. You can request that data to be
+    /// loaded using [`load_resource_associated_data`].
     ///
-    /// You can check if this is possible beforehand by checking the `YypBoss`'s prunable state.
-    pub fn get(&self, name: &str, _crt: CreatedResource) -> Option<T> {
-        self.resources
-            .get(&FilesystemPath::new(T::SUBPATH_NAME, name))
-            .map(|v| v.yy_resource.clone())
+    /// [`load_resource_associated_data`]: #method.load_resource_associated_data
+    pub fn get(&self, name: &str) -> Option<&YyResourceData<T>> {
+        self.resources.get(name)
+    }
+
+    pub(crate) fn edit_parent(&mut self, name: &str, parent: ViewPath) {
+        if let Some(inner) = self.resources.get_mut(name) {
+            inner.yy_resource.set_parent_view_path(parent);
+            self.dirty_handler.edit(name.to_string());
+        }
     }
 
     /// Removes the resource out of the handler. If that resource was being used,
     /// then this will return that resource.
-    pub fn remove(
+    pub(crate) fn remove(
         &mut self,
-        value: &FilesystemPath,
-        _rrt: RemovedResource,
-    ) -> Option<YyResourceData<T>> {
-        let ret = self.resources.remove(&value);
-        if ret.is_some() {
-            self.resources_to_remove.push(value.clone());
-        }
+        value: &str,
+        tcu: &TrailingCommaUtility,
+    ) -> Option<(T, Option<T::AssociatedData>)> {
+        let ret = self.resources.remove(value);
+        if let Some(ret) = ret {
+            self.dirty_handler.remove(value);
 
-        ret
+            let (yy, mut assoc) = ret.into();
+
+            // Try to load this guy up...
+            if assoc.is_none() {
+                let output = self
+                    .load_resource_associated_data(yy.name(), &yy.relative_yy_directory(), tcu)
+                    .map_err(|e| {
+                        error!("Couldn't deserialize {}'s assoc data...{}", value, e);
+                        e
+                    })
+                    .ok();
+
+                assoc = output.cloned();
+            }
+
+            Some((yy, assoc))
+        } else {
+            None
+        }
+    }
+
+    /// Loads in the associated data of a given resource name, if that resource exists and is managed.
+    ///
+    /// If that resource already has some associated data, it will be discarded, and the new data will be loaded.
+    /// If the resource does not exist or is not of the type that this manager handles, an error will be
+    /// returned.
+    pub fn load_resource_associated_data(
+        &mut self,
+        resource_name: &str,
+        path: &Path,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<&T::AssociatedData, YyResourceHandlerErrors> {
+        if let Some(resource) = self.resources.get_mut(resource_name) {
+            let associated_data = resource
+                .yy_resource
+                .deserialize_associated_data(AssocDataLocation::Path(path), tcu)?;
+
+            resource.associated_data = Some(associated_data);
+
+            Ok(&resource.associated_data.as_ref().unwrap())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
+        }
+    }
+
+    /// Unloads a resource. This will free up some memory.
+    ///
+    /// If the resource does not exist on this handler, an error will be returned.
+    pub fn unload_resource_associated_data(
+        &mut self,
+        resource_name: &str,
+    ) -> Result<(), YyResourceHandlerErrors> {
+        if let Some(resource) = self.resources.get_mut(resource_name) {
+            resource.associated_data = None;
+            Ok(())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
+        }
     }
 
     /// Loads the resource in on startup. We don't track associated data by default,
@@ -86,34 +148,56 @@ impl<T: YyResource> YyResourceHandler<T> {
 
     /// Writes all of the resources to disk, and cleans up excess files.
     pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
+        let DirtyDrain {
+            resources_to_remove,
+            resources_to_reserialize,
+            associated_values,
+        } = self.dirty_handler.drain_all();
+
+        // Remove files or folders...
+        if let Some(ass_values) = associated_values {
+            for (name, mut filepaths) in ass_values {
+                let base_path = directory_manager
+                    .resource_file(Path::new(T::SUBPATH_NAME))
+                    .join(name);
+
+                for fpath in filepaths.drain(..) {
+                    let path = base_path.join(fpath);
+                    if path.is_dir() {
+                        match fs::remove_dir_all(&path) {
+                            Ok(()) => {
+                                info!("removed folder {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove folder {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    } else {
+                        match fs::remove_file(&path) {
+                            Ok(()) => {
+                                info!("removed file {:?}", path);
+                            }
+                            Err(e) => {
+                                error!("couldn't remove file {:#?}, {:#?}", path, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Removes the resources!
-        for resource_to_remove in self.resources_to_remove.drain(..) {
-            info!("removing resource {:?}", resource_to_remove.path);
-            let yy_path = directory_manager.resource_file(&resource_to_remove.path);
+        for (resource_to_remove, _) in resources_to_remove {
+            let path = FilesystemPath::new_path(T::SUBPATH_NAME, &resource_to_remove);
+            info!("removing resource {} at {:?}", resource_to_remove, path);
+            let yy_path = directory_manager.resource_file(&path);
             fs::remove_dir_all(yy_path.parent().unwrap())?;
         }
 
-        // Remove folders
-        for folder in self.associated_folders_to_cleanup.drain(..) {
-            let path = directory_manager
-                .resource_file(Path::new(T::SUBPATH_NAME))
-                .join(folder);
-            info!("remove folder {:?}", path);
-            fs::remove_dir_all(path)?;
-        }
-
-        // Remove files
-        for file in self.associated_files_to_cleanup.drain(..) {
-            let path = directory_manager
-                .resource_file(Path::new(T::SUBPATH_NAME))
-                .join(file);
-            info!("removing path {:?}", path);
-            fs::remove_file(path)?;
-        }
-
         // Finally, reserialize resources
-        for resource_to_reserialize in self.resources_to_reserialize.drain(..) {
-            info!("reserializing {:?}", resource_to_reserialize.path);
+        for (resource_to_reserialize, _) in resources_to_reserialize {
+            info!("reserializing {}", resource_to_reserialize);
+
             let resource = self
                 .resources
                 .get(&resource_to_reserialize)
@@ -132,20 +216,20 @@ impl<T: YyResource> YyResourceHandler<T> {
                 }
             }
 
-            utils::serialize(&yy_path, &resource.yy_resource)?;
+            utils::serialize_json(&yy_path, &resource.yy_resource)?;
         }
 
         Ok(())
     }
 
     /// Wrapper around inserting the resource into `self.resources`.
-    pub(crate) fn insert_resource(
+    fn insert_resource(
         &mut self,
         value: T,
         associated_data: Option<T::AssociatedData>,
     ) -> Option<YyResourceData<T>> {
         self.resources.insert(
-            FilesystemPath::new(T::SUBPATH_NAME, value.name()),
+            value.name().to_owned(),
             YyResourceData {
                 yy_resource: value,
                 associated_data,
@@ -154,7 +238,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct YyResourceData<T: YyResource> {
     pub yy_resource: T,
     pub associated_data: Option<T::AssociatedData>,
