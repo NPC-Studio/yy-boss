@@ -13,7 +13,7 @@ use std::{
 };
 use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
     resources: HashMap<String, YyResourceData<T>>,
     dirty_handler: DirtyHandler<String, PathBuf>,

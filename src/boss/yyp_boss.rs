@@ -11,7 +11,7 @@ use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp}
 static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
     once_cell::sync::Lazy::new(TrailingCommaUtility::new);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
     pub pipeline_manager: PipelineManager,
@@ -92,42 +92,14 @@ impl YypBoss {
 
     /// Gets the default texture path, if it exists. The "Default" group simply
     /// has the name `"Default"`.
+    ///
+    /// This method will almost certainly be refactored soon to a dedicated TextureManager.
     pub fn default_texture_path(&self) -> Option<TexturePath> {
         self.yyp
             .texture_groups
             .iter()
             .find(|tex| tex.name == "Default")
             .map(|texture_group| texture_group.into())
-    }
-
-    /// Removes a folder RECURSIVELY. **All resources within will be removed**. Be careful out there.
-    pub fn remove_folder(
-        &mut self,
-        folder: &ViewPathLocation,
-    ) -> Result<(), ResourceManipulationError> {
-        // easy!
-        if self.vfs.remove_empty_folder(folder).is_ok() {
-            return Ok(());
-        }
-
-        // okay okay, more complex operation
-        let deleted_resources = self.vfs.remove_non_empty_folder(folder)?;
-
-        for (fsys, descriptor) in deleted_resources {
-            match descriptor.resource {
-                Resource::Sprite => {
-                    self.scripts.remove(&fsys.name, &TCU);
-                }
-                Resource::Script => {
-                    self.scripts.remove(&fsys.name, &TCU);
-                }
-                Resource::Object => {
-                    self.objects.remove(&fsys.name, &TCU);
-                }
-            }
-        }
-
-        Ok(())
     }
 
     /// Serializes the YypBoss data to disk at the path of the Yyp.
@@ -160,18 +132,6 @@ impl YypBoss {
 
     pub fn yyp(&self) -> &Yyp {
         &self.yyp
-    }
-}
-
-impl Into<Yyp> for YypBoss {
-    fn into(self) -> Yyp {
-        self.yyp
-    }
-}
-
-impl PartialEq for YypBoss {
-    fn eq(&self, other: &Self) -> bool {
-        self.yyp == other.yyp && self.vfs == other.vfs
     }
 }
 
@@ -244,7 +204,7 @@ impl YypBoss {
     }
 }
 
-// for methods which can be done using runtime dispatching
+// resource handling!
 impl YypBoss {
     /// Move a resource within the Asset Tree, using the passed in resource type
     pub fn move_resource_dynamic(
@@ -258,5 +218,35 @@ impl YypBoss {
             Resource::Script => self.move_resource::<Script>(name, new_parent),
             Resource::Object => self.move_resource::<Object>(name, new_parent),
         }
+    }
+
+    /// Removes a folder RECURSIVELY. **All resources within will be removed**. Be careful out there.
+    pub fn remove_folder(
+        &mut self,
+        folder: &ViewPathLocation,
+    ) -> Result<(), ResourceManipulationError> {
+        // easy!
+        if self.vfs.remove_empty_folder(folder).is_ok() {
+            return Ok(());
+        }
+
+        // okay okay, more complex operation
+        let deleted_resources = self.vfs.remove_non_empty_folder(folder)?;
+
+        for (fsys, descriptor) in deleted_resources {
+            match descriptor.resource {
+                Resource::Sprite => {
+                    self.scripts.remove(&fsys.name, &TCU);
+                }
+                Resource::Script => {
+                    self.scripts.remove(&fsys.name, &TCU);
+                }
+                Resource::Object => {
+                    self.objects.remove(&fsys.name, &TCU);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
