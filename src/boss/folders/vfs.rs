@@ -1,7 +1,7 @@
-use super::{Files, FolderGraph, FolderGraphError, ResourceNames};
+use super::{Files, FolderGraph, FolderGraphError, ResourceNameError, ResourceNames};
 use crate::{
     boss::dirty_handler::{DirtyDrain, DirtyHandler},
-    PathStrExt, Resource, ViewPathLocationExt, YyResource,
+    PathStrExt, Resource, ResourceManipulationError, ViewPathLocationExt, YyResource,
 };
 use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
 
@@ -266,21 +266,20 @@ impl Vfs {
         &mut self,
         folder_path: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
-        let subfolder =
+        let original_folder =
             Self::get_folder_mut(&mut self.root, &folder_path, &Self::root_folder().path)
                 .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
 
-        if subfolder.files.is_empty() == false || subfolder.folders.is_empty() == false {
+        if original_folder.files.is_empty() == false || original_folder.folders.is_empty() == false
+        {
             return Err(FolderGraphError::CannotRemoveFolder);
         }
 
-        let name = subfolder.name.clone();
-        if let Some(parent_path) = subfolder.path_to_parent.clone() {
+        let name = original_folder.name.clone();
+        if let Some(parent_path) = original_folder.path_to_parent.clone() {
             let parent =
                 Self::get_folder_mut(&mut self.root, &parent_path, &Self::root_folder().path)
-                    .ok_or_else(|| {
-                        FolderGraphError::PathNotFound(folder_path.inner().to_string())
-                    })?;
+                    .ok_or(FolderGraphError::InternalError)?;
 
             let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
             parent.folders.remove(pos);
@@ -420,16 +419,71 @@ impl Vfs {
         Ok(())
     }
 
-    pub(crate) fn remove_resource(&mut self, name: &str) {
-        if let Some(desc) = self.resource_names.get(name) {
-            if let Some(folder) = Self::get_folder_mut(
-                &mut self.root,
-                &desc.parent_location,
-                &self.root_resource.path,
-            ) {
-                folder.files.remove(name, &mut self.resource_names);
-            }
+    pub(crate) fn remove_resource(
+        &mut self,
+        name: &str,
+        resource: Resource,
+    ) -> Result<(), FolderGraphError> {
+        let v = self
+            .resource_names
+            .get_error(name, resource)
+            .map_err(FolderGraphError::ResourceNameError)?;
+
+        if let Some(folder) =
+            Self::get_folder_mut(&mut self.root, &v.parent_location, &self.root_resource.path)
+        {
+            folder.files.remove(name, &mut self.resource_names);
+            Ok(())
+        } else {
+            Err(FolderGraphError::InternalError)
         }
+    }
+
+    pub fn move_folder(
+        &mut self,
+        folder_to_move: ViewPathLocation,
+        new_parent: &ViewPathLocation,
+    ) -> Result<(), FolderGraphError> {
+        // chill bro
+        if folder_to_move == *new_parent {
+            return Ok(());
+        }
+
+        let folder_parent_to_move =
+            Self::get_folder_inner(&self.root, &folder_to_move, &Self::root_folder().path)
+                .ok_or_else(|| FolderGraphError::PathNotFound(folder_to_move.to_string()))?;
+
+        // make sure that the dest isn't inside the start...
+        if Self::get_folder_inner(&self.root, &new_parent, &Self::root_folder().path).is_some() {
+            return Err(FolderGraphError::InvalidMoveDestination);
+        }
+
+        // aaand make sure that the dest is a valid folder...
+        if Self::get_folder_inner(&self.root, &new_parent, &Self::root_folder().path).is_none() {
+            return Err(FolderGraphError::PathNotFound(new_parent.to_string()));
+        }
+
+        let name = folder_parent_to_move.name.clone();
+        let parent_path = folder_parent_to_move
+            .path_to_parent
+            .clone()
+            .ok_or(FolderGraphError::InvalidMoveDestination)?;
+
+        // detach...
+        let parent = Self::get_folder_mut(&mut self.root, &parent_path, &Self::root_folder().path)
+            .ok_or(FolderGraphError::InternalError)?;
+        let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
+        let f = parent.folders.remove(pos);
+
+        // attach
+        let dest =
+            Self::get_folder_mut(&mut self.root, &new_parent, &Self::root_folder().path).unwrap();
+        dest.folders.push(f);
+
+        // mark the remove as dirty...
+        self.dirty_handler.replace(folder_to_move);
+
+        Ok(())
     }
 
     pub(crate) fn serialize(

@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{Resource, YyResource, YypBoss};
 use std::path::PathBuf;
-use yy_boss::{utils, SerializedData, SerializedDataError};
+use yy_boss::{utils, ResourceManipulationError, SerializedData, SerializedDataError};
 use yy_typings::{
     object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility,
 };
@@ -56,13 +56,29 @@ impl YyCli {
 
                 Output::Command(command_output.unwrap_or_else(CommandOutput::error))
             }
-            Command::VirtualFileSystem(vfs_command) => match vfs_command {
-                VfsCommand::MoveItem { .. } => unimplemented!(),
-                VfsCommand::DeleteFolder { .. } => unimplemented!(),
-                VfsCommand::GetFolder(_) => unimplemented!(),
-                VfsCommand::GetFullVfs => unimplemented!(),
-                VfsCommand::GetPathType(_) => unimplemented!(),
-            },
+            Command::VirtualFileSystem(vfs_command) => {
+                let command_output: Result<CommandOutput, YypBossError> = match vfs_command {
+                    VfsCommand::MoveFolder {
+                        folder_to_move,
+                        new_parent,
+                    } => match yyp_boss.vfs.move_folder(folder_to_move, &new_parent) {
+                        Ok(()) => Ok(CommandOutput::ok()),
+                        Err(e) => Err(YypBossError::ResourceManipulation(
+                            ResourceManipulationError::FolderGraphError(e),
+                        )),
+                    },
+                    VfsCommand::MoveResource {
+                        new_parent,
+                        resource_to_move,
+                    } => unimplemented!(),
+                    VfsCommand::DeleteFolder { recursive } => unimplemented!(),
+                    VfsCommand::GetFolder(folder_name) => unimplemented!(),
+                    VfsCommand::GetFullVfs => unimplemented!(),
+                    VfsCommand::GetPathType(path_type) => unimplemented!(),
+                };
+
+                Output::Command(command_output.unwrap_or_else(CommandOutput::error))
+            }
         }
     }
 
@@ -180,7 +196,7 @@ impl YyCli {
                 }
             }
             None => Err(YypBossError::ResourceManipulation(
-                yy_boss::ResourceManipulationError::NoResourceByThatName,
+                ResourceManipulationError::BadGet,
             )),
         }
 
@@ -244,7 +260,7 @@ impl YyCli {
         Ok((value, associated_data))
     }
 
-    pub fn serialize_yy_data_for_output<T: YyResource>(
+    fn serialize_yy_data_for_output<T: YyResource>(
         &self,
         yy: &T,
         assoc_data: Option<&T::AssociatedData>,

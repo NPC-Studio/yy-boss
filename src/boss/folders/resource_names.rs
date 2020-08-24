@@ -1,3 +1,4 @@
+use super::ResourceNameError;
 use crate::{
     boss::dirty_handler::{DirtyDrain, DirtyHandler},
     Resource,
@@ -46,13 +47,30 @@ impl ResourceNames {
         }
     }
 
-    pub fn get<'a>(&'a self, name: &str) -> Option<&'a ResourceDescriptor> {
+    pub fn get(&self, name: &str) -> Option<&ResourceDescriptor> {
         self.names.get(name)
     }
 
     /// Returns all the currently known names and descriptors in the project.
     pub fn get_all(&self) -> &HashMap<String, ResourceDescriptor> {
         &self.names
+    }
+
+    pub(crate) fn get_error(
+        &self,
+        name: &str,
+        r: Resource,
+    ) -> Result<&ResourceDescriptor, ResourceNameError> {
+        match self.get(name) {
+            Some(v) => {
+                if v.resource == r {
+                    Ok(v)
+                } else {
+                    Err(ResourceNameError::BadResourceName(r))
+                }
+            }
+            None => Err(ResourceNameError::NoResourceByThatName),
+        }
     }
 
     pub(crate) fn serialize(&mut self, yyp_resources: &mut Vec<YypResource>) {

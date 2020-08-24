@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use yy_boss::{Resource, SerializedData};
-use yy_typings::ViewPath;
+use yy_typings::{ViewPath, ViewPathLocation};
 
 /// The type of command to give, pertaining to each of the general areas the YyBoss can give.
 ///
@@ -92,7 +92,6 @@ pub enum ResourceCommandType {
     // /// [`Exists`]: #variant.Exists
     // /// [`Replace`]: #variant.Replace
     // Set(NewResource),
-
     /// Removes and returns the resource.
     ///
     /// ## Errors
@@ -195,21 +194,37 @@ pub struct NewResource {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "subCommand")]
 pub enum VfsCommand {
-    /// An instruction to move an Item (a folder or a resource) from one location to another.
+    /// An instruction to move a Resource from one location to another.
     ///
     /// ## Errors
-    /// If the [`start`] or [`end`] field is not set to a valid location for an item, this command aborts and
+    /// If the [`resource_to_move`] field is not set to a valid resource, or
+    /// if [`new_parent`] is not set to a valid folder, this command aborts and
     /// returns an error.
-    /// If the Item is a Folder, and [`end`] is a subpath of [`start`], this command aborts and returns
-    /// an error.
-    /// 
-    /// [`start`]: #structfield.start
-    /// [`end`]: #structfield.end
-    MoveItem {
-        /// The location of the Item (a folder or a resource) to be moved.
-        start: ViewPath,
-        /// The location to move the Item (a folder or a resource).
-        end: ViewPath,
+    ///
+    /// [`resource_to_move`]: #structfield.resource_to_move
+    /// [`new_parent`]: #structfield.new_parent
+    MoveResource {
+        /// The location of the Resource to move.
+        resource_to_move: ViewPath,
+        /// The new parent of the Resource, which must be a folder.
+        new_parent: ViewPath,
+    },
+
+    /// An instruction to move a Folder from one location to another, along with the
+    /// resources within it.
+    ///
+    /// ## Errors
+    /// If the [`folder_to_move`] or [`new_parent`] fields are not set to a valid folder,
+    /// this command aborts and returns an error. If `new_parent` is a folder within `folder_to_move`,
+    /// this command will abort and return a error.
+    ///
+    /// [`folder_to_move`]: #structfield.folder_to_move
+    /// [`new_parent`]: #structfield.new_parent
+    MoveFolder {
+        /// The location of the Resource to move.
+        folder_to_move: ViewPathLocation,
+        /// The new parent of the Resource, which must be a folder.
+        new_parent: ViewPathLocation,
     },
 
     /// Deletes a folder.
@@ -277,9 +292,9 @@ mod tests {
             resource: Resource::Sprite,
         }));
 
-        harness(Command::VirtualFileSystem(VfsCommand::MoveItem {
-            start: ViewPath::default(),
-            end: ViewPath::default(),
+        harness(Command::VirtualFileSystem(VfsCommand::MoveResource {
+            resource_to_move: ViewPath::default(),
+            new_parent: ViewPath::default(),
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::DeleteFolder {

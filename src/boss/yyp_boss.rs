@@ -109,11 +109,10 @@ impl YypBoss {
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
         if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
-            return Err(ResourceManipulationError::BadResourceName(r.resource));
+            return Err(ResourceManipulationError::BadAdd(r.resource));
         }
 
         self.vfs.new_resource_end(&yy_file)?;
-
         let handler = T::get_handler_mut(self);
 
         if handler.set(yy_file, associated_data).is_some() {
@@ -128,23 +127,23 @@ impl YypBoss {
         &mut self,
         name: &str,
     ) -> Result<(T, Option<T::AssociatedData>), ResourceManipulationError> {
-        // confirm the resource exists...
-        if let Some(v) = self.vfs.resource_names.get(name) {
-            if v.resource != T::RESOURCE {
-                return Err(ResourceManipulationError::BadResourceName(v.resource));
-            }
-        } else {
-            return Err(ResourceManipulationError::NoResourceByThatName);
-        }
-
         // remove the file from the VFS...
-        self.vfs.remove_resource(name);
+        self.vfs.remove_resource(name, T::RESOURCE)?;
 
         let handler = T::get_handler_mut(self);
         let tcu = TrailingCommaUtility::new();
         handler
             .remove(name, &tcu)
             .ok_or_else(|| ResourceManipulationError::InternalError)
+    }
+
+    pub fn move_vfs_item(
+        &mut self,
+        start: ViewPath,
+        end: ViewPath,
+    ) -> Result<(), ResourceManipulationError> {
+        // vfs tries to move
+        unimplemented!()
     }
 
     /// Gets a resource via the type. Users should probably not use this method unless they're doing

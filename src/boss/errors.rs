@@ -9,7 +9,7 @@ use thiserror::Error;
 pub enum StartupError {
     #[error(transparent)]
     FileSerializationError(#[from] FileSerializationError),
-    
+
     #[error("yyp internally inconsistent -- could not load folders, {}", .0)]
     InternalYypError(#[from] FolderGraphError),
 
@@ -24,11 +24,11 @@ pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),
 
-    #[error("cannot use that resource name, as that name is being used already by a {}", .0)]
-    BadResourceName(Resource),
+    #[error("cannot add that resource -- a {} of that name already exists", .0)]
+    BadAdd(Resource),
 
-    #[error("no resource found of that name")]
-    NoResourceByThatName,
+    #[error("cannot find that resource")]
+    BadGet,
 
     #[error("internal error -- yyp-boss is in undefined state")]
     InternalError,
