@@ -14,6 +14,12 @@ pub struct FolderGraph {
     pub files: Files,
 }
 
+#[derive(Debug, Clone, Copy, Eq, Ord, PartialOrd, PartialEq, Serialize, Deserialize, Hash)]
+pub enum Item {
+    Folder,
+    Resource,
+}
+
 impl PartialEq for FolderGraph {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name

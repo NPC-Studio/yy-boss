@@ -318,6 +318,10 @@ impl YyResource for Sprite {
         }
     }
 
+    fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
+        self.parent = vp;
+    }
+
     fn parent_view_path(&self) -> ViewPath {
         self.parent.clone()
     }

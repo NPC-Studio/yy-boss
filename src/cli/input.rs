@@ -204,8 +204,10 @@ pub enum VfsCommand {
     /// [`resource_to_move`]: #structfield.resource_to_move
     /// [`new_parent`]: #structfield.new_parent
     MoveResource {
-        /// The location of the Resource to move.
-        resource_to_move: ViewPath,
+        /// The name of the Resource to move.
+        resource_to_move: String,
+        /// The kind of the Resource to move.
+        resource: Resource,
         /// The new parent of the Resource, which must be a folder.
         new_parent: ViewPath,
     },
@@ -231,7 +233,10 @@ pub enum VfsCommand {
     ///
     /// If the folder is not empty, then the `recursive` flag must be passed -- otherwise, this command
     /// will abort.
-    DeleteFolder {
+    RemoveFolder {
+        /// The location of the Folder to remove.
+        folder_to_remove: ViewPathLocation,
+
         /// If the folder is not empty, and this flag is not set to true, then the command will abort with
         /// an error.
         ///
@@ -243,17 +248,20 @@ pub enum VfsCommand {
     /// Returns a [`FolderGraph`] for this folder.
     ///
     /// ## Errors
-    /// If the [`ViewPath`] provided does not describe a valid Folder, this command aborts and returns an error.
-    GetFolder(ViewPath),
+    /// If the [`ViewPathLocation`] provided does not describe a valid Folder, this command aborts and returns an error.
+    GetFolder(ViewPathLocation),
 
     /// Returns a [`FolderGraph`] for the entire Virtual File System.
     /// Please note, this can result in a fairly massive Json being sent back.
-    GetFullVfs,
-
-    /// Returns a bool if the given ViewPath links to a Folder (true) or a File (false).
     ///
     /// ## Errors
-    /// if the [`ViewPath`] provided does not describe a valid Item, this command aborts and returns an error.
+    /// This command is infallible.
+    GetFullVfs,
+
+    /// Returns an enum if the given ViewPath links to a Folder or a File.
+    ///
+    /// ## Errors
+    /// If the [`ViewPath`] provided does not describe a valid Item, this command aborts and returns an error.
     GetPathType(ViewPath),
 }
 
@@ -293,16 +301,17 @@ mod tests {
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::MoveResource {
-            resource_to_move: ViewPath::default(),
+            resource_to_move: "jim".to_string(),
+            resource: Resource::Script,
             new_parent: ViewPath::default(),
         }));
 
-        harness(Command::VirtualFileSystem(VfsCommand::DeleteFolder {
+        harness(Command::VirtualFileSystem(VfsCommand::RemoveFolder {
             recursive: true,
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFolder(
-            ViewPath::default(),
+            ViewPathLocation::default(),
         )));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFullVfs));

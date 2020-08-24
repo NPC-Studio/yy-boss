@@ -1,5 +1,6 @@
 #![allow(clippy::bool_comparison)]
 #![warn(elided_lifetimes_in_paths)]
+
 mod boss {
     use super::*;
 

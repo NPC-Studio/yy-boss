@@ -72,7 +72,7 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
         self.resources_to_reserialize.insert(new_value, dirty_state);
     }
 
-    pub fn replace(&mut self, new_value: R) {
+    pub fn edit(&mut self, new_value: R) {
         let dirty_state = match self.resources_to_reserialize.remove(&new_value) {
             Some(DirtyState::New) => DirtyState::New,
             Some(DirtyState::Edit) | None => DirtyState::Edit,

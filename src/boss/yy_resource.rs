@@ -28,6 +28,9 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     /// Sets the name of the resource.
     fn set_name(&mut self, name: String);
 
+    /// Sets the path to the parent in the View Virtual File System.
+    fn set_parent_view_path(&mut self, vp: ViewPath);
+
     /// Get the path to the parent in the View Virtual File System.
     fn parent_view_path(&self) -> ViewPath;
 

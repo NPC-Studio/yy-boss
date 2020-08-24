@@ -4,9 +4,12 @@ use super::{
 };
 use crate::{Resource, YyResource, YypBoss};
 use std::path::PathBuf;
-use yy_boss::{utils, ResourceManipulationError, SerializedData, SerializedDataError};
+use yy_boss::{
+    folders::FolderGraphError, utils, ResourceManipulationError, SerializedData,
+    SerializedDataError,
+};
 use yy_typings::{
-    object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility,
+    object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility, ViewPath,
 };
 
 pub struct YyCli {
@@ -68,13 +71,50 @@ impl YyCli {
                         )),
                     },
                     VfsCommand::MoveResource {
-                        new_parent,
                         resource_to_move,
-                    } => unimplemented!(),
-                    VfsCommand::DeleteFolder { recursive } => unimplemented!(),
-                    VfsCommand::GetFolder(folder_name) => unimplemented!(),
-                    VfsCommand::GetFullVfs => unimplemented!(),
-                    VfsCommand::GetPathType(path_type) => unimplemented!(),
+                        resource,
+                        new_parent,
+                    } => match resource {
+                        Resource::Sprite => {
+                            self.move_resource::<Sprite>(yyp_boss, &resource_to_move, new_parent)
+                        }
+                        Resource::Script => {
+                            self.move_resource::<Script>(yyp_boss, &resource_to_move, new_parent)
+                        }
+                        Resource::Object => {
+                            self.move_resource::<Object>(yyp_boss, &resource_to_move, new_parent)
+                        }
+                    },
+                    VfsCommand::RemoveFolder { folder_to_remove, recursive } => {
+                        match yyp_boss.remove_folder() {
+                            
+                        }
+                    },
+                    VfsCommand::GetFolder(folder_name) => {
+                        match yyp_boss.vfs.get_folder(&folder_name) {
+                            Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
+                            None => Err(YypBossError::ResourceManipulation(
+                                ResourceManipulationError::FolderGraphError(
+                                    FolderGraphError::PathNotFound(folder_name.to_string()),
+                                ),
+                            )),
+                        }
+                    }
+                    VfsCommand::GetFullVfs => {
+                        let vfs = yyp_boss.vfs.get_root_folder().clone();
+
+                        Ok(CommandOutput::ok_folder_graph(vfs))
+                    }
+                    VfsCommand::GetPathType(path_type) => {
+                        match yyp_boss.vfs.path_kind(&path_type) {
+                            Some(v) => Ok(CommandOutput::ok_path_kind(v)),
+                            None => Err(YypBossError::ResourceManipulation(
+                                ResourceManipulationError::FolderGraphError(
+                                    FolderGraphError::PathNotFound(path_type.path.to_string()),
+                                ),
+                            )),
+                        }
+                    }
                 };
 
                 Output::Command(command_output.unwrap_or_else(CommandOutput::error))
@@ -88,7 +128,7 @@ impl YyCli {
         new_resource: NewResource,
     ) -> Result<CommandOutput, YypBossError> {
         let (yy_file, associated_data) =
-            self.read_new_resource::<T>(new_resource, &yyp_boss.tcu)?;
+            self.read_new_resource::<T>(new_resource, &yyp_boss.tcu())?;
 
         // check for a bad add...
         match yyp_boss.add_resource(yy_file, associated_data) {
@@ -279,5 +319,17 @@ impl YyCli {
         };
 
         Ok((yy_data, assoc_output))
+    }
+
+    fn move_resource<T: YyResource>(
+        &self,
+        yyp_boss: &mut YypBoss,
+        resource_name: &str,
+        new_parent: ViewPath,
+    ) -> Result<CommandOutput, YypBossError> {
+        match yyp_boss.move_resource::<T>(resource_name, new_parent) {
+            Ok(()) => Ok(CommandOutput::ok()),
+            Err(e) => Err(YypBossError::ResourceManipulation(e)),
+        }
     }
 }

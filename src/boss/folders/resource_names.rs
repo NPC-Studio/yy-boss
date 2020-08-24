@@ -30,7 +30,7 @@ impl ResourceNames {
         resource: ResourceDescriptor,
     ) -> Option<ResourceDescriptor> {
         if let Some(ret) = self.names.insert(name.clone(), resource) {
-            self.dirty_handler.replace(name);
+            self.dirty_handler.edit(name);
             Some(ret)
         } else {
             self.dirty_handler.add(name);

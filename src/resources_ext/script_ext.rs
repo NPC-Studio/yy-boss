@@ -15,6 +15,11 @@ impl YyResource for Script {
     fn set_name(&mut self, name: String) {
         self.name = name;
     }
+
+    fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
+        self.parent = vp;
+    }
+
     fn parent_view_path(&self) -> ViewPath {
         self.parent.clone()
     }

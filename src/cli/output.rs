@@ -1,7 +1,10 @@
 use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use yy_boss::{folders::FolderGraph, ResourceManipulationError, SerializedData, StartupError};
+use yy_boss::{
+    folders::{FolderGraph, Item},
+    ResourceManipulationError, SerializedData, StartupError,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
@@ -46,6 +49,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub folder_graph: Option<FolderGraph>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path_kind: Option<Item>,
 }
 
 impl CommandOutput {
@@ -82,11 +88,18 @@ impl CommandOutput {
         }
     }
 
-    #[allow(dead_code)]
     pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
         Self {
             success: true,
             folder_graph: Some(f_graph),
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_path_kind(item: Item) -> Self {
+        Self {
+            success: true,
+            path_kind: Some(item),
             ..Self::default()
         }
     }

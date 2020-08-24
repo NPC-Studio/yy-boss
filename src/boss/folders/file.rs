@@ -27,8 +27,7 @@ impl Files {
     }
 
     pub fn add<T: YyResource>(&mut self, yy: &T, order: usize, rn: &mut ResourceNames) {
-        self.0
-            .push(FilesystemPath::new(T::SUBPATH_NAME, &yy.name()));
+        self.attach(FilesystemPath::new(T::SUBPATH_NAME, &yy.name()));
 
         // add to resource names...
         rn.insert(
@@ -38,11 +37,19 @@ impl Files {
     }
 
     pub fn remove(&mut self, name: &str, rn: &mut ResourceNames) {
-        if let Some(pos) = self.0.iter().position(|v| v.name == name) {
-            self.0.remove(pos);
-        }
-
+        self.detach(name);
         rn.remove(name);
+    }
+
+    pub fn attach(&mut self, fsyspath: FilesystemPath) {
+        self.0.push(fsyspath);
+    }
+
+    pub fn detach(&mut self, name: &str) -> Option<FilesystemPath> {
+        self.0
+            .iter()
+            .position(|v| v.name == name)
+            .map(|p| self.0.remove(p))
     }
 
     pub fn is_empty(&self) -> bool {

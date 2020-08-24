@@ -11,7 +11,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use yy_typings::utils::TrailingCommaUtility;
+use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
 #[derive(Debug)]
 pub struct YyResourceHandler<T: YyResource> {
@@ -60,6 +60,13 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// [`load_resource_associated_data`]: #method.load_resource_associated_data
     pub fn get(&self, name: &str) -> Option<&YyResourceData<T>> {
         self.resources.get(name)
+    }
+
+    pub(crate) fn edit_parent(&mut self, name: &str, parent: ViewPath) {
+        if let Some(inner) = self.resources.get_mut(name) {
+            inner.yy_resource.set_parent_view_path(parent);
+            self.dirty_handler.edit(name.to_string());
+        }
     }
 
     /// Removes the resource out of the handler. If that resource was being used,

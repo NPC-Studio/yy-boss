@@ -7,6 +7,9 @@ use object_yy::Object;
 use std::{fs, path::Path};
 use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
 
+static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
+    once_cell::sync::Lazy::new(TrailingCommaUtility::new);
+
 #[derive(Debug)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
@@ -15,7 +18,6 @@ pub struct YypBoss {
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
     pub vfs: Vfs,
-    pub tcu: TrailingCommaUtility,
     yyp: Yyp,
 }
 
@@ -29,7 +31,6 @@ impl YypBoss {
 
         let mut yyp_boss = Self {
             vfs: Vfs::new(&yyp.name),
-            tcu,
             sprites: YyResourceHandler::new(),
             scripts: YyResourceHandler::new(),
             objects: YyResourceHandler::new(),
@@ -46,7 +47,6 @@ impl YypBoss {
             folder_graph: &mut Vfs,
             yyp_resources: &[YypResource],
             directory_manager: &DirectoryManager,
-            tcu: &TrailingCommaUtility,
         ) -> Result<(), StartupError> {
             for yyp_resource in yyp_resources
                 .iter()
@@ -56,7 +56,7 @@ impl YypBoss {
                     .root_directory()
                     .join(&yyp_resource.id.path);
 
-                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &tcu)?;
+                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU)?;
 
                 folder_graph.load_in_file(&yy_file, yyp_resource.order)?;
                 resource.load_on_startup(yy_file);
@@ -72,21 +72,18 @@ impl YypBoss {
             &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
-            &yyp_boss.tcu,
         )?;
         load_in_resource(
             &mut yyp_boss.scripts,
             &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
-            &yyp_boss.tcu,
         )?;
         load_in_resource(
             &mut yyp_boss.objects,
             &mut yyp_boss.vfs,
             &yyp_boss.yyp.resources,
             &yyp_boss.directory_manager,
-            &yyp_boss.tcu,
         )?;
 
         Ok(yyp_boss)
@@ -131,19 +128,37 @@ impl YypBoss {
         self.vfs.remove_resource(name, T::RESOURCE)?;
 
         let handler = T::get_handler_mut(self);
-        let tcu = TrailingCommaUtility::new();
         handler
-            .remove(name, &tcu)
+            .remove(name, &TCU)
             .ok_or_else(|| ResourceManipulationError::InternalError)
     }
 
-    pub fn move_vfs_item(
+    /// Removes a folder RECURSIVELY. **All resources within will be removed**. Be careful out there.
+    pub fn remove_folder(
         &mut self,
-        start: ViewPath,
-        end: ViewPath,
+        folder: &ViewPathLocation,
     ) -> Result<(), ResourceManipulationError> {
-        // vfs tries to move
-        unimplemented!()
+        
+    }
+
+    pub fn move_resource<T: YyResource>(
+        &mut self,
+        name: &str,
+        new_parent: ViewPath,
+    ) -> Result<(), ResourceManipulationError> {
+        // vfs
+        self.vfs
+            .move_resource(name, T::RESOURCE, &new_parent.path)
+            .map_err(ResourceManipulationError::FolderGraphError)?;
+
+        let handler = T::get_handler_mut(self);
+        handler
+            .remove(name, &TCU)
+            .ok_or_else(|| ResourceManipulationError::InternalError)?;
+
+        handler.edit_parent(name, new_parent);
+
+        Ok(())
     }
 
     /// Gets a resource via the type. Users should probably not use this method unless they're doing
@@ -179,6 +194,10 @@ impl YypBoss {
         fs::write(&self.directory_manager.yyp(), &string)?;
 
         Ok(())
+    }
+
+    pub fn tcu(&self) -> &TrailingCommaUtility {
+        &TCU
     }
 
     pub fn yyp(&self) -> &Yyp {

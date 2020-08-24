@@ -1,32 +1,29 @@
-use super::{Files, FolderGraph, FolderGraphError, ResourceNameError, ResourceNames};
+use super::{Files, FolderGraph, FolderGraphError, Item, ResourceNames};
 use crate::{
     boss::dirty_handler::{DirtyDrain, DirtyHandler},
-    PathStrExt, Resource, ResourceManipulationError, ViewPathLocationExt, YyResource,
+    PathStrExt, Resource, ViewPathLocationExt, YyResource,
 };
 use yy_typings::{ViewPath, ViewPathLocation, YypFolder, YypResource};
 
-static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPath> =
-    once_cell::sync::Lazy::new(|| ViewPath {
-        name: "folders".to_owned(),
-        path: ViewPathLocation::root_folder(),
-    });
+static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPathLocation> =
+    once_cell::sync::Lazy::new(ViewPathLocation::root_folder);
+
+static ROOT_FILE_VIEW_PATH: once_cell::sync::Lazy<std::sync::RwLock<ViewPathLocation>> =
+    once_cell::sync::Lazy::new(|| std::sync::RwLock::new(Default::default()));
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Vfs {
     pub resource_names: ResourceNames,
     root: FolderGraph,
-    root_resource: ViewPath,
     dirty_handler: DirtyHandler<ViewPathLocation, ()>,
 }
 
 impl Vfs {
     pub(crate) fn new(yyp_name: &str) -> Self {
+        *ROOT_FILE_VIEW_PATH.write().unwrap() = ViewPathLocation::root_file(yyp_name);
+
         Vfs {
             root: FolderGraph::root(),
-            root_resource: ViewPath {
-                name: yyp_name.to_string(),
-                path: ViewPathLocation::root_file(yyp_name),
-            },
             resource_names: ResourceNames::new(),
             dirty_handler: DirtyHandler::new(),
         }
@@ -62,12 +59,7 @@ impl Vfs {
             }
 
             // get the folder and add in its order and what not...
-            let f = Vfs::get_folder_mut(
-                &mut self.root,
-                &new_folder.folder_path,
-                &Self::root_folder().path,
-            )
-            .unwrap();
+            let f = Vfs::get_folder_mut(&mut self.root, &new_folder.folder_path).unwrap();
             f.order = new_folder.order;
             f.tags = new_folder.tags.clone();
         }
@@ -79,14 +71,10 @@ impl Vfs {
         order: usize,
     ) -> Result<(), FolderGraphError> {
         // Add to the folder graph
-        let folder = Vfs::get_folder_mut(
-            &mut self.root,
-            &yy.parent_view_path().path,
-            &self.root_resource.path,
-        )
-        .ok_or_else(|| {
-            FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
-        })?;
+        let folder =
+            Vfs::get_folder_mut(&mut self.root, &yy.parent_view_path().path).ok_or_else(|| {
+                FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+            })?;
 
         // add and sort
         folder.files.load_in(yy, order, &mut self.resource_names);
@@ -97,9 +85,10 @@ impl Vfs {
     pub(crate) fn get_folder_mut<'a>(
         root: &'a mut FolderGraph,
         view_path: &ViewPathLocation,
-        root_view: &ViewPathLocation,
     ) -> Option<&'a mut FolderGraph> {
-        if view_path == root_view {
+        if *view_path == *ROOT_FOLDER_VIEW_PATH
+            || *view_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
+        {
             Some(root)
         } else {
             let mut folder = root;
@@ -127,9 +116,10 @@ impl Vfs {
     fn get_folder_inner<'a>(
         root: &'a FolderGraph,
         view_path: &ViewPathLocation,
-        root_view: &ViewPathLocation,
     ) -> Option<&'a FolderGraph> {
-        if view_path == root_view {
+        if *view_path == *ROOT_FOLDER_VIEW_PATH
+            || *view_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
+        {
             Some(root)
         } else {
             let mut folder = root;
@@ -151,12 +141,8 @@ impl Vfs {
 
     /// Gets a folder by the given ViewPathLocation.
     /// If a folder does not exist, or if the path points to a file, None will be returned.
-    pub fn get_folder<'a>(
-        &'a self,
-        view_path: &ViewPathLocation,
-        root_view: &ViewPathLocation,
-    ) -> Option<&'a FolderGraph> {
-        Self::get_folder_inner(&self.root, view_path, root_view)
+    pub fn get_folder<'a>(&'a self, view_path: &ViewPathLocation) -> Option<&'a FolderGraph> {
+        Self::get_folder_inner(&self.root, view_path)
     }
 
     /// Gets the root folder.
@@ -166,7 +152,6 @@ impl Vfs {
 
     /// Finds the containing folder for a given file. Returns an error is no file of that name
     /// could be found.
-    #[allow(dead_code)]
     pub fn get_folder_by_fname(&self, name: &str) -> Result<&FolderGraph, FolderGraphError> {
         self.root
             .get_folder_by_fname(name)
@@ -179,21 +164,20 @@ impl Vfs {
     /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
     /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
     /// Yyp, so it is now possible for any folder to be at the root of the project.
-    pub fn root_folder() -> &'static ViewPath {
+    pub fn root_folder() -> &'static ViewPathLocation {
         &ROOT_FOLDER_VIEW_PATH
     }
 
-    /// The root path for a file at the root of the project.
-    ///
-    /// Gms2 projects have historically had immutable folders at the top of a project's
-    /// virtual file system, such as "Sprites", "Objects", etc, for each resource type.
-    /// In Gms2.3, that restriction has been lifted, along with the internal changes to the
-    /// Yyp, so it is now possible for a Resource to be at the root of a project.
-    ///
-    /// In that case, this function gives the path that resource will have. Note that this path
-    /// is odd, and is not build into any other paths.
-    pub fn root_resource(&self) -> &ViewPath {
-        &self.root_resource
+    /// If the Path is valid, returns the type of resource on the Path. If the path is invalid,
+    /// it will return None.
+    pub fn path_kind(&self, vp: &ViewPath) -> Option<Item> {
+        if self.get_folder(&vp.path).is_some() {
+            Some(Item::Folder)
+        } else if self.resource_names.get(&vp.name).is_some() {
+            Some(Item::Resource)
+        } else {
+            None
+        }
     }
 
     /// Adds a subfolder to the folder given at `parent_path` with the order set to the end. If a tree looks like:
@@ -217,14 +201,11 @@ impl Vfs {
     /// This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
     pub fn new_folder_end<S: AsRef<str>>(
         &mut self,
-        parent_path: &ViewPath,
+        parent_path: &ViewPathLocation,
         name: S,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder =
-            Self::get_folder_mut(&mut self.root, &parent_path.path, &Self::root_folder().path)
-                .ok_or_else(|| {
-                    FolderGraphError::PathNotFound(parent_path.path.inner().to_string())
-                })?;
+        let subfolder = Self::get_folder_mut(&mut self.root, &parent_path)
+            .ok_or_else(|| FolderGraphError::PathNotFound(parent_path.inner().to_string()))?;
 
         // Don't add a new folder with the same name...
         if subfolder.folders.iter().any(|f| f.name == name.as_ref()) {
@@ -238,10 +219,10 @@ impl Vfs {
             .unwrap_or_default();
 
         // Create our Path...
-        let path = parent_path.path.join(name.as_ref());
+        let path = parent_path.join(name.as_ref());
         subfolder.folders.push(FolderGraph::new(
             name.as_ref().to_owned(),
-            parent_path.path.clone(),
+            parent_path.clone(),
             vec![],
             order,
         ));
@@ -266,9 +247,8 @@ impl Vfs {
         &mut self,
         folder_path: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
-        let original_folder =
-            Self::get_folder_mut(&mut self.root, &folder_path, &Self::root_folder().path)
-                .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
+        let original_folder = Self::get_folder_mut(&mut self.root, &folder_path)
+            .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
 
         if original_folder.files.is_empty() == false || original_folder.folders.is_empty() == false
         {
@@ -277,9 +257,8 @@ impl Vfs {
 
         let name = original_folder.name.clone();
         if let Some(parent_path) = original_folder.path_to_parent.clone() {
-            let parent =
-                Self::get_folder_mut(&mut self.root, &parent_path, &Self::root_folder().path)
-                    .ok_or(FolderGraphError::InternalError)?;
+            let parent = Self::get_folder_mut(&mut self.root, &parent_path)
+                .ok_or(FolderGraphError::InternalError)?;
 
             let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
             parent.folders.remove(pos);
@@ -400,14 +379,10 @@ impl Vfs {
         &mut self,
         yy: &T,
     ) -> Result<(), FolderGraphError> {
-        let subfolder = Self::get_folder_mut(
-            &mut self.root,
-            &yy.parent_view_path().path,
-            &self.root_resource.path,
-        )
-        .ok_or_else(|| {
-            FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
-        })?;
+        let subfolder = Self::get_folder_mut(&mut self.root, &yy.parent_view_path().path)
+            .ok_or_else(|| {
+                FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+            })?;
 
         let order = subfolder
             .folders
@@ -429,9 +404,7 @@ impl Vfs {
             .get_error(name, resource)
             .map_err(FolderGraphError::ResourceNameError)?;
 
-        if let Some(folder) =
-            Self::get_folder_mut(&mut self.root, &v.parent_location, &self.root_resource.path)
-        {
+        if let Some(folder) = Self::get_folder_mut(&mut self.root, &v.parent_location) {
             folder.files.remove(name, &mut self.resource_names);
             Ok(())
         } else {
@@ -441,47 +414,80 @@ impl Vfs {
 
     pub fn move_folder(
         &mut self,
-        folder_to_move: ViewPathLocation,
+        folder_location_to_move: ViewPathLocation,
         new_parent: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
         // chill bro
-        if folder_to_move == *new_parent {
+        if folder_location_to_move == *new_parent {
             return Ok(());
         }
 
-        let folder_parent_to_move =
-            Self::get_folder_inner(&self.root, &folder_to_move, &Self::root_folder().path)
-                .ok_or_else(|| FolderGraphError::PathNotFound(folder_to_move.to_string()))?;
+        let folder_to_move = Self::get_folder_inner(&self.root, &folder_location_to_move)
+            .ok_or_else(|| FolderGraphError::PathNotFound(folder_location_to_move.to_string()))?;
 
         // make sure that the dest isn't inside the start...
-        if Self::get_folder_inner(&self.root, &new_parent, &Self::root_folder().path).is_some() {
+        if Self::get_folder_inner(&self.root, &new_parent).is_some() {
             return Err(FolderGraphError::InvalidMoveDestination);
         }
 
         // aaand make sure that the dest is a valid folder...
-        if Self::get_folder_inner(&self.root, &new_parent, &Self::root_folder().path).is_none() {
+        if let Some(f) = Self::get_folder_inner(&self.root, &new_parent) {
+            if f.folders.iter().any(|f| f.name == folder_to_move.name) {
+                return Err(FolderGraphError::FolderAlreadyPresent);
+            }
+        } else {
             return Err(FolderGraphError::PathNotFound(new_parent.to_string()));
         }
 
-        let name = folder_parent_to_move.name.clone();
-        let parent_path = folder_parent_to_move
+        let name = folder_to_move.name.clone();
+        let parent_path = folder_to_move
             .path_to_parent
             .clone()
             .ok_or(FolderGraphError::InvalidMoveDestination)?;
 
         // detach...
-        let parent = Self::get_folder_mut(&mut self.root, &parent_path, &Self::root_folder().path)
+        let parent = Self::get_folder_mut(&mut self.root, &parent_path)
             .ok_or(FolderGraphError::InternalError)?;
         let pos = parent.folders.iter().position(|v| v.name == name).unwrap();
         let f = parent.folders.remove(pos);
 
         // attach
-        let dest =
-            Self::get_folder_mut(&mut self.root, &new_parent, &Self::root_folder().path).unwrap();
+        let dest = Self::get_folder_mut(&mut self.root, &new_parent).unwrap();
         dest.folders.push(f);
 
         // mark the remove as dirty...
-        self.dirty_handler.replace(folder_to_move);
+        self.dirty_handler.edit(folder_location_to_move);
+
+        Ok(())
+    }
+
+    pub fn move_resource(
+        &mut self,
+        resource_to_move: &str,
+        resource: Resource,
+        new_parent: &ViewPathLocation,
+    ) -> Result<(), FolderGraphError> {
+        // find the resource...
+        let v = self
+            .resource_names
+            .get_error(resource_to_move, resource)
+            .map_err(FolderGraphError::ResourceNameError)?;
+
+        if self.get_folder(new_parent).is_none() {
+            return Err(FolderGraphError::PathNotFound(new_parent.to_string()));
+        }
+
+        let folder = Self::get_folder_mut(&mut self.root, &v.parent_location)
+            .ok_or(FolderGraphError::InternalError)?;
+
+        let path = folder
+            .files
+            .detach(resource_to_move)
+            .ok_or(FolderGraphError::InternalError)?;
+
+        let dest = Self::get_folder_mut(&mut self.root, new_parent).unwrap();
+
+        dest.files.attach(path);
 
         Ok(())
     }
@@ -499,9 +505,8 @@ impl Vfs {
         } = self.dirty_handler.drain_all();
 
         for (reserialize, _) in resources_to_reserialize {
-            let folder_data =
-                Self::get_folder_inner(&self.root, &reserialize, &ROOT_FOLDER_VIEW_PATH.path)
-                    .expect("always internally consistent");
+            let folder_data = Self::get_folder_inner(&self.root, &reserialize)
+                .expect("always internally consistent");
 
             let output = YypFolder {
                 folder_path: reserialize.clone(),
@@ -546,11 +551,8 @@ mod test {
     fn folder_manipulations() {
         let mut fgm = Vfs::new("project");
         assert_eq!(
-            fgm.root_resource,
-            ViewPath {
-                name: "project".to_string(),
-                path: ViewPathLocation::root_file("project"),
-            },
+            *ROOT_FILE_VIEW_PATH.read().unwrap(),
+            ViewPathLocation::root_file("project"),
         );
 
         let new_folder = fgm.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
@@ -586,7 +588,7 @@ mod test {
 
         // bit of nesting...
         let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
-        let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
+        let subfolder = fgm.new_folder_end(&new_folder.path, "Npcs").unwrap();
         assert_eq!(
             *fgm.dirty_handler.resources_to_reserialize(),
             hashmap! {
@@ -625,7 +627,7 @@ mod test {
 
         // add and then check removal...
         let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
-        let subfolder = fgm.new_folder_end(&new_folder, "Npcs").unwrap();
+        let subfolder = fgm.new_folder_end(&new_folder.path, "Npcs").unwrap();
 
         let mut dummy0 = vec![];
         let mut dummy1 = vec![];
