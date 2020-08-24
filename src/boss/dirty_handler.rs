@@ -165,7 +165,7 @@ mod tests {
 
         dirty_handler.add("a".to_string());
         dirty_handler.resources_to_reserialize.clear();
-        dirty_handler.replace_associated("a".to_string(), |v| v.0.push(0));
+        dirty_handler.replace_associated("a".to_string(), |v| *v.0 = 0);
 
         assert_eq!(
             dirty_handler.resources_to_reserialize,
@@ -176,7 +176,7 @@ mod tests {
         assert_eq!(
             dirty_handler.associated_values,
             Some(hashmap! {
-                "a".to_string() => vec![0]
+                "a".to_string() => 0
             })
         );
     }
@@ -318,7 +318,7 @@ mod tests {
         dirty_handler.resources_to_reserialize.clear();
 
         // replace it..
-        dirty_handler.replace_associated(a(), |v| v.0.push(0));
+        dirty_handler.replace_associated(a(), |v| *v.0 = 0);
 
         // and then remove it
         dirty_handler.remove("a");
@@ -335,7 +335,7 @@ mod tests {
         assert_eq!(
             dirty_handler.associated_values,
             Some(hashmap! {
-                "a".to_string() => vec![0]
+                "a".to_string() => 0
             })
         );
 
@@ -346,7 +346,7 @@ mod tests {
         assert_eq!(
             dirty_handler.associated_values,
             Some(hashmap! {
-                "a".to_string() => vec![0]
+                "a".to_string() => 0
             })
         );
 

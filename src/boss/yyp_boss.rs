@@ -125,6 +125,10 @@ impl YypBoss {
         Ok(())
     }
 
+    pub fn version_string(&self) -> &str {
+        &self.yyp.meta_data.ide_version
+    }
+
     pub fn tcu(&self) -> &TrailingCommaUtility {
         &TCU
     }
