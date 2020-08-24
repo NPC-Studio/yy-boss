@@ -25,8 +25,7 @@ pub struct YypBoss {
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
-        let tcu = TrailingCommaUtility::new();
-        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &tcu)?;
+        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU)?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 
