@@ -16,7 +16,7 @@ static ROOT_FILE_VIEW_PATH: once_cell::sync::Lazy<std::sync::RwLock<ViewPathLoca
 pub struct Vfs {
     pub resource_names: ResourceNames,
     root: FolderGraph,
-    dirty_handler: DirtyHandler<ViewPathLocation, ()>,
+    dirty_handler: DirtyHandler<ViewPathLocation>,
 }
 
 impl Vfs {
@@ -87,9 +87,7 @@ impl Vfs {
         root: &'a mut FolderGraph,
         view_path: &ViewPathLocation,
     ) -> Option<&'a mut FolderGraph> {
-        if *view_path == *ROOT_FOLDER_VIEW_PATH
-            || *view_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
-        {
+        if Self::is_root(view_path) {
             Some(root)
         } else {
             let mut folder = root;
@@ -118,9 +116,7 @@ impl Vfs {
         root: &'a FolderGraph,
         view_path: &ViewPathLocation,
     ) -> Option<&'a FolderGraph> {
-        if *view_path == *ROOT_FOLDER_VIEW_PATH
-            || *view_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
-        {
+        if Self::is_root(view_path) {
             Some(root)
         } else {
             let mut folder = root;
@@ -167,6 +163,12 @@ impl Vfs {
     /// Yyp, so it is now possible for any folder to be at the root of the project.
     pub fn root_folder() -> &'static ViewPathLocation {
         &ROOT_FOLDER_VIEW_PATH
+    }
+
+    pub fn is_root(view_path: &ViewPathLocation) -> bool {
+        *view_path == *ROOT_FOLDER_VIEW_PATH
+            || *view_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
+            || *view_path == ViewPathLocation::default()
     }
 
     /// If the Path is valid, returns the type of resource on the Path. If the path is invalid,
@@ -273,9 +275,7 @@ impl Vfs {
         &mut self,
         folder_path: &ViewPathLocation,
     ) -> Result<HashMap<FilesystemPath, ResourceDescriptor>, FolderGraphError> {
-        if *folder_path == *ROOT_FOLDER_VIEW_PATH
-            || *folder_path == *ROOT_FILE_VIEW_PATH.read().unwrap()
-        {
+        if Self::is_root(folder_path) {
             return Err(FolderGraphError::CannotRemoveRootFolder);
         }
 
@@ -285,7 +285,7 @@ impl Vfs {
         fn remove_resource(
             fg: &mut FolderGraph,
             rn: &mut ResourceNames,
-            dh: &mut DirtyHandler<ViewPathLocation, ()>,
+            dh: &mut DirtyHandler<ViewPathLocation>,
             buffer: &mut HashMap<FilesystemPath, ResourceDescriptor>,
         ) {
             fg.files.drain_into(rn, buffer);

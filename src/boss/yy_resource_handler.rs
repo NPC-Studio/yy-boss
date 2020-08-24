@@ -16,7 +16,7 @@ use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 #[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
     resources: HashMap<String, YyResourceData<T>>,
-    dirty_handler: DirtyHandler<String, PathBuf>,
+    dirty_handler: DirtyHandler<String, Vec<PathBuf>>,
 }
 
 impl<T: YyResource> YyResourceHandler<T> {

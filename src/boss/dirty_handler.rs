@@ -11,13 +11,13 @@ pub enum DirtyState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DirtyHandler<R: std::hash::Hash + Eq + Clone, A> {
+pub struct DirtyHandler<R: std::hash::Hash + Eq + Clone, A: Default = ()> {
     resources_to_reserialize: HashMap<R, DirtyState>,
     resources_to_remove: HashMap<R, DirtyState>,
-    associated_values: Option<HashMap<R, Vec<A>>>,
+    associated_values: Option<HashMap<R, A>>,
 }
 
-impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
+impl<R: std::hash::Hash + Eq + Clone, A: Default> DirtyHandler<R, A> {
     pub fn new_assoc() -> Self {
         Self {
             resources_to_reserialize: Default::default(),
@@ -116,8 +116,8 @@ impl<R: std::hash::Hash + Eq + Clone, A> DirtyHandler<R, A> {
     }
 }
 
-pub struct DirtyValueHolder<'a, A>(&'a mut Vec<A>);
-impl<'a> FileHolder for DirtyValueHolder<'a, std::path::PathBuf> {
+pub struct DirtyValueHolder<'a, A>(&'a mut A);
+impl<'a> FileHolder for DirtyValueHolder<'a, Vec<std::path::PathBuf>> {
     fn push(&mut self, f: std::path::PathBuf) {
         self.0.push(f)
     }
@@ -126,7 +126,7 @@ impl<'a> FileHolder for DirtyValueHolder<'a, std::path::PathBuf> {
 pub struct DirtyDrain<'a, R: std::hash::Hash + Eq + Clone, A> {
     pub resources_to_reserialize: Drain<'a, R, DirtyState>,
     pub resources_to_remove: Drain<'a, R, DirtyState>,
-    pub associated_values: Option<Drain<'a, R, Vec<A>>>,
+    pub associated_values: Option<Drain<'a, R, A>>,
 }
 
 #[cfg(test)]

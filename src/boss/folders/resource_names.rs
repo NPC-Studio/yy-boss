@@ -9,7 +9,7 @@ use yy_typings::{FilesystemPath, ViewPathLocation, YypResource};
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ResourceNames {
     names: HashMap<String, ResourceDescriptor>,
-    dirty_handler: DirtyHandler<String, ()>,
+    dirty_handler: DirtyHandler<String>,
 }
 
 impl ResourceNames {
