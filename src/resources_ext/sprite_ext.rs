@@ -228,7 +228,7 @@ impl SpriteExt for Sprite {
                 }
                 OriginUtility::TopRight => {
                     me.origin = Origin::TopRight;
-                    me.sequence.xorigin = (w - 1) as isize;
+                    me.sequence.xorigin = w as isize;
                     me.sequence.yorigin = 0;
                 }
                 OriginUtility::MiddleLeft => {
@@ -243,23 +243,23 @@ impl SpriteExt for Sprite {
                 }
                 OriginUtility::MiddleRight => {
                     me.origin = Origin::MiddleRight;
-                    me.sequence.xorigin = (w - 1) as isize;
+                    me.sequence.xorigin = w as isize;
                     me.sequence.yorigin = (h / 2) as isize;
                 }
                 OriginUtility::BottomLeft => {
                     me.origin = Origin::BottomLeft;
                     me.sequence.xorigin = 0;
-                    me.sequence.yorigin = (h - 1) as isize;
+                    me.sequence.yorigin = h as isize;
                 }
                 OriginUtility::BottomCenter => {
                     me.origin = Origin::BottomCenter;
                     me.sequence.xorigin = (w / 2) as isize;
-                    me.sequence.yorigin = (h - 1) as isize;
+                    me.sequence.yorigin = h as isize;
                 }
                 OriginUtility::BottomRight => {
                     me.origin = Origin::BottomRight;
-                    me.sequence.xorigin = (w - 1) as isize;
-                    me.sequence.yorigin = (h - 1) as isize;
+                    me.sequence.xorigin = w as isize;
+                    me.sequence.yorigin = h as isize;
                 }
             }
             me.sequence.lock_origin = locked;
