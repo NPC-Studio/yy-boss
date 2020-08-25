@@ -1,6 +1,6 @@
 use super::{directory_manager::DirectoryManager, utils, FilesystemPath};
 use anyhow::Result as AnyResult;
-use log::{error, info, trace};
+use log::{error, trace};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -124,8 +124,6 @@ impl PipelineManager {
                 dirty,
                 pipelines_to_remove: vec![],
             };
-
-            info!("pipelines loaded in...{:?}", output.pipelines);
 
             Ok(output)
         }
