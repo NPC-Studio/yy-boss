@@ -902,7 +902,7 @@ dependencies = [
 
 [[package]]
 name = "yy-boss"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -927,7 +927,9 @@ dependencies = [
 
 [[package]]
 name = "yy-typings"
-version = "0.3.6"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a95f25ab015a201610c1fbe62b237d29fd6e8c41058feff21ebae326cf2e655c"
 dependencies = [
  "num-derive",
  "num-traits",
