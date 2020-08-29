@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
+#[serde(rename = "camelCase")]
 pub enum StartupError {
     #[error(transparent)]
     FileSerializationError(#[from] FileSerializationError),

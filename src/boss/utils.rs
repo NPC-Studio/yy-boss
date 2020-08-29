@@ -4,6 +4,7 @@ use thiserror::Error;
 use yy_typings::utils::TrailingCommaUtility;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
+#[serde(rename = "camelCase")]
 pub enum FileSerializationError {
     #[error("serde error message, {}", .0)]
     Serde(String),

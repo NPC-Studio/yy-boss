@@ -1,4 +1,5 @@
 #![allow(clippy::bool_comparison)]
+use cli::output::{Output, Startup};
 
 mod cli {
     /// All input which the cli can receive as Json has their Rust forms defined here.
@@ -20,7 +21,22 @@ mod cli {
 pub use yy_boss::*;
 
 fn main() {
-    let args = cli::startup::parse_arguments();
+    let args = match cli::startup::parse_arguments() {
+        Ok(v) => v,
+        Err(e) => match e.kind {
+            clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
+                std::process::exit(1);
+            }
+            e => {
+                Output::Startup(Startup {
+                    success: false,
+                    error: StartupError::BadWorkingDirectoryPath,
+                })
+                .print();
+            }
+        },
+    };
+
     let yy_cli = cli::yy_cli::YyCli::new(args.working_directory);
 
     let boss_or = YypBoss::new(&args.yyp_path);

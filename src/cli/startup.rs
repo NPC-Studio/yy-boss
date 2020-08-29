@@ -41,7 +41,7 @@ pub(crate) struct Arguments {
 }
 
 #[doc(hidden)]
-pub(crate) fn parse_arguments() -> Arguments {
+pub(crate) fn parse_arguments() -> Result<Arguments, clap::Error> {
     let matches = App::new("Yy Boss")
         .version("0.3.1")
         .author("Jonathan Spira <jjspira@gmail.com>")
@@ -56,7 +56,6 @@ pub(crate) fn parse_arguments() -> Arguments {
         )
         .arg(
             Arg::with_name("working_directory")
-                .short("wd")
                 .value_name("WORKING_DIRECTORY")
                 .required(true)
                 .help("the path to a safe working directory where the YypBoss will read and write")
@@ -66,19 +65,21 @@ pub(crate) fn parse_arguments() -> Arguments {
                 )
                 .takes_value(true),
         )
-        .get_matches();
+        .get_matches_safe();
 
-    let yyp_path = Path::new(matches.value_of("path").unwrap()).to_owned();
-    let working_directory = matches
-        .value_of("working_directory")
-        .map(|p| Path::new(p))
-        .unwrap()
-        .to_owned();
+    matches.map(|matches| {
+        let yyp_path = Path::new(matches.value_of("path").unwrap()).to_owned();
+        let working_directory = matches
+            .value_of("working_directory")
+            .map(|p| Path::new(p))
+            .unwrap()
+            .to_owned();
 
-    Arguments {
-        yyp_path,
-        working_directory,
-    }
+        Arguments {
+            yyp_path,
+            working_directory,
+        }
+    })
 }
 
 #[doc(hidden)]
