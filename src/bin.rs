@@ -25,6 +25,7 @@ fn main() {
         Ok(v) => v,
         Err(e) => match e.kind {
             clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
+                e.write_to(&mut std::io::stdout()).expect("couldn't write to stdout");
                 std::process::exit(1);
             }
             _ => {
