@@ -25,7 +25,8 @@ pub struct YypBoss {
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
-        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU)?;
+        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU)
+            .map_err(|e| StartupError::BadYypDeserialize(e.to_string()))?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 
@@ -34,7 +35,7 @@ impl YypBoss {
             sprites: YyResourceHandler::new(),
             scripts: YyResourceHandler::new(),
             objects: YyResourceHandler::new(),
-            pipeline_manager: PipelineManager::new(&directory_manager)?,
+            pipeline_manager: PipelineManager::new(&directory_manager),
             directory_manager,
             yyp,
         };
@@ -56,9 +57,19 @@ impl YypBoss {
                     .root_directory()
                     .join(&yyp_resource.id.path);
 
-                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU)?;
+                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU).map_err(|e| {
+                    StartupError::BadYyFile {
+                        filepath: yy_file_path,
+                        error: e.to_string(),
+                    }
+                })?;
 
-                folder_graph.load_in_file(&yy_file, yyp_resource.order)?;
+                folder_graph
+                    .load_in_file(&yy_file, yyp_resource.order)
+                    .map_err(|e| StartupError::BadResourceTree {
+                        name: yy_file.name().to_owned(),
+                        error: e.to_string(),
+                    })?;
                 resource.load_on_startup(yy_file);
             }
 

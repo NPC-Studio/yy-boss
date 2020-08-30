@@ -3,21 +3,32 @@ use crate::{
     Resource, SerializedDataError,
 };
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
 #[serde(rename = "camelCase")]
 pub enum StartupError {
-    #[error(transparent)]
-    FileSerializationError(#[from] FileSerializationError),
+    #[error("couldn't deserialize yyp -- {}", .0)]
+    BadYypDeserialize(String),
 
-    #[error("yyp internally inconsistent -- could not load folders, {}", .0)]
-    InternalYypError(#[from] FolderGraphError),
+    #[error("couldn't make or find the boss directory -- {}", .0)]
+    BossDirectory(String),
+
+    #[error("couldn't deserialize file at {:?} -- {}", .filepath, .error)]
+    BadYyFile { filepath: PathBuf, error: String },
+
+    #[error("couldn't load in resource {} in Asset Browser. Could be corrupted -- {}", .name, .error)]
+    BadResourceTree { name: String, error: String },
 
     #[error("bad path for yyp was given -- couldn't find parent directory")]
     BadYypPath,
+
     #[error("a working directory path was given, but it was invalid")]
     BadWorkingDirectoryPath,
+
+    #[error("bad arguments -- {}", .0)]
+    BadCliArguments(String),
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]

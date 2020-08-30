@@ -27,12 +27,13 @@ fn main() {
             clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
                 std::process::exit(1);
             }
-            e => {
+            _ => {
                 Output::Startup(Startup {
                     success: false,
-                    error: StartupError::BadWorkingDirectoryPath,
+                    error: Some(StartupError::BadCliArguments(e.to_string())),
                 })
                 .print();
+                return;
             }
         },
     };

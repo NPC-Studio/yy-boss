@@ -28,9 +28,7 @@ pub struct PipelineManager {
 impl PipelineManager {
     const PIPELINE_MANIFEST: &'static str = "pipeline_manifest.json";
 
-    pub(crate) fn new(
-        directory_manager: &DirectoryManager,
-    ) -> Result<PipelineManager, utils::FileSerializationError> {
+    pub(crate) fn new(directory_manager: &DirectoryManager) -> PipelineManager {
         let pipeline_manifest_path =
             directory_manager.boss_file(Path::new(Self::PIPELINE_MANIFEST));
 
@@ -43,7 +41,7 @@ impl PipelineManager {
                 "No pipeline manifest found at path {:#?}...",
                 pipeline_manifest_path
             );
-            Ok(Self::default())
+            Self::default()
         } else {
             let pipeline_manifest: PipelineManifest = {
                 match utils::deserialize_json::<PipelineManifest>(&pipeline_manifest_path) {
@@ -65,7 +63,7 @@ impl PipelineManager {
                                 "We couldn't parse the pipeline manifest! It looked like {:?}",
                                 std::fs::read_to_string(&pipeline_manifest_path)
                             );
-                            return Ok(Self::default());
+                            return Self::default();
                         }
                     }
                 }
@@ -119,13 +117,11 @@ impl PipelineManager {
                 error!("pipeline manifest had invalid entries: [{}]. they will be removed on serialization...", difference);
             }
 
-            let output = Self {
+            Self {
                 pipelines,
                 dirty,
                 pipelines_to_remove: vec![],
-            };
-
-            Ok(output)
+            }
         }
     }
 

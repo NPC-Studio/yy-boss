@@ -34,9 +34,8 @@ impl DirectoryManager {
         let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));
 
         if boss_directory.exists() == false {
-            std::fs::create_dir(&boss_directory).map_err(|e| {
-                StartupError::FileSerializationError(FileSerializationError::Io(e.to_string()))
-            })?;
+            std::fs::create_dir(&boss_directory)
+                .map_err(|e| StartupError::BossDirectory(e.to_string()))?;
         }
 
         let output = DirectoryManager {
