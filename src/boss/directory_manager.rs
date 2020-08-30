@@ -28,7 +28,10 @@ impl DirectoryManager {
     pub(crate) fn new(yyp: &Path) -> Result<Self, StartupError> {
         let root_directory = yyp
             .parent()
-            .ok_or_else(|| StartupError::BadYypPath)?
+            .ok_or_else(|| StartupError::BadYypPath {
+                yyp_filepath: yyp.to_owned(),
+                error: "no parent directory to find".to_string(),
+            })?
             .to_owned();
 
         let boss_directory = root_directory.join(Path::new(Self::YYBOSS_DIR));

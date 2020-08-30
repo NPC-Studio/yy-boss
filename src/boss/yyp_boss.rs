@@ -25,8 +25,13 @@ pub struct YypBoss {
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
-        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU)
-            .map_err(|e| StartupError::BadYypDeserialize(e.to_string()))?;
+        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU).map_err(|e| match e {
+            crate::FileSerializationError::Serde(e) => StartupError::BadYypDeserialize(e),
+            crate::FileSerializationError::Io(error) => StartupError::BadYypPath {
+                yyp_filepath: path_to_yyp.as_ref().to_owned(),
+                error,
+            },
+        })?;
 
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 

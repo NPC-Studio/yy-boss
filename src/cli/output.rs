@@ -139,37 +139,3 @@ pub enum YypBossError {
     #[error("internal error -- command could not be executed. error is fatal: {}", .0)]
     InternalError(bool),
 }
-
-// impl From<SerializedDataError> for YypBossError {
-//     fn from(e: SerializedDataError) -> Self {
-//         match e {
-//             SerializedDataError::BadDataFile(v) => YypBossError::BadDataFile(v),
-//             SerializedDataError::CouldNotDeserializeFile(fde) => {
-//                 YypBossError::CouldNotParseYyFile(fde.to_string())
-//             }
-//             SerializedDataError::CannotUseValue => YypBossError::CannotUseValue,
-//             SerializedDataError::CouldNotWriteImage(e) => {
-//                 error!("We couldn't write the image...{}", e);
-//                 YypBossError::InternalError(false)
-//             }
-//             SerializedDataError::InnerError(e) => {
-//                 error!("{}", e);
-//                 YypBossError::InternalError(false)
-//             }
-//         }
-//     }
-// }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic_serde() {
-        Output::Startup(Startup {
-            success: false,
-            error: Some(StartupError::BadYypPath),
-        })
-        .print();
-    }
-}

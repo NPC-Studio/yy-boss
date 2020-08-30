@@ -21,8 +21,11 @@ pub enum StartupError {
     #[error("couldn't load in resource {} in Asset Browser. Could be corrupted -- {}", .name, .error)]
     BadResourceTree { name: String, error: String },
 
-    #[error("bad path for yyp was given -- couldn't find parent directory")]
-    BadYypPath,
+    #[error("bad path for yyp was given -- {:?}, {}", .yyp_filepath, .error)]
+    BadYypPath {
+        yyp_filepath: PathBuf,
+        error: String,
+    },
 
     #[error("a working directory path was given, but it was invalid")]
     BadWorkingDirectoryPath,
