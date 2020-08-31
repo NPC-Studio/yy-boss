@@ -5,10 +5,12 @@ use yy_boss::{
     folders::{FolderGraph, FolderGraphError, Item},
     ResourceManipulationError, SerializedData, StartupError,
 };
+use yy_typings::ViewPath;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[must_use = "this `Output` must be printed"]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum Output {
     Startup(Startup),
     Command(CommandOutput),
@@ -52,6 +54,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path_kind: Option<Item>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_folder: Option<ViewPath>,
 }
 
 impl CommandOutput {
@@ -103,6 +108,14 @@ impl CommandOutput {
             ..Self::default()
         }
     }
+
+    pub fn ok_created_folder(f: ViewPath) -> Self {
+        Self {
+            success: true,
+            created_folder: Some(f),
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -135,6 +148,9 @@ pub enum YypBossError {
 
     #[error("could not output data -- operation was SUCCESFUL, but data could not be returned because {}", .0)]
     CouldNotOutputData(String),
+
+    #[error("could not serialize yypboss...coarse error {}", .0)]
+    CouldNotSerializeYypBoss(String),
 
     #[error("internal error -- command could not be executed. error is fatal: {}", .0)]
     InternalError(bool),

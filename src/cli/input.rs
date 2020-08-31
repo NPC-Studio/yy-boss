@@ -23,8 +23,13 @@ pub enum Command {
     ///
     /// [`VfsCommand`]: ./struct.VfsCommand.html
     VirtualFileSystem(VfsCommand),
-    // Serialization,
-    // Shutdown,
+
+    /// A command type to serialize current changes. This currently serializes all changes which the YypBoss
+    /// tracks, including Assets and Pipelines.
+    Serialize,
+
+    /// A command type to shutdown the YypBoss. If there are changes to be made, they will be permanently lost.
+    Shutdown,
 }
 
 /// A resource command, which will allow users to read and write resources
@@ -44,6 +49,7 @@ pub enum Command {
 /// [`resource`]: #structfield.command_type
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename = "subCommand")]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceCommand {
     /// The command type for this ResourceCommand.
     #[serde(flatten)]
@@ -173,6 +179,7 @@ pub enum ResourceCommandType {
 /// [`ShaderScriptType`]: ./error.html
 /// [`HashMap`]: ../../../std/collects/struct.HashMap.html
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NewResource {
     /// This field must contain the Data of a Yy File to add for the given resource.
     ///
@@ -203,6 +210,7 @@ pub enum VfsCommand {
     ///
     /// [`resource_to_move`]: #structfield.resource_to_move
     /// [`new_parent`]: #structfield.new_parent
+    #[serde(rename_all = "camelCase")]
     MoveResource {
         /// The name of the Resource to move.
         resource_to_move: String,
@@ -210,6 +218,26 @@ pub enum VfsCommand {
         resource: Resource,
         /// The new parent of the Resource, which must be a folder.
         new_parent: ViewPath,
+    },
+
+    /// An instruction to create a Folder under the specified folder path.
+    ///
+    /// ## Errors
+    /// If the [`parent_folder`] field is not set to a valid folder, or
+    /// if [`folder_name`] is not a unique child of [`parent_folder`], this command aborts and
+    /// returns an error.
+    ///
+    /// [`parent_folder`]: #structfield.parent_folder
+    /// [`folder_name`]: #structfield.folder_name
+    #[serde(rename_all = "camelCase")]
+    CreateFolder {
+        /// The identity of the Parent to add a folder to.
+        parent_folder: ViewPathLocation,
+        /// The name of the new folder to create.
+        folder_name: String,
+        // /// An optional order field -- if `None` is given, then no folder will be created.
+        // /// Currently, we only support `None`.
+        // order: Option<usize>,
     },
 
     /// An instruction to move a Folder from one location to another, along with the
@@ -222,9 +250,10 @@ pub enum VfsCommand {
     ///
     /// [`folder_to_move`]: #structfield.folder_to_move
     /// [`new_parent`]: #structfield.new_parent
+    #[serde(rename_all = "camelCase")]
     MoveFolder {
         /// The location of the Resource to move.
-        folder_to_move: ViewPathLocation,
+        folder: ViewPathLocation,
         /// The new parent of the Resource, which must be a folder.
         new_parent: ViewPathLocation,
     },
@@ -233,9 +262,10 @@ pub enum VfsCommand {
     ///
     /// If the folder is not empty, then the `recursive` flag must be passed -- otherwise, this command
     /// will abort.
+    #[serde(rename_all = "camelCase")]
     RemoveFolder {
         /// The location of the Folder to remove.
-        folder_to_remove: ViewPathLocation,
+        folder: ViewPathLocation,
 
         /// If the folder is not empty, and this flag is not set to true, then the command will abort with
         /// an error.
@@ -262,7 +292,7 @@ pub enum VfsCommand {
     ///
     /// ## Errors
     /// If the [`ViewPath`] provided does not describe a valid Item, this command aborts and returns an error.
-    GetPathType(ViewPath),
+    GetPathType { path: ViewPath },
 }
 
 #[cfg(test)]
@@ -308,7 +338,7 @@ mod tests {
 
         harness(Command::VirtualFileSystem(VfsCommand::RemoveFolder {
             recursive: true,
-            folder_to_remove: ViewPathLocation::new("okay"),
+            folder: ViewPathLocation::new("okay"),
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFolder {
@@ -316,8 +346,8 @@ mod tests {
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::GetFullVfs));
-        harness(Command::VirtualFileSystem(VfsCommand::GetPathType(
-            ViewPath::default(),
-        )));
+        harness(Command::VirtualFileSystem(VfsCommand::GetPathType {
+            path: ViewPath::default(),
+        }));
     }
 }

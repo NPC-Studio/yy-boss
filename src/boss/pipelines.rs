@@ -1,5 +1,4 @@
 use super::{directory_manager::DirectoryManager, utils, FilesystemPath};
-use anyhow::Result as AnyResult;
 use log::{error, trace};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -125,7 +124,10 @@ impl PipelineManager {
         }
     }
 
-    pub(crate) fn serialize(&mut self, directory_manager: &DirectoryManager) -> AnyResult<()> {
+    pub(crate) fn serialize(
+        &mut self,
+        directory_manager: &DirectoryManager,
+    ) -> Result<(), utils::FileSerializationError> {
         if self.dirty {
             // Serialize Manifest...
             let pipelines = self
