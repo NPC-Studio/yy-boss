@@ -25,13 +25,14 @@ fn main() {
         Ok(v) => v,
         Err(e) => match e.kind {
             clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
-                e.write_to(&mut std::io::stdout()).expect("couldn't write to stdout");
+                e.write_to(&mut std::io::stdout())
+                    .expect("couldn't write to stdout");
                 std::process::exit(1);
             }
             _ => {
                 Output::Startup(Startup {
                     success: false,
-                    error: Some(StartupError::BadCliArguments(e.to_string())),
+                    error: Some(StartupError::BadCliArguments(e.to_string()).to_string()),
                 })
                 .print();
                 return;

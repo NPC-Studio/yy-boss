@@ -17,16 +17,17 @@ pub fn main_loop(mut yyp_boss: YypBoss, yy_cli: YyCli) {
             Ok(_) => {
                 let output = match serde_json::from_str::<Command>(&command) {
                     Ok(command) => yy_cli.parse_command(command, &mut yyp_boss, &mut shutdown),
-                    Err(e) => {
-                        Output::Command(CommandOutput::error(CouldNotReadCommand(e.to_string())))
-                    }
+                    Err(e) => Output::Command(CommandOutput::error(CouldNotReadCommand {
+                        data: e.to_string(),
+                    })),
                 };
 
                 output.print();
             }
             Err(e) => {
-                let mut output = CommandOutput::error(CouldNotReadCommand(e.to_string()));
-                output.fatal = Some(true);
+                let output = CommandOutput::error(CouldNotReadCommand {
+                    data: e.to_string(),
+                });
                 Output::Command(output).print();
 
                 break;
