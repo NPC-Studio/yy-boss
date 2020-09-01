@@ -184,9 +184,10 @@ impl YypBoss {
         // remove the file from the VFS...
         self.vfs.remove_resource(name, T::RESOURCE)?;
 
+        let path = self.directory_manager.root_directory().to_path_buf();
         let handler = T::get_handler_mut(self);
         handler
-            .remove(name, &TCU)
+            .remove(name, &path, &TCU)
             .ok_or_else(|| ResourceManipulationError::InternalError)
     }
 
@@ -202,10 +203,6 @@ impl YypBoss {
             .map_err(ResourceManipulationError::FolderGraphError)?;
 
         let handler = T::get_handler_mut(self);
-        handler
-            .remove(name, &TCU)
-            .ok_or_else(|| ResourceManipulationError::InternalError)?;
-
         handler.edit_parent(name, new_parent);
 
         Ok(())
@@ -255,13 +252,16 @@ impl YypBoss {
         for (fsys, descriptor) in deleted_resources {
             match descriptor.resource {
                 Resource::Sprite => {
-                    self.scripts.remove(&fsys.name, &TCU);
+                    self.scripts
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
                 }
                 Resource::Script => {
-                    self.scripts.remove(&fsys.name, &TCU);
+                    self.scripts
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
                 }
                 Resource::Object => {
-                    self.objects.remove(&fsys.name, &TCU);
+                    self.objects
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
                 }
             }
         }

@@ -74,6 +74,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn remove(
         &mut self,
         value: &str,
+        dir_path: &Path,
         tcu: &TrailingCommaUtility,
     ) -> Option<(T, Option<T::AssociatedData>)> {
         let ret = self.resources.remove(value);
@@ -84,15 +85,18 @@ impl<T: YyResource> YyResourceHandler<T> {
 
             // Try to load this guy up...
             if assoc.is_none() {
-                let output = self
-                    .load_resource_associated_data(yy.name(), &yy.relative_yy_directory(), tcu)
+                let output = yy
+                    .deserialize_associated_data(
+                        AssocDataLocation::Path(&dir_path.join(&yy.relative_yy_directory())),
+                        tcu,
+                    )
                     .map_err(|e| {
                         error!("Couldn't deserialize {}'s assoc data...{}", value, e);
                         e
                     })
                     .ok();
 
-                assoc = output.cloned();
+                assoc = output;
             }
 
             Some((yy, assoc))
