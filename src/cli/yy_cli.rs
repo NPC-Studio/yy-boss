@@ -125,7 +125,9 @@ impl YyCli {
             },
             Command::Serialize => match yyp_boss.serialize() {
                 Ok(()) => Ok(CommandOutput::ok()),
-                Err(e) => Err(YypBossError::CouldNotSerializeYypBoss(e.to_string())),
+                Err(e) => Err(YypBossError::CouldNotSerializeYypBoss {
+                    data: e.to_string(),
+                }),
             },
             Command::Shutdown => {
                 *shutdown_flag = true;
@@ -227,7 +229,9 @@ impl YyCli {
         match yyp_boss.remove_resource::<T>(&resource_name) {
             Ok(output) => match self.serialize_yy_data_for_output(&output.0, output.1.as_ref()) {
                 Ok((yy, assoc)) => Ok(CommandOutput::ok_datum(yy, assoc)),
-                Err(e) => Err(YypBossError::CouldNotOutputData(e.to_string())),
+                Err(e) => Err(YypBossError::CouldNotOutputData {
+                    data: e.to_string(),
+                }),
             },
             Err(e) => Err(YypBossError::ResourceManipulation(e)),
         }
@@ -245,7 +249,9 @@ impl YyCli {
                     output.associated_data.as_ref(),
                 ) {
                     Ok((yy, assoc)) => Ok(CommandOutput::ok_datum(yy, assoc)),
-                    Err(e) => Err(YypBossError::CouldNotOutputData(e.to_string())),
+                    Err(e) => Err(YypBossError::CouldNotOutputData {
+                        data: e.to_string(),
+                    }),
                 }
             }
             None => Err(YypBossError::ResourceManipulation(
@@ -295,12 +301,15 @@ impl YyCli {
     ) -> Result<(T, T::AssociatedData), YypBossError> {
         let value: T = match new_resource.new_resource {
             SerializedData::Value { data } => {
-                serde_json::from_str(&data).map_err(|e| YypBossError::YyParseError(e.to_string()))
+                serde_json::from_str(&data).map_err(|e| YypBossError::YyParseError {
+                    data: e.to_string(),
+                })
             }
             SerializedData::Filepath { data } => {
                 let path = self.working_directory.join(data);
-                utils::deserialize_json_tc(&path, tcu)
-                    .map_err(|e| YypBossError::YyParseError(e.to_string()))
+                utils::deserialize_json_tc(&path, tcu).map_err(|e| YypBossError::YyParseError {
+                    data: e.to_string(),
+                })
             }
             SerializedData::DefaultValue => Ok(T::default()),
         }?;
@@ -308,7 +317,9 @@ impl YyCli {
 
         let associated_data: T::AssociatedData = value
             .deserialize_associated_data(incoming_data, tcu)
-            .map_err(|e| YypBossError::AssociatedDataParseError(e.to_string()))?;
+            .map_err(|e| YypBossError::AssociatedDataParseError {
+                data: e.to_string(),
+            })?;
 
         Ok((value, associated_data))
     }

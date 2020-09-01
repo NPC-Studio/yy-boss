@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
-#[serde(rename = "camelCase")]
 pub enum StartupError {
     #[error("couldn't deserialize yyp -- {}", .0)]
     BadYypDeserialize(String),
@@ -35,12 +34,14 @@ pub enum StartupError {
 }
 
 #[derive(Debug, Error, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),
 
-    #[error("cannot add that resource -- a {} of that name already exists", .0)]
-    BadAdd(Resource),
+    #[error("cannot add that resource -- a {} of that name already exists", .existing_resource)]
+    #[serde(rename_all = "camelCase")]
+    BadAdd { existing_resource: Resource },
 
     #[error("cannot find that resource")]
     BadGet,

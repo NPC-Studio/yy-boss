@@ -163,7 +163,9 @@ impl YypBoss {
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
         if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
-            return Err(ResourceManipulationError::BadAdd(r.resource));
+            return Err(ResourceManipulationError::BadAdd {
+                existing_resource: r.resource,
+            });
         }
 
         self.vfs.new_resource_end(&yy_file)?;

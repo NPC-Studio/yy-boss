@@ -92,14 +92,14 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
     if error.is_some() {
         Output::Startup(Startup {
             success: yyp.is_some(),
-            error,
+            error: error.map(|e| e.to_string()),
         })
         .print();
         return None;
     } else if yy_cli.working_directory.is_dir() == false {
         Output::Startup(Startup {
             success: false,
-            error: Some(StartupError::BadWorkingDirectoryPath),
+            error: Some(StartupError::BadWorkingDirectoryPath.to_string()),
         })
         .print();
         return None;
