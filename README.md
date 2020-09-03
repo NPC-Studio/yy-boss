@@ -19,11 +19,11 @@ The following has been done:
 - [ ] Tilesets
 - [ ] Sounds
 - [ ] Paths
-- [ ] Scripts
+- [x] Scripts
 - [ ] Shaders
 - [ ] Fonts
 - [ ] Timelines
-- [ ] Objects
+- [x] Objects
 - [ ] Rooms
 - [ ] Notes
 - [X] Included Files
