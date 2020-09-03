@@ -38,7 +38,7 @@ impl YyResource for Script {
         tcu: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
         match incoming_data {
-            AssocDataLocation::Value(v) => serde_json::from_str(v).map_err(|e| e.into()),
+            AssocDataLocation::Value(v) => Ok(v.to_string()),
             AssocDataLocation::Path(v) => utils::deserialize_json_tc(v, tcu).map_err(|e| e.into()),
             AssocDataLocation::Default => Ok(Self::AssociatedData::default()),
         }

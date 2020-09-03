@@ -32,6 +32,7 @@ pub struct Startup {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CommandOutput {
     pub success: bool,
 

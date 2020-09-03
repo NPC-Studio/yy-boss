@@ -21,8 +21,14 @@ pub enum Command {
     /// A command type pertaining to the Virtual Filesystem. To see the subcommand for the VFS, see
     /// [`VfsCommand`].
     ///
-    /// [`VfsCommand`]: ./struct.VfsCommand.html
+    /// [`VfsCommand`]: ./enum.VfsCommand.html
     VirtualFileSystem(VfsCommand),
+
+    /// Allows users to create Yy files with a few default features set. This is largely for convenience. See
+    /// [`CreateCommand`].
+    ///
+    /// [`CreateCommand`]: ./struct.CreateCommand.html
+    Create(CreateCommand),
 
     /// A command type to serialize current changes. This currently serializes all changes which the YypBoss
     /// tracks, including Assets and Pipelines.
@@ -295,6 +301,14 @@ pub enum VfsCommand {
     GetPathType { path: ViewPath },
 }
 
+/// A create command for the Yy to process.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct CreateCommand {
+    pub resource: Resource,
+    pub name: Option<String>,
+    pub parent: Option<ViewPath>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,6 +342,12 @@ mod tests {
                 identifier: "Something".to_string(),
             },
             resource: Resource::Sprite,
+        }));
+
+        harness(Command::Create(CreateCommand {
+            resource: Resource::Script,
+            name: Some("jim".to_string()),
+            parent: None,
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::MoveResource {

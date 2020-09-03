@@ -1,5 +1,5 @@
 use super::{
-    input::{Command, NewResource, ResourceCommandType, VfsCommand},
+    input::{Command, CreateCommand, NewResource, ResourceCommandType, VfsCommand},
     output::{CommandOutput, Output, YypBossError},
 };
 use crate::{Resource, YyResource, YypBoss};
@@ -28,40 +28,28 @@ impl YyCli {
         shutdown_flag: &mut bool,
     ) -> Output {
         let command_output = match command {
-            Command::Resource(resource_command) => {
-                match resource_command.command_type {
-                    ResourceCommandType::Add(new_resource) => match resource_command.resource {
-                        Resource::Sprite => self.add::<Sprite>(yyp_boss, new_resource),
-                        Resource::Script => self.add::<Script>(yyp_boss, new_resource),
-                        Resource::Object => self.add::<Object>(yyp_boss, new_resource),
-                    },
-                    // ResourceCommandType::Replace(new_resource) => match resource_command.resource {
-                    //     Resource::Sprite => self.replace::<Sprite>(yyp_boss, new_resource),
-                    //     Resource::Script => self.replace::<Script>(yyp_boss, new_resource),
-                    //     Resource::Object => self.replace::<Object>(yyp_boss, new_resource),
-                    // },
-                    // ResourceCommandType::Set(new_resource) => match resource_command.resource {
-                    //     Resource::Sprite => self.set::<Sprite>(yyp_boss, new_resource),
-                    //     Resource::Script => self.set::<Script>(yyp_boss, new_resource),
-                    //     Resource::Object => self.set::<Object>(yyp_boss, new_resource),
-                    // },
-                    ResourceCommandType::Remove { identifier } => match resource_command.resource {
-                        Resource::Sprite => self.remove::<Sprite>(yyp_boss, identifier),
-                        Resource::Script => self.remove::<Script>(yyp_boss, identifier),
-                        Resource::Object => self.remove::<Object>(yyp_boss, identifier),
-                    },
-                    ResourceCommandType::Get { identifier } => match resource_command.resource {
-                        Resource::Sprite => self.get::<Sprite>(yyp_boss, identifier),
-                        Resource::Script => self.get::<Script>(yyp_boss, identifier),
-                        Resource::Object => self.get::<Object>(yyp_boss, identifier),
-                    },
-                    ResourceCommandType::Exists { identifier } => match resource_command.resource {
-                        Resource::Sprite => self.exists::<Sprite>(yyp_boss, identifier),
-                        Resource::Script => self.exists::<Script>(yyp_boss, identifier),
-                        Resource::Object => self.exists::<Object>(yyp_boss, identifier),
-                    },
-                }
-            }
+            Command::Resource(resource_command) => match resource_command.command_type {
+                ResourceCommandType::Add(new_resource) => match resource_command.resource {
+                    Resource::Sprite => self.add::<Sprite>(yyp_boss, new_resource),
+                    Resource::Script => self.add::<Script>(yyp_boss, new_resource),
+                    Resource::Object => self.add::<Object>(yyp_boss, new_resource),
+                },
+                ResourceCommandType::Remove { identifier } => match resource_command.resource {
+                    Resource::Sprite => self.remove::<Sprite>(yyp_boss, identifier),
+                    Resource::Script => self.remove::<Script>(yyp_boss, identifier),
+                    Resource::Object => self.remove::<Object>(yyp_boss, identifier),
+                },
+                ResourceCommandType::Get { identifier } => match resource_command.resource {
+                    Resource::Sprite => self.get::<Sprite>(yyp_boss, identifier),
+                    Resource::Script => self.get::<Script>(yyp_boss, identifier),
+                    Resource::Object => self.get::<Object>(yyp_boss, identifier),
+                },
+                ResourceCommandType::Exists { identifier } => match resource_command.resource {
+                    Resource::Sprite => self.exists::<Sprite>(yyp_boss, identifier),
+                    Resource::Script => self.exists::<Script>(yyp_boss, identifier),
+                    Resource::Object => self.exists::<Object>(yyp_boss, identifier),
+                },
+            },
             Command::VirtualFileSystem(vfs_command) => match vfs_command {
                 VfsCommand::MoveFolder { folder, new_parent } => {
                     match yyp_boss.vfs.move_folder(folder, &new_parent) {
@@ -135,6 +123,11 @@ impl YyCli {
                     }),
                 },
             },
+            Command::Create(create_data) => match create_data.resource {
+                Resource::Sprite => Self::create_yy::<Sprite>(create_data),
+                Resource::Script => Self::create_yy::<Script>(create_data),
+                Resource::Object => Self::create_yy::<Object>(create_data),
+            },
             Command::Serialize => match yyp_boss.serialize() {
                 Ok(()) => Ok(CommandOutput::ok()),
                 Err(e) => Err(YypBossError::CouldNotSerializeYypBoss {
@@ -165,75 +158,6 @@ impl YyCli {
             }),
         }
     }
-
-    // fn replace<T: YyResource>(
-    //     &self,
-    //     yyp_boss: &mut YypBoss,
-    //     new_resource: NewResource,
-    // ) -> CommandOutput {
-    //     let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
-    //         Ok(o) => o,
-    //         Err(e) => {
-    //             return e;
-    //         }
-    //     };
-
-    //     if let Some(crt) = yyp_boss.get_resource(yy_file.name()) {
-    //         let handler = T::get_handler_mut(yyp_boss);
-    //         let result = handler.set(yy_file, associated_data, crt);
-    //         if let Some(old_result) = result {
-    //             match self.deserialize_yy_data::<T>(yyp_boss, &old_result) {
-    //                 Ok((yy_file, serialized_data)) => {
-    //                     CommandOutput::ok_datum(yy_file, serialized_data)
-    //                 }
-    //                 Err(e) => CommandOutput::error(e.into()),
-    //             }
-    //         } else {
-    //             error!(
-    //                 "yyp resource and yyp resource names out of sync!\n\
-    //                 a name was IN resource names but NOT in our resource manager for {}.",
-    //                 T::RESOURCE
-    //             );
-    //             CommandOutput::error(YypBossError::InternalError(true))
-    //         }
-    //     } else {
-    //         // check for a bad replace...
-    //         CommandOutput::error(YypBossError::BadReplace(yy_file.name().to_string()))
-    //     }
-    // }
-
-    // fn set<T: YyResource>(
-    //     &self,
-    //     yyp_boss: &mut YypBoss,
-    //     new_resource: NewResource,
-    // ) -> CommandOutput {
-    //     let (yy_file, associated_data) = match self.read_new_resource::<T>(new_resource) {
-    //         Ok(o) => o,
-    //         Err(e) => {
-    //             return e;
-    //         }
-    //     };
-
-    //     // Get it somehow or another...
-    //     let crt = match yyp_boss.get_resource(yy_file.name()) {
-    //         Some(v) => v,
-    //         None => {
-    //             match yyp_boss.new_resource_end(
-    //                 yy_file.parent_view_path(),
-    //                 yy_file.name(),
-    //                 T::RESOURCE,
-    //             ) {
-    //                 Ok(v) => v,
-    //                 Err(e) => return CommandOutput::error(YypBossError::FolderGraphError(e)),
-    //             }
-    //         }
-    //     };
-
-    //     let handler = T::get_handler_mut(yyp_boss);
-    //     handler.set(yy_file, associated_data, crt);
-
-    //     CommandOutput::ok()
-    // }
 
     fn remove<T: YyResource>(
         &self,
@@ -274,30 +198,6 @@ impl YyCli {
                 data: ResourceManipulationError::BadGet.to_string(),
             }),
         }
-
-        // let crt = match yyp_boss.get_resource(&resource_name) {
-        //     Some(v) => v,
-        //     None => {
-        //         return CommandOutput::error(YypBossError::BadRemove(resource_name));
-        //     }
-        // };
-
-        // let handler = T::get_handler(yyp_boss);
-        // let result = handler.get(&resource_name, crt);
-
-        // if let Some(old_result) = result {
-        //     match self.deserialize_yy_data::<T>(yyp_boss, &old_result) {
-        //         Ok((yy_file, serialized_data)) => CommandOutput::ok_datum(yy_file, serialized_data),
-        //         Err(e) => CommandOutput::error(e.into()),
-        //     }
-        // } else {
-        //     error!(
-        //         "yyp resource and yyp resource names out of sync!\n\
-        //         a name was IN resource names but NOT in our resource manager for {}.",
-        //         T::RESOURCE
-        //     );
-        //     CommandOutput::error(YypBossError::InternalError(true))
-        // }
     }
 
     fn exists<T: YyResource>(
@@ -359,5 +259,30 @@ impl YyCli {
         };
 
         Ok((yy_data, assoc_output))
+    }
+
+    fn create_yy<T: YyResource>(cr: CreateCommand) -> Result<CommandOutput, YypBossError> {
+        let mut yy = T::default();
+
+        let CreateCommand {
+            name,
+            parent,
+            resource: _,
+        } = cr;
+
+        if let Some(name) = name {
+            yy.set_name(name);
+        }
+
+        if let Some(parent) = parent {
+            yy.set_parent_view_path(parent);
+        }
+
+        Ok(CommandOutput::ok_datum(
+            SerializedData::Value {
+                data: serde_json::to_string_pretty(&yy).unwrap(),
+            },
+            None,
+        ))
     }
 }
