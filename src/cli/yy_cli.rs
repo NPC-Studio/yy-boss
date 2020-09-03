@@ -66,9 +66,9 @@ impl YyCli {
                 VfsCommand::MoveFolder { folder, new_parent } => {
                     match yyp_boss.vfs.move_folder(folder, &new_parent) {
                         Ok(()) => Ok(CommandOutput::ok()),
-                        Err(e) => Err(YypBossError::ResourceManipulation(
-                            ResourceManipulationError::FolderGraphError(e),
-                        )),
+                        Err(e) => Err(YypBossError::ResourceManipulation {
+                            data: ResourceManipulationError::FolderGraphError(e).to_string(),
+                        }),
                     }
                 }
 
@@ -77,9 +77,9 @@ impl YyCli {
                     parent_folder,
                 } => match yyp_boss.vfs.new_folder_end(&parent_folder, &folder_name) {
                     Ok(v) => Ok(CommandOutput::ok_created_folder(v)),
-                    Err(e) => Err(YypBossError::ResourceManipulation(
-                        ResourceManipulationError::FolderGraphError(e),
-                    )),
+                    Err(e) => Err(YypBossError::ResourceManipulation {
+                        data: ResourceManipulationError::FolderGraphError(e).to_string(),
+                    }),
                 },
 
                 VfsCommand::MoveResource {
@@ -89,27 +89,36 @@ impl YyCli {
                 } => {
                     match yyp_boss.move_resource_dynamic(&resource_to_move, new_parent, resource) {
                         Ok(()) => Ok(CommandOutput::ok()),
-                        Err(e) => Err(YypBossError::ResourceManipulation(e)),
+                        Err(e) => Err(YypBossError::ResourceManipulation {
+                            data: e.to_string(),
+                        }),
                     }
                 }
                 VfsCommand::RemoveFolder { folder, recursive } => {
                     if recursive {
                         match yyp_boss.remove_folder(&folder) {
                             Ok(()) => Ok(CommandOutput::ok()),
-                            Err(e) => Err(YypBossError::ResourceManipulation(e)),
+                            Err(e) => Err(YypBossError::ResourceManipulation {
+                                data: e.to_string(),
+                            }),
                         }
                     } else {
                         match yyp_boss.vfs.remove_empty_folder(&folder) {
                             Ok(()) => Ok(CommandOutput::ok()),
-                            Err(e) => Err(YypBossError::FolderGraphError(e)),
+                            Err(e) => Err(YypBossError::FolderGraphError {
+                                data: e.to_string(),
+                            }),
                         }
                     }
                 }
                 VfsCommand::GetFolder { folder } => match yyp_boss.vfs.get_folder(&folder) {
                     Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
-                    None => Err(YypBossError::FolderGraphError(
-                        FolderGraphError::PathNotFound(folder.to_string()),
-                    )),
+                    None => Err(YypBossError::FolderGraphError {
+                        data: FolderGraphError::PathNotFound {
+                            path: folder.to_string(),
+                        }
+                        .to_string(),
+                    }),
                 },
                 VfsCommand::GetFullVfs => {
                     let vfs = yyp_boss.vfs.get_root_folder().clone();
@@ -118,9 +127,12 @@ impl YyCli {
                 }
                 VfsCommand::GetPathType { path } => match yyp_boss.vfs.path_kind(&path) {
                     Some(v) => Ok(CommandOutput::ok_path_kind(v)),
-                    None => Err(YypBossError::FolderGraphError(
-                        FolderGraphError::PathNotFound(path.path.to_string()),
-                    )),
+                    None => Err(YypBossError::FolderGraphError {
+                        data: FolderGraphError::PathNotFound {
+                            path: path.path.to_string(),
+                        }
+                        .to_string(),
+                    }),
                 },
             },
             Command::Serialize => match yyp_boss.serialize() {
@@ -148,7 +160,9 @@ impl YyCli {
         // check for a bad add...
         match yyp_boss.add_resource(yy_file, associated_data) {
             Ok(()) => Ok(CommandOutput::ok()),
-            Err(e) => Err(YypBossError::ResourceManipulation(e)),
+            Err(e) => Err(YypBossError::ResourceManipulation {
+                data: e.to_string(),
+            }),
         }
     }
 
@@ -233,7 +247,9 @@ impl YyCli {
                     data: e.to_string(),
                 }),
             },
-            Err(e) => Err(YypBossError::ResourceManipulation(e)),
+            Err(e) => Err(YypBossError::ResourceManipulation {
+                data: e.to_string(),
+            }),
         }
     }
 
@@ -254,9 +270,9 @@ impl YyCli {
                     }),
                 }
             }
-            None => Err(YypBossError::ResourceManipulation(
-                ResourceManipulationError::BadGet,
-            )),
+            None => Err(YypBossError::ResourceManipulation {
+                data: ResourceManipulationError::BadGet.to_string(),
+            }),
         }
 
         // let crt = match yyp_boss.get_resource(&resource_name) {

@@ -2,9 +2,10 @@ use crate::Resource;
 use thiserror::Error;
 
 #[derive(Debug, Error, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(tag = "folderGraphError")]
 pub enum FolderGraphError {
-    #[error("path {} was not found", .0)]
-    PathNotFound(String),
+    #[error("path {} was not found", .path)]
+    PathNotFound { path: String },
 
     #[error("folder already existed at that location")]
     FolderAlreadyPresent,
@@ -29,9 +30,11 @@ pub enum FolderGraphError {
 }
 
 #[derive(Debug, Error, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(tag = "resourceNameError")]
 pub enum ResourceNameError {
-    #[error("cannot use that resource name, as that name is being used already by a {}", .0)]
-    BadResourceName(Resource),
+    #[error("cannot use that resource name, as that name is being used already by a {}", .existing_resource)]
+    #[serde(rename_all = "camelCase")]
+    BadResourceName { existing_resource: Resource },
 
     #[error("no resource found of that name")]
     NoResourceByThatName,

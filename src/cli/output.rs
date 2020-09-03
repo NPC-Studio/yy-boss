@@ -2,8 +2,8 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yy_boss::{
-    folders::{FolderGraph, FolderGraphError, Item},
-    ResourceManipulationError, SerializedData,
+    folders::{FolderGraph, Item},
+    SerializedData,
 };
 use yy_typings::ViewPath;
 
@@ -126,11 +126,11 @@ pub enum YypBossError {
     #[error("could not read Command, error: {}", .data)]
     CouldNotReadCommand { data: String },
 
-    #[error(transparent)]
-    ResourceManipulation(#[from] ResourceManipulationError),
+    #[error("error manipulating resource, error: {}", .data)]
+    ResourceManipulation { data: String },
 
-    #[error(transparent)]
-    FolderGraphError(#[from] FolderGraphError),
+    #[error("folder graph error, error: {}", .data)]
+    FolderGraphError { data: String },
 
     #[error("could not read yyfile, error: {}", .data)]
     YyParseError { data: String },

@@ -74,7 +74,9 @@ impl Vfs {
         // Add to the folder graph
         let folder =
             Vfs::get_folder_mut(&mut self.root, &yy.parent_view_path().path).ok_or_else(|| {
-                FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+                FolderGraphError::PathNotFound {
+                    path: yy.parent_view_path().path.inner().to_string(),
+                }
             })?;
 
         // add and sort
@@ -152,7 +154,9 @@ impl Vfs {
     pub fn get_folder_by_fname(&self, name: &str) -> Result<&FolderGraph, FolderGraphError> {
         self.root
             .get_folder_by_fname(name)
-            .ok_or_else(|| FolderGraphError::PathNotFound(name.to_string()))
+            .ok_or_else(|| FolderGraphError::PathNotFound {
+                path: name.to_string(),
+            })
     }
 
     /// The root path for a folder at the root of a project.
@@ -207,8 +211,11 @@ impl Vfs {
         parent_path: &ViewPathLocation,
         name: S,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = Self::get_folder_mut(&mut self.root, &parent_path)
-            .ok_or_else(|| FolderGraphError::PathNotFound(parent_path.inner().to_string()))?;
+        let subfolder = Self::get_folder_mut(&mut self.root, &parent_path).ok_or_else(|| {
+            FolderGraphError::PathNotFound {
+                path: parent_path.inner().to_string(),
+            }
+        })?;
 
         // Don't add a new folder with the same name...
         if subfolder.folders.iter().any(|f| f.name == name.as_ref()) {
@@ -246,8 +253,12 @@ impl Vfs {
         &mut self,
         folder_path: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
-        let original_folder = Self::get_folder_mut(&mut self.root, &folder_path)
-            .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
+        let original_folder =
+            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+                FolderGraphError::PathNotFound {
+                    path: folder_path.inner().to_string(),
+                }
+            })?;
 
         if original_folder.files.is_empty() == false || original_folder.folders.is_empty() == false
         {
@@ -279,8 +290,12 @@ impl Vfs {
             return Err(FolderGraphError::CannotRemoveRootFolder);
         }
 
-        let original_folder = Self::get_folder_mut(&mut self.root, &folder_path)
-            .ok_or_else(|| FolderGraphError::PathNotFound(folder_path.inner().to_string()))?;
+        let original_folder =
+            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+                FolderGraphError::PathNotFound {
+                    path: folder_path.inner().to_string(),
+                }
+            })?;
 
         fn remove_resource(
             fg: &mut FolderGraph,
@@ -418,8 +433,8 @@ impl Vfs {
         yy: &T,
     ) -> Result<(), FolderGraphError> {
         let subfolder = Self::get_folder_mut(&mut self.root, &yy.parent_view_path().path)
-            .ok_or_else(|| {
-                FolderGraphError::PathNotFound(yy.parent_view_path().path.inner().to_string())
+            .ok_or_else(|| FolderGraphError::PathNotFound {
+                path: yy.parent_view_path().path.inner().to_string(),
             })?;
 
         let order = subfolder
@@ -461,7 +476,9 @@ impl Vfs {
         }
 
         let folder_to_move = Self::get_folder_inner(&self.root, &folder_location_to_move)
-            .ok_or_else(|| FolderGraphError::PathNotFound(folder_location_to_move.to_string()))?;
+            .ok_or_else(|| FolderGraphError::PathNotFound {
+                path: folder_location_to_move.to_string(),
+            })?;
 
         // make sure that the dest isn't inside the start...
         if Self::get_folder_inner(&self.root, &new_parent).is_some() {
@@ -474,7 +491,9 @@ impl Vfs {
                 return Err(FolderGraphError::FolderAlreadyPresent);
             }
         } else {
-            return Err(FolderGraphError::PathNotFound(new_parent.to_string()));
+            return Err(FolderGraphError::PathNotFound {
+                path: new_parent.to_string(),
+            });
         }
 
         let name = folder_to_move.name.clone();
@@ -512,7 +531,9 @@ impl Vfs {
             .map_err(FolderGraphError::ResourceNameError)?;
 
         if self.get_folder(new_parent).is_none() {
-            return Err(FolderGraphError::PathNotFound(new_parent.to_string()));
+            return Err(FolderGraphError::PathNotFound {
+                path: new_parent.to_string(),
+            });
         }
 
         let folder = Self::get_folder_mut(&mut self.root, &v.parent_location)

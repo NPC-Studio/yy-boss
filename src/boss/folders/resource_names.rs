@@ -66,7 +66,9 @@ impl ResourceNames {
                 if v.resource == r {
                     Ok(v)
                 } else {
-                    Err(ResourceNameError::BadResourceName(r))
+                    Err(ResourceNameError::BadResourceName {
+                        existing_resource: r,
+                    })
                 }
             }
             None => Err(ResourceNameError::NoResourceByThatName),
