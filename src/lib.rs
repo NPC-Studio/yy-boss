@@ -5,9 +5,7 @@ mod boss {
     use super::*;
 
     mod yy_resource;
-    pub use yy_resource::{
-        AssocDataLocation, FileHolder, SerializedData, SerializedDataError, YyResource,
-    };
+    pub use yy_resource::{FileHolder, SerializedData, SerializedDataError, YyResource};
 
     mod yyp_boss;
     pub use yyp_boss::YypBoss;

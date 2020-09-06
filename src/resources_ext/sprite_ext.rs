@@ -1,6 +1,6 @@
 use crate::{
-    AssocDataLocation, FileHolder, Resource, SerializedData, SerializedDataError, YyResource,
-    YyResourceHandler, YypBoss,
+    FileHolder, Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler,
+    YypBoss,
 };
 use anyhow::Context;
 use anyhow::Result as AnyResult;
@@ -334,54 +334,6 @@ impl YyResource for Sprite {
         &mut yyp_boss.sprites
     }
 
-    fn deserialize_associated_data(
-        &self,
-        incoming_data: AssocDataLocation<'_>,
-        _: &TrailingCommaUtility,
-    ) -> Result<Self::AssociatedData, SerializedDataError> {
-        match incoming_data {
-            AssocDataLocation::Value(_) => Err(SerializedDataError::CannotUseValue),
-            AssocDataLocation::Path(p) => {
-                let output = self
-                    .frames
-                    .iter()
-                    .filter_map(|frame: &Frame| {
-                        let path_to_image = p.join(&format!("{}.png", frame.name.inner()));
-
-                        match image::open(&path_to_image) {
-                            Ok(image) => Some((frame.name, image.to_rgba())),
-                            Err(e) => {
-                                log::error!("We couldn't read {:?} -- {}", path_to_image, e);
-                                None
-                            }
-                        }
-                    })
-                    .collect();
-
-                Ok(output)
-            }
-            AssocDataLocation::Default => {
-                let output = self
-                    .frames
-                    .iter()
-                    .map(|frame: &Frame| {
-                        (
-                            frame.name,
-                            SpriteImageBuffer::from_raw(
-                                self.width.get() as u32,
-                                self.height.get() as u32,
-                                vec![0; self.width.get() * self.height.get() * 4],
-                            )
-                            .expect("Jack messed up the math in the Frame Buffer defaults"),
-                        )
-                    })
-                    .collect();
-
-                Ok(output)
-            }
-        }
-    }
-
     fn serialize_associated_data(
         &self,
         directory_path: &Path,
@@ -425,6 +377,32 @@ impl YyResource for Sprite {
         Ok(())
     }
 
+    // WE DON'T HANDLE LAYERS AT ALL IN THIS CODE --
+    // WE WILL EVENTUALLY.
+    fn deserialize_associated_data(
+        &self,
+        dir_path: &Path,
+        _: &TrailingCommaUtility,
+    ) -> Result<HashMap<FrameId, SpriteImageBuffer>, SerializedDataError> {
+        let mut output = HashMap::new();
+
+        for frame in self.frames.iter() {
+            let path_to_image = dir_path.join(&format!("{}.png", frame.name.inner()));
+
+            match image::open(&path_to_image) {
+                Ok(image) => output.insert(frame.name, image.to_rgba()),
+                Err(e) => {
+                    return Err(SerializedDataError::BadData(format!(
+                        "we couldn't read {:#?} -- {}",
+                        path_to_image, e
+                    )));
+                }
+            };
+        }
+
+        Ok(output)
+    }
+
     fn serialize_associated_data_into_data(
         working_directory: &Path,
         associated_data: &Self::AssociatedData,
@@ -439,6 +417,34 @@ impl YyResource for Sprite {
         Ok(SerializedData::Filepath {
             data: working_directory.to_owned(),
         })
+    }
+
+    fn deserialize_associated_data_from_data(
+        &self,
+        incoming_data: &SerializedData,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        match incoming_data {
+            SerializedData::Value { .. } => Err(SerializedDataError::CannotUseValue),
+            SerializedData::Filepath { data: p } => self.deserialize_associated_data(p, tcu),
+            SerializedData::DefaultValue => {
+                let output = self
+                    .frames
+                    .iter()
+                    .map(|frame: &Frame| {
+                        (
+                            frame.name,
+                            SpriteImageBuffer::new(
+                                self.width.get() as u32,
+                                self.height.get() as u32,
+                            ),
+                        )
+                    })
+                    .collect();
+
+                Ok(output)
+            }
+        }
     }
 
     fn cleanup_on_replace(&self, mut files: impl FileHolder) {

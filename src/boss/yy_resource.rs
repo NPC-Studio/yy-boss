@@ -43,26 +43,29 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self>;
     fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self>;
 
-    /// Deserialized the associated data with a given Yy File. In a sprite, for example,
-    /// this would load the `pngs` into memory.
-    ///
-    /// The exact interpretation of what the `File` in `SerializedData` is left up to
-    /// each individual implementation.
-    fn deserialize_associated_data(
-        &self,
-        incoming_data: AssocDataLocation<'_>,
-        tcu: &TrailingCommaUtility,
-    ) -> Result<Self::AssociatedData, SerializedDataError>;
-
     /// Serialize the associated data with a given Yy File.
     ///
     /// In a sprite, for example, this would serialize the `png` files,
     /// or in a script, this would serialize the associated `gml` files.
+    ///
+    /// This is for serializing to directories *within* a Gms2 project. Its symmetric pair
+    /// is `deserialize_associated_data`.
     fn serialize_associated_data(
         &self,
         directory_path: &Path,
         data: &Self::AssociatedData,
     ) -> anyhow::Result<()>;
+
+    /// Deserialized the associated data with a given Yy File. In a sprite, for example,
+    /// this would load the `pngs` into memory.
+    ///
+    /// This is for deserializing from directories *within* a Gms2 project. Its symmetric pair
+    /// is `serialize_associated_data`.
+    fn deserialize_associated_data(
+        &self,
+        directory_path: &Path,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError>;
 
     /// Converts associated data into `SerializedData`.
     ///
@@ -70,10 +73,26 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     /// Most resources will immediately return their data by value, but some resources, such
     /// as sprites or sounds, will likely write their files and return the path to the written
     /// audio instead.
+    ///
+    /// The symmetric pair of this function is `deserialize_associated_data_into_data`.
     fn serialize_associated_data_into_data(
         working_directory: &Path,
         associated_data: &Self::AssociatedData,
     ) -> Result<SerializedData, SerializedDataError>;
+
+    /// Deserializes some `SerializedData` into `AssociatedData`.
+    ///
+    /// This function will largely be called by the CLI, rather than directly by the YypBoss.
+    /// Most resources will immediately return their data by value, but some resources, such
+    /// as sprites or sounds, will likely write their files and return the path to the written
+    /// audio instead.
+    ///
+    /// The symmetric pair of this function is `serialize_associated_data_from_data`.
+    fn deserialize_associated_data_from_data(
+        &self,
+        incoming_data: &SerializedData,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError>;
 
     /// This cleans up any associated files which won't get cleaned up in the event of a
     /// REPLACEMENT of this resource. For example, when we replace a sprite_yy file, the old
@@ -134,6 +153,9 @@ pub enum SerializedDataError {
     )]
     CannotUseValue,
 
+    #[error("data given is not correct in context -- reason: {}", .0)]
+    BadData(String),
+
     #[error("internal error -- yyp is unstable...{}", .0)]
     InnerError(String),
 }
@@ -142,23 +164,6 @@ impl From<serde_json::Error> for SerializedDataError {
     fn from(e: serde_json::Error) -> Self {
         SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Serde(e.to_string()))
     }
-}
-
-impl SerializedData {
-    pub fn as_assoc_data_location(&self) -> AssocDataLocation<'_> {
-        match self {
-            SerializedData::Value { data } => AssocDataLocation::Value(data),
-            SerializedData::Filepath { data } => AssocDataLocation::Path(data.as_ref()),
-            SerializedData::DefaultValue => AssocDataLocation::Default,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum AssocDataLocation<'a> {
-    Value(&'a str),
-    Path(&'a Path),
-    Default,
 }
 
 pub trait FileHolder {

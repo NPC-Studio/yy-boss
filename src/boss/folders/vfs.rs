@@ -605,7 +605,10 @@ mod test {
     use crate::boss::dirty_handler::DirtyState;
     use maplit::hashmap;
     // use pretty_assertions::assert_eq;
-    use std::collections::HashSet;
+    use super::YyResource;
+    use std::{collections::HashSet, path::Path};
+    use yy_typings::script::Script;
+
     #[test]
     fn folder_manipulations() {
         let mut fgm = Vfs::new("project");
@@ -721,5 +724,43 @@ mod test {
             }
         );
         assert_eq!(*fgm.dirty_handler.resources_to_reserialize(), hashmap! {});
+    }
+
+    #[test]
+    fn find_folder() {
+        let mut vfs = Vfs::new("project");
+        let new_folder = vfs.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
+
+        let mut scr = Script::default();
+        scr.set_name("Vec2".to_string());
+        scr.set_parent_view_path(new_folder.clone());
+        vfs.new_resource_end(&scr).unwrap();
+
+        vfs.new_folder_end(&new_folder.path, "Another Subfolder")
+            .unwrap();
+
+        let found = vfs.get_folder(&new_folder.path).unwrap();
+
+        assert_eq!(
+            *found,
+            FolderGraph {
+                name: "Sprites".to_string(),
+                order: 0,
+                path_to_parent: Some(ViewPathLocation::new("folders")),
+                tags: vec![],
+                folders: vec![FolderGraph {
+                    name: "Another Subfolder".to_string(),
+                    path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy",),),
+                    tags: vec![],
+                    order: 0,
+                    folders: vec![],
+                    files: Files::new(),
+                },],
+                files: Files::with_vec(vec![FilesystemPath {
+                    name: "Vec2".to_string(),
+                    path: Path::new("scripts/Vec2/Vec2.yy").to_owned(),
+                },],),
+            }
+        );
     }
 }

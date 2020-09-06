@@ -1,7 +1,8 @@
 use super::YyResource;
-use crate::FileHolder;
+use crate::{FileHolder, SerializedDataError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use yy_typings::utils::TrailingCommaUtility;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct DummyResource(String, usize);
@@ -43,7 +44,7 @@ impl YyResource for DummyResource {
 
     fn deserialize_associated_data(
         &self,
-        _: crate::AssocDataLocation<'_>,
+        _: &Path,
         _: &yy_typings::utils::TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, crate::SerializedDataError> {
         Ok(0)
@@ -58,6 +59,14 @@ impl YyResource for DummyResource {
         Ok(crate::SerializedData::Value {
             data: String::new(),
         })
+    }
+
+    fn deserialize_associated_data_from_data(
+        &self,
+        _: &crate::SerializedData,
+        _: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        unimplemented!()
     }
 
     fn cleanup_on_replace(&self, mut paths: impl FileHolder) {

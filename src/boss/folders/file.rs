@@ -12,6 +12,10 @@ impl Files {
         Self::default()
     }
 
+    pub fn with_vec(fpaths: Vec<FilesystemPath>) -> Self {
+        Self(fpaths)
+    }
+
     pub fn contains_name(&self, name: &str) -> bool {
         self.0.iter().any(|f| f.name == *name)
     }
@@ -66,5 +70,9 @@ impl Files {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    pub fn inner(&self) -> &Vec<FilesystemPath> {
+        &self.0
     }
 }

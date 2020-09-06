@@ -40,10 +40,23 @@ impl YyCli {
                     Resource::Object => self.remove::<Object>(yyp_boss, identifier),
                 },
                 ResourceCommandType::Get { identifier } => match resource_command.resource {
-                    Resource::Sprite => self.get::<Sprite>(yyp_boss, identifier),
-                    Resource::Script => self.get::<Script>(yyp_boss, identifier),
-                    Resource::Object => self.get::<Object>(yyp_boss, identifier),
+                    Resource::Sprite => self.get_resource::<Sprite>(yyp_boss, identifier),
+                    Resource::Script => self.get_resource::<Script>(yyp_boss, identifier),
+                    Resource::Object => self.get_resource::<Object>(yyp_boss, identifier),
                 },
+                ResourceCommandType::GetAssociatedData { identifier, force } => {
+                    match resource_command.resource {
+                        Resource::Sprite => {
+                            self.ensure_associated_data::<Sprite>(yyp_boss, identifier, force)
+                        }
+                        Resource::Script => {
+                            self.ensure_associated_data::<Script>(yyp_boss, identifier, force)
+                        }
+                        Resource::Object => {
+                            self.ensure_associated_data::<Object>(yyp_boss, identifier, force)
+                        }
+                    }
+                }
                 ResourceCommandType::Exists { identifier } => match resource_command.resource {
                     Resource::Sprite => self.exists::<Sprite>(yyp_boss, identifier),
                     Resource::Script => self.exists::<Script>(yyp_boss, identifier),
@@ -100,7 +113,9 @@ impl YyCli {
                     }
                 }
                 VfsCommand::GetFolder { folder } => match yyp_boss.vfs.get_folder(&folder) {
-                    Some(v) => Ok(CommandOutput::ok_folder_graph(v.clone())),
+                    Some(v) => Ok(CommandOutput::ok_folder_graph(
+                        v.to_flat(&yyp_boss.vfs.resource_names),
+                    )),
                     None => Err(YypBossError::FolderGraphError {
                         data: FolderGraphError::PathNotFound {
                             path: folder.to_string(),
@@ -109,9 +124,10 @@ impl YyCli {
                     }),
                 },
                 VfsCommand::GetFullVfs => {
-                    let vfs = yyp_boss.vfs.get_root_folder().clone();
+                    let vfs = yyp_boss.vfs.get_root_folder();
+                    let flat = vfs.to_flat(&yyp_boss.vfs.resource_names);
 
-                    Ok(CommandOutput::ok_folder_graph(vfs))
+                    Ok(CommandOutput::ok_folder_graph(flat))
                 }
                 VfsCommand::GetPathType { path } => match yyp_boss.vfs.path_kind(&path) {
                     Some(v) => Ok(CommandOutput::ok_path_kind(v)),
@@ -177,25 +193,59 @@ impl YyCli {
         }
     }
 
-    fn get<T: YyResource>(
+    fn get_resource<T: YyResource>(
         &self,
         yyp_boss: &YypBoss,
         resource_name: String,
     ) -> Result<CommandOutput, YypBossError> {
         match yyp_boss.get_resource::<T>(&resource_name) {
             Some(output) => {
-                match self.serialize_yy_data_for_output(
-                    &output.yy_resource,
-                    output.associated_data.as_ref(),
-                ) {
-                    Ok((yy, assoc)) => Ok(CommandOutput::ok_datum(yy, assoc)),
-                    Err(e) => Err(YypBossError::CouldNotOutputData {
-                        data: e.to_string(),
+                let yy_data = SerializedData::Value {
+                    data: serde_json::to_string_pretty(&output.yy_resource).unwrap(),
+                };
+
+                Ok(CommandOutput::ok_resource(yy_data))
+            }
+
+            None => Err(YypBossError::ResourceManipulation {
+                data: ResourceManipulationError::BadGet.to_string(),
+            }),
+        }
+    }
+
+    fn ensure_associated_data<T: YyResource>(
+        &self,
+        yyp_boss: &mut YypBoss,
+        resource_name: String,
+        force: bool,
+    ) -> Result<CommandOutput, YypBossError> {
+        match yyp_boss.ensure_associated_data_is_loaded::<T>(&resource_name, force) {
+            Ok(()) => {
+                match yyp_boss.get_resource::<T>(&resource_name) {
+                    Some(output) => {
+                        let data = output
+                            .associated_data
+                            .as_ref()
+                            .expect("must have been loaded by above");
+
+                        match T::serialize_associated_data_into_data(&self.working_directory, data)
+                        {
+                            Ok(assoc_data) => Ok(CommandOutput::ok_associated_data(assoc_data)),
+                            Err(e) => Err(YypBossError::CouldNotOutputData {
+                                data: e.to_string(),
+                            }),
+                        }
+                    }
+
+                    // this is extremely unlikely...
+                    None => Err(YypBossError::ResourceManipulation {
+                        data: ResourceManipulationError::BadGet.to_string(),
                     }),
                 }
             }
-            None => Err(YypBossError::ResourceManipulation {
-                data: ResourceManipulationError::BadGet.to_string(),
+
+            Err(e) => Err(YypBossError::ResourceManipulation {
+                data: e.to_string(),
             }),
         }
     }
@@ -229,10 +279,9 @@ impl YyCli {
             }
             SerializedData::DefaultValue => Ok(T::default()),
         }?;
-        let incoming_data = new_resource.associated_data.as_assoc_data_location();
 
         let associated_data: T::AssociatedData = value
-            .deserialize_associated_data(incoming_data, tcu)
+            .deserialize_associated_data_from_data(&new_resource.associated_data, tcu)
             .map_err(|e| YypBossError::AssociatedDataParseError {
                 data: e.to_string(),
             })?;

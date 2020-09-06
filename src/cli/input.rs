@@ -117,17 +117,39 @@ pub enum ResourceCommandType {
         identifier: String,
     },
 
-    /// Returns a copy of a resource and its associated data.
+    /// Returns a copy of a resource.
     ///
     /// ## Errors
     /// If there isn't a resource by the given name of the given type, an error will be returned.
     ///
     /// ## Returns
-    /// If this command succeeds, it will return a copy of the resource and its associated data.
+    /// If this command succeeds, it will return a copy of the resource.
     /// This command will not mutate any data in the project.
     Get {
         /// The name of the resource to get.
         identifier: String,
+    },
+
+    /// Returns a copy of a resource's associated data as SerializedData in a presentable form. This
+    /// generally means making keys in HashMaps JSON compatible. Further engineering work is needed
+    /// to clarify this.
+    ///
+    /// If the associated data for a given identifier has not been loaded, it will be loaded.
+    ///
+    /// ## Errors
+    /// If there isn't a resource by the given name of the given type, an error will be returned.
+    /// If there is an error loading the resource's associated data, an error will be returned.
+    ///
+    /// ## Returns
+    /// If this command succeeds, it will return a copy of the resource.
+    GetAssociatedData {
+        /// The name of the resource to get.
+        identifier: String,
+
+        /// If the resource associated data should be reloaded from disc.
+        /// If the associated data has not been loaded, the resource will be loaded from
+        /// disc anyway, so this flag is effectively ignored.
+        force: bool,
     },
 
     /// Returns a boolean indicating if a resource of the given name and given type exists.

@@ -1,5 +1,5 @@
-use super::Files;
-use crate::ViewPathLocationExt;
+use super::{Files, ResourceDescriptor, ResourceNames};
+use crate::{FilesystemPath, ViewPathLocationExt};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use yy_typings::{Tags, ViewPath, ViewPathLocation};
@@ -64,7 +64,7 @@ impl FolderGraph {
 
     pub fn view_path(&self) -> ViewPath {
         let path = self.view_path_location();
-        
+
         ViewPath {
             name: self.name.clone(),
             path,
@@ -101,4 +101,43 @@ impl FolderGraph {
 
         None
     }
+
+    pub fn to_flat(&self, resource_names: &ResourceNames) -> FlatFolderGraph {
+        let view_path = self.view_path();
+
+        FlatFolderGraph {
+            path_to_parent: self.path_to_parent.clone(),
+            folders: self.folders.iter().map(|v| v.view_path()).collect(),
+            files: self
+                .files
+                .inner()
+                .iter()
+                .filter_map(|v| {
+                    resource_names
+                        .get(&v.name)
+                        .map(|rd| FlatResourceDescriptor {
+                            filesystem_path: v.clone(),
+                            resource_descriptor: rd.clone(),
+                        })
+                })
+                .collect(),
+            view_path,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatFolderGraph {
+    pub view_path: ViewPath,
+    pub path_to_parent: Option<ViewPathLocation>,
+    pub folders: Vec<ViewPath>,
+    pub files: Vec<FlatResourceDescriptor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatResourceDescriptor {
+    pub filesystem_path: FilesystemPath,
+    pub resource_descriptor: ResourceDescriptor,
 }

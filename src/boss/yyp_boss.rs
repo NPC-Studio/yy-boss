@@ -220,6 +220,33 @@ impl YypBoss {
         let handler = T::get_handler(self);
         handler.get(name)
     }
+
+    /// Ensures some associated data is loaded by generic type. If you aren't working generically, just access
+    /// the individual handlers for this.
+    ///
+    /// If `force` is passed in, then this will *always* reload the associated data. Be careful out there -- hot
+    /// reloading isn't a feature we really support yet.
+    ///
+    /// This operation will return a reference to the associated data if we succeeded.
+    pub fn ensure_associated_data_is_loaded<T: YyResource>(
+        &mut self,
+        name: &str,
+        force: bool,
+    ) -> Result<(), YyResourceHandlerErrors> {
+        let path = self.directory_manager.root_directory().to_path_buf();
+        let handler = T::get_handler_mut(self);
+
+        let reload = handler
+            .get(name)
+            .map(|data| data.associated_data.is_none() || force)
+            .unwrap_or(true);
+
+        if reload {
+            handler.load_resource_associated_data(name, &path, &TCU)?;
+        }
+
+        Ok(())
+    }
 }
 
 // resource handling!

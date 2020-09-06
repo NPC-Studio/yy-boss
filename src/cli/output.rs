@@ -2,7 +2,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use yy_boss::{
-    folders::{FolderGraph, Item},
+    folders::{FlatFolderGraph, Item},
     SerializedData,
 };
 use yy_typings::ViewPath;
@@ -49,7 +49,7 @@ pub struct CommandOutput {
     pub associated_data: Option<SerializedData>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub folder_graph: Option<FolderGraph>,
+    pub flat_folder_graph: Option<FlatFolderGraph>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path_kind: Option<Item>,
@@ -83,6 +83,22 @@ impl CommandOutput {
         }
     }
 
+    pub fn ok_resource(resource: SerializedData) -> Self {
+        Self {
+            success: true,
+            resource: Some(resource),
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_associated_data(associated_data: SerializedData) -> Self {
+        Self {
+            success: true,
+            associated_data: Some(associated_data),
+            ..Self::default()
+        }
+    }
+
     pub fn ok_exists(exists: bool) -> Self {
         Self {
             success: true,
@@ -91,10 +107,10 @@ impl CommandOutput {
         }
     }
 
-    pub fn ok_folder_graph(f_graph: FolderGraph) -> Self {
+    pub fn ok_folder_graph(ff_graph: FlatFolderGraph) -> Self {
         Self {
             success: true,
-            folder_graph: Some(f_graph),
+            flat_folder_graph: Some(ff_graph),
             ..Self::default()
         }
     }

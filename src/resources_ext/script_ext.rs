@@ -1,7 +1,8 @@
 use crate::{
-    utils, AssocDataLocation, FileHolder, Resource, SerializedData, SerializedDataError,
-    YyResource, YyResourceHandler, YypBoss,
+    utils, FileHolder, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
 };
+use std::path::Path;
 use yy_typings::{sprite_yy::script::Script, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Script {
@@ -32,18 +33,6 @@ impl YyResource for Script {
         &mut yyp_boss.scripts
     }
 
-    fn deserialize_associated_data(
-        &self,
-        incoming_data: AssocDataLocation<'_>,
-        tcu: &TrailingCommaUtility,
-    ) -> Result<Self::AssociatedData, SerializedDataError> {
-        match incoming_data {
-            AssocDataLocation::Value(v) => Ok(v.to_string()),
-            AssocDataLocation::Path(v) => utils::deserialize_json_tc(v, tcu).map_err(|e| e.into()),
-            AssocDataLocation::Default => Ok(Self::AssociatedData::default()),
-        }
-    }
-
     fn serialize_associated_data(
         &self,
         directory_path: &std::path::Path,
@@ -55,6 +44,16 @@ impl YyResource for Script {
         Ok(())
     }
 
+    fn deserialize_associated_data(
+        &self,
+        directory_path: &Path,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        let path = directory_path.join(format!("{}.gml", self.name));
+
+        utils::deserialize_json_tc(&path, tcu).map_err(|e| e.into())
+    }
+
     fn serialize_associated_data_into_data(
         _: &std::path::Path,
         associated_data: &Self::AssociatedData,
@@ -62,6 +61,20 @@ impl YyResource for Script {
         match serde_json::to_string_pretty(associated_data) {
             Ok(data) => Ok(SerializedData::Value { data }),
             Err(e) => Err(e.into()),
+        }
+    }
+
+    fn deserialize_associated_data_from_data(
+        &self,
+        incoming_data: &SerializedData,
+        tcu: &TrailingCommaUtility,
+    ) -> Result<Self::AssociatedData, SerializedDataError> {
+        match incoming_data {
+            SerializedData::Value { data: v } => Ok(v.to_string()),
+            SerializedData::Filepath { data: v } => {
+                utils::deserialize_json_tc(v, tcu).map_err(|e| e.into())
+            }
+            SerializedData::DefaultValue => Ok(Self::AssociatedData::default()),
         }
     }
 

@@ -3,7 +3,7 @@ use super::{
     dirty_handler::{DirtyDrain, DirtyHandler},
     utils, FilesystemPath, YyResource,
 };
-use crate::{AssocDataLocation, YyResourceHandlerErrors};
+use crate::YyResourceHandlerErrors;
 use anyhow::Result as AnyResult;
 use log::{error, info};
 use std::{
@@ -86,10 +86,7 @@ impl<T: YyResource> YyResourceHandler<T> {
             // Try to load this guy up...
             if assoc.is_none() {
                 let output = yy
-                    .deserialize_associated_data(
-                        AssocDataLocation::Path(&dir_path.join(&yy.relative_yy_directory())),
-                        tcu,
-                    )
+                    .deserialize_associated_data(&dir_path.join(&yy.relative_yy_directory()), tcu)
                     .map_err(|e| {
                         error!("Couldn't deserialize {}'s assoc data...{}", value, e);
                         e
@@ -113,13 +110,14 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub fn load_resource_associated_data(
         &mut self,
         resource_name: &str,
-        path: &Path,
+        root: &Path,
         tcu: &TrailingCommaUtility,
     ) -> Result<&T::AssociatedData, YyResourceHandlerErrors> {
         if let Some(resource) = self.resources.get_mut(resource_name) {
-            let associated_data = resource
-                .yy_resource
-                .deserialize_associated_data(AssocDataLocation::Path(path), tcu)?;
+            let associated_data = resource.yy_resource.deserialize_associated_data(
+                &root.join(resource.yy_resource.relative_path()),
+                tcu,
+            )?;
 
             resource.associated_data = Some(associated_data);
 
@@ -207,17 +205,21 @@ impl<T: YyResource> YyResourceHandler<T> {
                 .get(&resource_to_reserialize)
                 .expect("This should always be valid.");
 
-            let yy_path = directory_manager.resource_file(
-                &FilesystemPath::new(T::SUBPATH_NAME, resource.yy_resource.name()).path,
-            );
+            let yy_path = directory_manager.resource_file(&resource.yy_resource.relative_path());
 
-            if let Some(parent_dir) = yy_path.parent() {
-                fs::create_dir_all(parent_dir)?;
-                if let Some(associated_data) = &resource.associated_data {
-                    resource
-                        .yy_resource
-                        .serialize_associated_data(parent_dir, associated_data)?;
-                }
+            let parent_dir = yy_path.parent().expect("impossible");
+            fs::create_dir_all(parent_dir)?;
+
+            if let Some(associated_data) = &resource.associated_data {
+                resource
+                    .yy_resource
+                    .serialize_associated_data(parent_dir, associated_data)?;
+            } else {
+                error!(
+                    "{} {} was marked for serialization but we didn't have its associated data",
+                    T::RESOURCE,
+                    resource.yy_resource.name()
+                )
             }
 
             utils::serialize_json(&yy_path, &resource.yy_resource)?;

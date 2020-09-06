@@ -257,9 +257,9 @@ dependencies = [
 
 [[package]]
 name = "image"
-version = "0.23.8"
+version = "0.23.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "543904170510c1b5fb65140485d84de4a57fddb2ed685481e9020ce3d2c9f64c"
+checksum = "974e194911d1f7efe3cd8a8f9db3b767e43536327e899e8bc9a12ef5711b74d2"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -927,9 +927,9 @@ dependencies = [
 
 [[package]]
 name = "yy-typings"
-version = "0.3.7"
+version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a95f25ab015a201610c1fbe62b237d29fd6e8c41058feff21ebae326cf2e655c"
+checksum = "46dbf896a224a603280a538d2d65deec6b9145b50ef2502904acf22d0db9ebdc"
 dependencies = [
  "num-derive",
  "num-traits",
