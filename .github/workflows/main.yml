@@ -53,13 +53,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
 
       - name: Compress
-        run: zip "YyBoss Darwin.zip" target/release/yy-boss-cli_darwin
+        run: zip -j "YyBoss Darwin.zip" target/release/yy-boss-cli_darwin
         if: startsWith(github.ref, 'refs/tags/')
 
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: YyBoss Darwin.zip
+          files: YyBoss-Darwin.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
