@@ -1,5 +1,5 @@
 use super::{
-    input::{Command, CreateCommand, NewResource, ResourceCommandType, VfsCommand},
+    input::{Command, CreateCommand, NewResource, ResourceCommandType, UtilityCommand, VfsCommand},
     output::{CommandOutput, Output, YypBossError},
 };
 use crate::{Resource, YyResource, YypBoss};
@@ -9,7 +9,10 @@ use yy_boss::{
     SerializedDataError,
 };
 use yy_typings::{
-    object_yy::Object, script::Script, sprite_yy::Sprite, utils::TrailingCommaUtility,
+    object_yy::{EventType, Object},
+    script::Script,
+    sprite_yy::Sprite,
+    utils::TrailingCommaUtility,
 };
 
 pub struct YyCli {
@@ -139,10 +142,24 @@ impl YyCli {
                     }),
                 },
             },
-            Command::Create(create_data) => match create_data.resource {
-                Resource::Sprite => Self::create_yy::<Sprite>(create_data),
-                Resource::Script => Self::create_yy::<Script>(create_data),
-                Resource::Object => Self::create_yy::<Object>(create_data),
+            Command::Utilities(util) => match util {
+                UtilityCommand::Create(create_data) => match create_data.resource {
+                    Resource::Sprite => Self::create_yy::<Sprite>(create_data),
+                    Resource::Script => Self::create_yy::<Script>(create_data),
+                    Resource::Object => Self::create_yy::<Object>(create_data),
+                },
+                UtilityCommand::PrettyEventNames { event_names: v } => {
+                    let output = v
+                        .into_iter()
+                        .map(|v| {
+                            EventType::parse_filename_simple(&v)
+                                .map(|v| v.to_string())
+                                .unwrap_or(v)
+                        })
+                        .collect::<Vec<_>>();
+
+                    Ok(CommandOutput::ok_event_names(output))
+                }
             },
             Command::Serialize => match yyp_boss.serialize() {
                 Ok(()) => Ok(CommandOutput::ok()),
@@ -318,11 +335,8 @@ impl YyCli {
             yy.set_parent_view_path(parent);
         }
 
-        Ok(CommandOutput::ok_datum(
-            SerializedData::Value {
-                data: serde_json::to_string_pretty(&yy).unwrap(),
-            },
-            None,
-        ))
+        Ok(CommandOutput::ok_resource(SerializedData::Value {
+            data: serde_json::to_string_pretty(&yy).unwrap(),
+        }))
     }
 }

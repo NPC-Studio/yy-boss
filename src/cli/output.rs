@@ -56,6 +56,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_folder: Option<ViewPath>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_names: Option<Vec<String>>,
 }
 
 impl CommandOutput {
@@ -127,6 +130,14 @@ impl CommandOutput {
         Self {
             success: true,
             created_folder: Some(f),
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_event_names(ev: Vec<String>) -> Self {
+        Self {
+            success: true,
+            event_names: Some(ev),
             ..Self::default()
         }
     }

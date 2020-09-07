@@ -24,11 +24,10 @@ pub enum Command {
     /// [`VfsCommand`]: ./enum.VfsCommand.html
     VirtualFileSystem(VfsCommand),
 
-    /// Allows users to create Yy files with a few default features set. This is largely for convenience. See
-    /// [`CreateCommand`].
+    /// Various utilities to aid developers working with files. These commands help work with generated data.
     ///
     /// [`CreateCommand`]: ./struct.CreateCommand.html
-    Create(CreateCommand),
+    Utilities(UtilityCommand),
 
     /// A command type to serialize current changes. This currently serializes all changes which the YypBoss
     /// tracks, including Assets and Pipelines.
@@ -323,6 +322,17 @@ pub enum VfsCommand {
     GetPathType { path: ViewPath },
 }
 
+/// Utilities for the YypBoss to run. None of these commands will ever return an error.
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[serde(tag = "subCommand")]
+pub enum UtilityCommand {
+    Create(CreateCommand),
+    #[serde(rename_all = "camelCase")]
+    PrettyEventNames {
+        event_names: Vec<String>,
+    },
+}
+
 /// A create command for the Yy to process.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct CreateCommand {
@@ -366,10 +376,14 @@ mod tests {
             resource: Resource::Sprite,
         }));
 
-        harness(Command::Create(CreateCommand {
+        harness(Command::Utilities(UtilityCommand::Create(CreateCommand {
             resource: Resource::Script,
             name: Some("jim".to_string()),
             parent: None,
+        })));
+
+        harness(Command::Utilities(UtilityCommand::PrettyEventNames {
+            event_names: vec!["hello".to_string()],
         }));
 
         harness(Command::VirtualFileSystem(VfsCommand::MoveResource {

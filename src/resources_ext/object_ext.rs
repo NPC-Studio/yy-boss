@@ -1,6 +1,6 @@
 use crate::{
-    FileHolder, Resource, SerializedData, SerializedDataError, YyResource, YyResourceHandler,
-    YypBoss,
+    FileHolder, FileSerializationError, Resource, SerializedData, SerializedDataError, YyResource,
+    YyResourceHandler, YypBoss,
 };
 
 use std::{collections::HashMap, path::Path};
@@ -41,8 +41,7 @@ impl YyResource for Object {
     ) -> anyhow::Result<()> {
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             if let Some(gml) = data.get(&event_type) {
-                let (output, last_number) = event_type.filename();
-                let path = directory_path.join(&format!("{}{}", output, last_number));
+                let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
                 std::fs::write(&path, gml)?;
             } else {
                 log::error!("we couldn't find a {} in our associated data, even though it should have been there. not serialized.", event_type);
@@ -60,11 +59,10 @@ impl YyResource for Object {
         let mut associated_data = HashMap::new();
 
         for event_type in self.event_list.iter().map(|v| v.event_type) {
-            let (output, last_number) = event_type.filename();
-            let path = directory_path.join(&format!("{}{}", output, last_number));
+            let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
 
             let val = std::fs::read_to_string(&path).map_err(|e| {
-                SerializedDataError::CouldNotDeserializeFile(crate::FileSerializationError::Io(
+                SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Io(
                     e.to_string(),
                 ))
             })?;
@@ -80,11 +78,7 @@ impl YyResource for Object {
     ) -> Result<SerializedData, SerializedDataError> {
         let simple_map: HashMap<String, String> = associated_data
             .iter()
-            .map(|(k, v)| {
-                let (key, numb) = k.filename();
-
-                (format!("{}{}", key, numb), v.clone())
-            })
+            .map(|(k, v)| (k.filename_simple(), v.clone()))
             .collect();
 
         match serde_json::to_string_pretty(&simple_map) {
@@ -128,9 +122,9 @@ impl YyResource for Object {
                     self.deserialize_associated_data(p, tcu)
                 } else {
                     let data = std::fs::read_to_string(p).map_err(|e| {
-                        SerializedDataError::CouldNotDeserializeFile(
-                            crate::FileSerializationError::Io(e.to_string()),
-                        )
+                        SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Io(
+                            e.to_string(),
+                        ))
                     })?;
                     deserialize_simple_value(&data)
                 }
@@ -168,8 +162,8 @@ impl YyResource for Object {
 
     fn cleanup_on_replace(&self, mut files_to_delete: impl FileHolder) {
         for event in self.event_list.iter() {
-            let (output, last_number) = event.event_type.filename();
-            let path = Path::new(&format!("{}{}", output, last_number)).to_path_buf();
+            let path =
+                Path::new(&format!("{}.gml", event.event_type.filename_simple())).to_path_buf();
             files_to_delete.push(path);
         }
     }
