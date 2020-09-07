@@ -11,6 +11,9 @@ mod cli {
     /// All startup options which the cli can receive as Json has their Rust forms defined here.
     pub mod startup;
 
+    /// Logging options for using the Cli.
+    pub mod logging;
+
     #[doc(hidden)]
     pub(super) mod main_loop;
 
@@ -27,7 +30,7 @@ fn main() {
             clap::ErrorKind::HelpDisplayed | clap::ErrorKind::VersionDisplayed => {
                 e.write_to(&mut std::io::stdout())
                     .expect("couldn't write to stdout");
-                std::process::exit(1);
+                std::process::exit(0);
             }
             _ => {
                 Output::Startup(Startup {
@@ -40,6 +43,8 @@ fn main() {
         },
     };
 
+    cli::logging::begin_logging(args.logging, &args.working_directory);
+    log::info!("Starting loop...");
     let yy_cli = cli::yy_cli::YyCli::new(args.working_directory);
 
     let boss_or = YypBoss::new(&args.yyp_path);

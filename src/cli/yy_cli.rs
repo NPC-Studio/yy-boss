@@ -221,25 +221,16 @@ impl YyCli {
     ) -> Result<CommandOutput, YypBossError> {
         match yyp_boss.ensure_associated_data_is_loaded::<T>(&resource_name, force) {
             Ok(()) => {
-                match yyp_boss.get_resource::<T>(&resource_name) {
-                    Some(output) => {
-                        let data = output
-                            .associated_data
-                            .as_ref()
-                            .expect("must have been loaded by above");
+                let output = yyp_boss.get_resource::<T>(&resource_name).unwrap();
+                let data = output
+                    .associated_data
+                    .as_ref()
+                    .expect("must have been loaded by above");
 
-                        match T::serialize_associated_data_into_data(&self.working_directory, data)
-                        {
-                            Ok(assoc_data) => Ok(CommandOutput::ok_associated_data(assoc_data)),
-                            Err(e) => Err(YypBossError::CouldNotOutputData {
-                                data: e.to_string(),
-                            }),
-                        }
-                    }
-
-                    // this is extremely unlikely...
-                    None => Err(YypBossError::ResourceManipulation {
-                        data: ResourceManipulationError::BadGet.to_string(),
+                match T::serialize_associated_data_into_data(&self.working_directory, data) {
+                    Ok(assoc_data) => Ok(CommandOutput::ok_associated_data(assoc_data)),
+                    Err(e) => Err(YypBossError::CouldNotOutputData {
+                        data: e.to_string(),
                     }),
                 }
             }

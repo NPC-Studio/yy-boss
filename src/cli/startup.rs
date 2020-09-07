@@ -26,6 +26,7 @@
 //! [`output`]: ../output/index.html
 
 use super::{
+    logging::Logging,
     output::{Output, Startup},
     yy_cli::YyCli,
 };
@@ -38,14 +39,15 @@ use yy_boss::{StartupError, YypBoss};
 pub(crate) struct Arguments {
     pub yyp_path: PathBuf,
     pub working_directory: PathBuf,
+    pub logging: Logging,
 }
 
 #[doc(hidden)]
 pub(crate) fn parse_arguments() -> Result<Arguments, clap::Error> {
-    let matches = App::new("Yy Boss")
-        .version("0.3.1")
-        .author("Jonathan Spira <jjspira@gmail.com>")
-        .about("Manages a Gms2 project")
+    let matches = App::new(clap::crate_name!())
+        .version(clap::crate_version!())
+        .author(clap::crate_authors!())
+        .about(clap::crate_description!())
         .version_short("v")
         .arg(
             Arg::with_name("path")
@@ -65,6 +67,24 @@ pub(crate) fn parse_arguments() -> Result<Arguments, clap::Error> {
                 )
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("log_file")
+                .short("l")
+                .takes_value(true)
+                .required(false)
+                .help("the path relative to the working directory where the YypBoss should place its logs.")
+                .long_help(
+                    "A path within the safe working directory where the YypBoss can place \
+                    its logs. The YypBoss will ensure the path to the log location is valid (including making \
+                    directories if necessary). By using \
+                    \"log_stderr\", users can also log out to stderr instead."
+                )
+        )
+        .arg(
+            Arg::with_name("log_stderr")
+                .short("s")
+                .help("instructs the yypboss to output logs to stderr")
+        )
         .get_matches_safe();
 
     matches.map(|matches| {
@@ -75,9 +95,21 @@ pub(crate) fn parse_arguments() -> Result<Arguments, clap::Error> {
             .unwrap()
             .to_owned();
 
+        let logging = matches
+            .value_of("log_file")
+            .map(|p| Logging::LogToFile(Path::new(p).to_owned()))
+            .unwrap_or_else(|| {
+                if matches.values_of("log_stderr").is_some() {
+                    Logging::LogToStdErr
+                } else {
+                    Logging::NoLog
+                }
+            });
+
         Arguments {
             yyp_path,
             working_directory,
+            logging,
         }
     })
 }
