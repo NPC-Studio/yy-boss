@@ -281,7 +281,7 @@ impl YypBoss {
         for (fsys, descriptor) in deleted_resources {
             match descriptor.resource {
                 Resource::Sprite => {
-                    self.scripts
+                    self.sprites
                         .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
                 }
                 Resource::Script => {

@@ -327,9 +327,21 @@ pub enum VfsCommand {
 #[serde(tag = "subCommand")]
 pub enum UtilityCommand {
     Create(CreateCommand),
+
     #[serde(rename_all = "camelCase")]
     PrettyEventNames {
         event_names: Vec<String>,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    ScriptGmlPath {
+        script_name: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    EventGmlPath {
+        object_name: String,
+        event_file_name: String,
     },
 }
 

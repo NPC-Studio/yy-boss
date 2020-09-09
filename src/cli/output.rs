@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -59,6 +61,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_names: Option<Vec<String>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requested_path: Option<PathBuf>,
 }
 
 impl CommandOutput {
@@ -138,6 +143,14 @@ impl CommandOutput {
         Self {
             success: true,
             event_names: Some(ev),
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_path(path: PathBuf) -> Self {
+        Self {
+            success: true,
+            requested_path: Some(path),
             ..Self::default()
         }
     }

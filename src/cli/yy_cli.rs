@@ -160,6 +160,42 @@ impl YyCli {
 
                     Ok(CommandOutput::ok_event_names(output))
                 }
+                UtilityCommand::ScriptGmlPath { script_name } => {
+                    if let Some(script) = yyp_boss.scripts.get(&script_name) {
+                        let path = yyp_boss
+                            .directory_manager
+                            .resource_file(&script.yy_resource.relative_yy_directory())
+                            .join(format!("{}.gml", script.yy_resource.name));
+
+                        Ok(CommandOutput::ok_path(path))
+                    } else {
+                        Err(YypBossError::CouldNotOutputData {
+                            data: format!("could not find {}", script_name),
+                        })
+                    }
+                }
+                UtilityCommand::EventGmlPath {
+                    object_name,
+                    event_file_name,
+                } => {
+                    if let Some(object) = yyp_boss.objects.get(&object_name) {
+                        if EventType::parse_filename_simple(&event_file_name).is_ok() {
+                            let path = yyp_boss
+                                .directory_manager
+                                .resource_file(&object.yy_resource.relative_yy_directory())
+                                .join(format!("{}.gml", event_file_name));
+                            Ok(CommandOutput::ok_path(path))
+                        } else {
+                            Err(YypBossError::CouldNotOutputData {
+                                data: format!("event_filename {} was invalid", event_file_name),
+                            })
+                        }
+                    } else {
+                        Err(YypBossError::CouldNotOutputData {
+                            data: format!("could not find {}", object_name),
+                        })
+                    }
+                }
             },
             Command::Serialize => match yyp_boss.serialize() {
                 Ok(()) => Ok(CommandOutput::ok()),
