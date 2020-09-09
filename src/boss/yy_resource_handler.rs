@@ -115,7 +115,7 @@ impl<T: YyResource> YyResourceHandler<T> {
     ) -> Result<&T::AssociatedData, YyResourceHandlerErrors> {
         if let Some(resource) = self.resources.get_mut(resource_name) {
             let associated_data = resource.yy_resource.deserialize_associated_data(
-                &root.join(resource.yy_resource.relative_path()),
+                &root.join(resource.yy_resource.relative_yy_directory()),
                 tcu,
             )?;
 
@@ -205,7 +205,8 @@ impl<T: YyResource> YyResourceHandler<T> {
                 .get(&resource_to_reserialize)
                 .expect("This should always be valid.");
 
-            let yy_path = directory_manager.resource_file(&resource.yy_resource.relative_path());
+            let yy_path =
+                directory_manager.resource_file(&resource.yy_resource.relative_yy_filepath());
 
             let parent_dir = yy_path.parent().expect("impossible");
             fs::create_dir_all(parent_dir)?;

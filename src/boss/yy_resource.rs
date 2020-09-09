@@ -34,11 +34,6 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     /// Get the path to the parent in the View Virtual File System.
     fn parent_view_path(&self) -> ViewPath;
 
-    /// Returns the relative path to this Resource from the Root Directory. Provided as a convenience
-    fn relative_path(&self) -> PathBuf {
-        Path::new(&format!("{}/{}", Self::SUBPATH_NAME, self.name())).to_owned()
-    }
-
     /// Gets the resource handler on the YypBoss associated with this type.
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self>;
     fn get_handler_mut(yyp_boss: &mut YypBoss) -> &mut YyResourceHandler<Self>;
