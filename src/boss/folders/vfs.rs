@@ -248,7 +248,6 @@ impl Vfs {
 
     /// Removes an empty folder from the virtual file system. If *anything* is within this folder, it will not be deleted,
     /// including other empty folders.
-    ///
     pub fn remove_empty_folder(
         &mut self,
         folder_path: &ViewPathLocation,
@@ -275,6 +274,37 @@ impl Vfs {
 
             // mark the remove as dirty...
             self.dirty_handler.remove(folder_path);
+
+            Ok(())
+        } else {
+            Err(FolderGraphError::CannotRemoveRootFolder)
+        }
+    }
+
+    /// Renames a folder in the Vfs.
+    pub fn rename_folder(
+        &mut self,
+        folder_path: &ViewPathLocation,
+        new_name: String,
+    ) -> Result<(), FolderGraphError> {
+        let original_folder =
+            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+                FolderGraphError::PathNotFound {
+                    path: folder_path.inner().to_string(),
+                }
+            })?;
+
+        if original_folder.path_to_parent.is_some() {
+            original_folder.name = new_name;
+            let new_path = original_folder.view_path_location();
+
+            self.dirty_handler.remove(folder_path);
+            self.dirty_handler.add(new_path.clone());
+
+            // fix the children...
+            for children in &mut original_folder.folders {
+                children.path_to_parent = Some(new_path.clone());
+            }
 
             Ok(())
         } else {

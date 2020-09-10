@@ -115,6 +115,14 @@ impl YyCli {
                         }
                     }
                 }
+                VfsCommand::RenameFolder { folder, new_name } => {
+                    match yyp_boss.vfs.rename_folder(&folder, new_name) {
+                        Ok(()) => Ok(CommandOutput::ok()),
+                        Err(e) => Err(YypBossError::FolderGraphError {
+                            data: e.to_string(),
+                        }),
+                    }
+                }
                 VfsCommand::GetFolder { folder } => match yyp_boss.vfs.get_folder(&folder) {
                     Some(v) => Ok(CommandOutput::ok_folder_graph(
                         v.to_flat(&yyp_boss.vfs.resource_names),

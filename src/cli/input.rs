@@ -302,6 +302,16 @@ pub enum VfsCommand {
         recursive: bool,
     },
 
+    /// Renames a folder.
+    #[serde(rename_all = "camelCase")]
+    RenameFolder {
+        /// The location of the Folder to rename.
+        folder: ViewPathLocation,
+
+        /// The new name of the Folder.
+        new_name: String,
+    },
+
     /// Returns a [`FolderGraph`] for this folder.
     ///
     /// ## Errors
