@@ -33,19 +33,16 @@ pub enum StartupError {
     BadCliArguments(String),
 }
 
-#[derive(Debug, Error, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[derive(Debug, Error)]
 pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),
 
-    #[error("cannot add that resource -- a {} of that name already exists", .existing_resource)]
-    #[serde(rename_all = "camelCase")]
-    BadAdd { existing_resource: Resource },
+    #[error("cannot add that resource -- a {} of that name already exists", .0)]
+    NameCollision(Resource),
 
-    #[error("cannot rename that resource -- a {} of that name already exists", .existing_resource)]
-    #[serde(rename_all = "camelCase")]
-    BadRename { existing_resource: Resource },
+    #[error("cannot use that name -- resource names must be [A-z_]\\w+")]
+    BadName,
 
     #[error("cannot find that resource")]
     BadGet,

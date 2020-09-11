@@ -45,6 +45,9 @@ pub struct CommandOutput {
     pub exists: Option<bool>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_is_valid: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub resource: Option<SerializedData>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,6 +114,14 @@ impl CommandOutput {
         Self {
             success: true,
             exists: Some(exists),
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_name_is_valid(valid: bool) -> Self {
+        Self {
+            success: true,
+            name_is_valid: Some(valid),
             ..Self::default()
         }
     }

@@ -277,7 +277,7 @@ impl Vfs {
 
             Ok(())
         } else {
-            Err(FolderGraphError::CannotRemoveRootFolder)
+            Err(FolderGraphError::CannotEditRootFolder)
         }
     }
 
@@ -285,22 +285,22 @@ impl Vfs {
     ///
     /// Users don't need this function, but it is provided to simplify users lives, and to
     /// future proof the library.
-    pub fn can_name_folder(&self, folder_path: &ViewPathLocation, new_name: &str) -> bool {
-        self.get_folder(folder_path)
-            .map(|of| {
-                of.path_to_parent
-                    .as_ref()
-                    .map(|parent| {
-                        !self
-                            .get_folder(parent)
-                            .unwrap()
-                            .folders
-                            .iter()
-                            .any(|v| v.name == *new_name)
-                    })
-                    .unwrap_or(true)
+    pub fn can_name_folder(
+        &self,
+        parent_path: &ViewPathLocation,
+        new_name: &str,
+    ) -> Result<(), FolderGraphError> {
+        if let Some(v) = self.get_folder(parent_path) {
+            if v.folders.iter().any(|v| v.name == *new_name) == false {
+                Err(FolderGraphError::FolderAlreadyPresent)
+            } else {
+                Ok(())
+            }
+        } else {
+            Err(FolderGraphError::PathNotFound {
+                path: parent_path.inner().to_string(),
             })
-            .unwrap_or(true)
+        }
     }
 
     /// Renames a folder in the Vfs.
@@ -309,9 +309,17 @@ impl Vfs {
         folder_path: &ViewPathLocation,
         new_name: String,
     ) -> Result<(), FolderGraphError> {
-        if self.can_name_folder(folder_path, &new_name) == false {
-            return Err(FolderGraphError::FolderAlreadyPresent);
-        }
+        // confirm that we *can* name the folder that...
+        let parent_folder = self
+            .get_folder(folder_path)
+            .ok_or_else(|| FolderGraphError::PathNotFound {
+                path: folder_path.inner().to_string(),
+            })?
+            .path_to_parent
+            .clone()
+            .ok_or(FolderGraphError::CannotEditRootFolder)?;
+
+        self.can_name_folder(&parent_folder, &new_name)?;
 
         let original_folder =
             Self::get_folder_mut(&mut self.root, folder_path).ok_or_else(|| {
@@ -362,7 +370,7 @@ impl Vfs {
         folder_path: &ViewPathLocation,
     ) -> Result<HashMap<FilesystemPath, ResourceDescriptor>, FolderGraphError> {
         if Self::is_root(folder_path) {
-            return Err(FolderGraphError::CannotRemoveRootFolder);
+            return Err(FolderGraphError::CannotEditRootFolder);
         }
 
         let original_folder =
@@ -407,9 +415,12 @@ impl Vfs {
         self.resource_names.get(resource_name).map(|v| v.resource)
     }
 
-    /// Checks if a resource with a given name exists.
-    pub fn resource_exists(&self, resource_name: &str) -> bool {
-        self.resource_names.get(resource_name).is_some()
+    /// Checks if a resource with a given name and of a given type exists.
+    pub fn resource_exists(&self, resource_name: &str, resource: Resource) -> bool {
+        self.resource_names
+            .get(resource_name)
+            .filter(|v| v.resource == resource)
+            .is_some()
     }
 
     pub(crate) fn new_resource_end<T: YyResource>(

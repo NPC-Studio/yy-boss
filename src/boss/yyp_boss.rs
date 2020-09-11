@@ -6,10 +6,18 @@ use crate::Resource;
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
 use std::{fs, path::Path};
-use yy_typings::{script::Script, sprite_yy::*, utils::TrailingCommaUtility, Yyp};
+use yy_typings::{
+    script::Script,
+    sprite_yy::*,
+    utils::{ResourceNameValidator, TrailingCommaUtility},
+    Yyp,
+};
 
 static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
     once_cell::sync::Lazy::new(TrailingCommaUtility::new);
+
+static RNV: once_cell::sync::Lazy<ResourceNameValidator> =
+    once_cell::sync::Lazy::new(ResourceNameValidator::new);
 
 #[derive(Debug, PartialEq)]
 pub struct YypBoss {
@@ -162,11 +170,7 @@ impl YypBoss {
         yy_file: T,
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
-        if let Some(r) = self.vfs.resource_names.get(yy_file.name()) {
-            return Err(ResourceManipulationError::BadAdd {
-                existing_resource: r.resource,
-            });
-        }
+        self.can_use_name(yy_file.name())?;
 
         self.vfs.new_resource_end(&yy_file)?;
         let handler = T::get_handler_mut(self);
@@ -201,9 +205,7 @@ impl YypBoss {
     ) -> Result<(), ResourceManipulationError> {
         // check to make sure the new name isn't taken...
         if let Some(value) = self.vfs.resource_names.get(&new_name) {
-            return Err(ResourceManipulationError::BadRename {
-                existing_resource: value.resource,
-            });
+            return Err(ResourceManipulationError::NameCollision(value.resource));
         }
 
         // check to make sure we're not dealing with some COMEDIANS
@@ -219,6 +221,18 @@ impl YypBoss {
         handler
             .rename(name, new_name)
             .map_err(|_| ResourceManipulationError::InternalError)?;
+
+        Ok(())
+    }
+
+    pub fn can_use_name(&self, name: &str) -> Result<(), ResourceManipulationError> {
+        if let Some(r) = self.vfs.resource_names.get(name) {
+            return Err(ResourceManipulationError::NameCollision(r.resource));
+        }
+
+        if RNV.is_valid(name) == false {
+            return Err(ResourceManipulationError::BadName);
+        }
 
         Ok(())
     }

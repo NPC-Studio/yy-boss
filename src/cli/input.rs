@@ -341,6 +341,17 @@ pub enum UtilityCommand {
         object_name: String,
         event_file_name: String,
     },
+
+    #[serde(rename_all = "camelCase")]
+    CanUseResourceName {
+        identifier: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    CanUseFolderName {
+        parent_folder: ViewPathLocation,
+        identifier: String,
+    },
 }
 
 /// A create command for the Yy to process.

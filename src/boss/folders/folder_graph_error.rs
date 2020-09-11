@@ -1,8 +1,7 @@
 use crate::Resource;
 use thiserror::Error;
 
-#[derive(Debug, Error, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[serde(tag = "folderGraphError")]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum FolderGraphError {
     #[error("path {} was not found", .path)]
     PathNotFound { path: String },
@@ -20,7 +19,7 @@ pub enum FolderGraphError {
     CannotRemoveFolder,
 
     #[error("cannot remove the root folder, why are you doing that don't do that come on now")]
-    CannotRemoveRootFolder,
+    CannotEditRootFolder,
 
     #[error("cannot move folder inside itself")]
     InvalidMoveDestination,

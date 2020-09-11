@@ -83,11 +83,11 @@ impl YyCli {
                         }
                     }
                 }
-                ResourceCommandType::Exists { identifier } => match resource_command.resource {
-                    Resource::Sprite => self.exists::<Sprite>(yyp_boss, identifier),
-                    Resource::Script => self.exists::<Script>(yyp_boss, identifier),
-                    Resource::Object => self.exists::<Object>(yyp_boss, identifier),
-                },
+                ResourceCommandType::Exists { identifier } => Ok(CommandOutput::ok_exists(
+                    yyp_boss
+                        .vfs
+                        .resource_exists(&identifier, resource_command.resource),
+                )),
             },
             Command::VirtualFileSystem(vfs_command) => match vfs_command {
                 VfsCommand::MoveFolder { folder, new_parent } => {
@@ -227,6 +227,19 @@ impl YyCli {
                         })
                     }
                 }
+
+                UtilityCommand::CanUseResourceName { identifier } => Ok(
+                    CommandOutput::ok_name_is_valid(yyp_boss.can_use_name(&identifier).is_ok()),
+                ),
+                UtilityCommand::CanUseFolderName {
+                    parent_folder,
+                    identifier,
+                } => Ok(CommandOutput::ok_name_is_valid(
+                    yyp_boss
+                        .vfs
+                        .can_name_folder(&parent_folder, &identifier)
+                        .is_ok(),
+                )),
             },
             Command::Serialize => match yyp_boss.serialize() {
                 Ok(()) => Ok(CommandOutput::ok()),
@@ -323,16 +336,6 @@ impl YyCli {
                 data: e.to_string(),
             }),
         }
-    }
-
-    fn exists<T: YyResource>(
-        &self,
-        yyp_boss: &YypBoss,
-        resource_name: String,
-    ) -> Result<CommandOutput, YypBossError> {
-        Ok(CommandOutput::ok_exists(
-            yyp_boss.vfs.resource_exists(&resource_name),
-        ))
     }
 
     fn read_new_resource<T: YyResource>(
