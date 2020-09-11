@@ -52,11 +52,11 @@ impl ResourceNames {
     }
 
     /// Returns all the currently known names and descriptors in the project.
-    pub fn get_all(&self) -> &HashMap<String, ResourceDescriptor> {
+    pub fn inner(&self) -> &HashMap<String, ResourceDescriptor> {
         &self.names
     }
 
-    pub(crate) fn get_error(
+    pub(crate) fn get_checked(
         &self,
         name: &str,
         r: Resource,

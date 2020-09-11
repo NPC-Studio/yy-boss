@@ -1,5 +1,5 @@
 use super::{ResourceDescriptor, ResourceNames};
-use crate::YyResource;
+use crate::{Resource, YyResource};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use yy_typings::FilesystemPath;
@@ -55,6 +55,24 @@ impl Files {
     pub fn remove(&mut self, name: &str, rn: &mut ResourceNames) {
         self.detach(name);
         rn.remove(name);
+    }
+
+    pub fn edit_name(
+        &mut self,
+        name: &str,
+        new_name: String,
+        resource: Resource,
+        rn: &mut ResourceNames,
+    ) {
+        // rename our own thing...
+        if let Some(fpath) = self.0.iter_mut().find(|v| v.name == name) {
+            *fpath = FilesystemPath::new(resource.base_name(), &new_name);
+        }
+
+        // remove the old name...
+        if let Some(resource_desc) = rn.remove(name) {
+            rn.insert(new_name, resource_desc);
+        }
     }
 
     pub fn attach(&mut self, fsyspath: FilesystemPath) {

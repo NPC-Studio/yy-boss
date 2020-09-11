@@ -281,34 +281,79 @@ impl Vfs {
         }
     }
 
+    /// Checks if a folder *can* be named a certain value at a certain path.
+    ///
+    /// Users don't need this function, but it is provided to simplify users lives, and to
+    /// future proof the library.
+    pub fn can_name_folder(&self, folder_path: &ViewPathLocation, new_name: &str) -> bool {
+        self.get_folder(folder_path)
+            .map(|of| {
+                of.path_to_parent
+                    .as_ref()
+                    .map(|parent| {
+                        !self
+                            .get_folder(parent)
+                            .unwrap()
+                            .folders
+                            .iter()
+                            .any(|v| v.name == *new_name)
+                    })
+                    .unwrap_or(true)
+            })
+            .unwrap_or(true)
+    }
+
     /// Renames a folder in the Vfs.
     pub fn rename_folder(
         &mut self,
         folder_path: &ViewPathLocation,
         new_name: String,
     ) -> Result<(), FolderGraphError> {
+        if self.can_name_folder(folder_path, &new_name) == false {
+            return Err(FolderGraphError::FolderAlreadyPresent);
+        }
+
         let original_folder =
-            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+            Self::get_folder_mut(&mut self.root, folder_path).ok_or_else(|| {
                 FolderGraphError::PathNotFound {
                     path: folder_path.inner().to_string(),
                 }
             })?;
 
-        if original_folder.path_to_parent.is_some() {
-            original_folder.name = new_name;
-            let new_path = original_folder.view_path_location();
+        original_folder.name = new_name;
+        let new_path = original_folder.view_path_location();
 
-            self.dirty_handler.remove(folder_path);
-            self.dirty_handler.add(new_path.clone());
+        self.dirty_handler.remove(folder_path);
+        self.dirty_handler.add(new_path.clone());
 
-            // fix the children...
-            for children in &mut original_folder.folders {
-                children.path_to_parent = Some(new_path.clone());
-            }
+        // fix the children...
+        for children in &mut original_folder.folders {
+            children.path_to_parent = Some(new_path.clone());
+        }
+
+        Ok(())
+    }
+
+    /// Renames a resource in the Vfs.
+    pub(crate) fn rename_resource(
+        &mut self,
+        name: &str,
+        resource: Resource,
+        new_name: String,
+    ) -> Result<(), FolderGraphError> {
+        let v = self
+            .resource_names
+            .get_checked(name, resource)
+            .map_err(FolderGraphError::ResourceNameError)?;
+
+        if let Some(folder) = Self::get_folder_mut(&mut self.root, &v.parent_location) {
+            folder
+                .files
+                .edit_name(name, new_name, resource, &mut self.resource_names);
 
             Ok(())
         } else {
-            Err(FolderGraphError::CannotRemoveRootFolder)
+            Err(FolderGraphError::InternalError)
         }
     }
 
@@ -364,99 +409,8 @@ impl Vfs {
 
     /// Checks if a resource with a given name exists.
     pub fn resource_exists(&self, resource_name: &str) -> bool {
-        self.get_resource_type(resource_name).is_some()
+        self.resource_names.get(resource_name).is_some()
     }
-
-    // / Adds a subfolder to the folder given at `parent_path` at given order. If a tree looks like:
-    // /
-    // /```txt
-    // / Sprites/
-    // /     - spr_player
-    // /     - OtherSprites/
-    // /     - spr_enemy
-    // / ```
-    // /
-    // / and user adds a folder with name `Items` to the `Sprites` folder with an order of 1,
-    // / then the output tree will be:
-    // /
-    // / ```txt
-    // / Sprites/
-    // /     - spr_player
-    // /     - Items/
-    // /     - OtherSprites/
-    // /     - spr_enemy
-    // /```
-    // /
-    // / `add_folder_with_order` returns a `Result<ViewPath>`, where `ViewPath` is of the newly created folder.
-    // / This allows for easy sequential operations, such as adding a folder and then adding a file to that folder.
-    // /
-    // / **Nb:** when users have Gms2 in "Alphabetical" sort order, the `order` value here is largely ignored by the IDE.
-    // / This can make for odd and unexpected results.
-    // pub fn new_folder_order(
-    //     &mut self,
-    //     parent_path: ViewPath,
-    //     name: String,
-    //     order: usize,
-    // ) -> Result<ViewPath, FolderGraphError> {
-    //     let subfolder = self
-    //         .folder_graph_manager
-    //         .get_folder_mut(&parent_path.path)
-    //         .ok_or(FolderGraphError::PathNotFound)?;
-
-    //     if subfolder.folders.contains_key(&name) {
-    //         return Err(FolderGraphError::FolderAlreadyPresent);
-    //     }
-
-    //     // Add the Subfolder View:
-    //     subfolder.folders.insert(
-    //         name.clone(),
-    //         SubfolderMember {
-    //             child: FolderGraph::new(name.clone(), parent_path.path.clone()),
-    //             order,
-    //         },
-    //     );
-
-    //     let path = parent_path.path.join(&name);
-
-    //     self.yyp.folders.push(YypFolder {
-    //         folder_path: path.clone(),
-    //         order,
-    //         name: name.clone(),
-    //         ..YypFolder::default()
-    //     });
-    //     self.dirty = true;
-
-    //     // Fix the other Orders:
-    //     for (folder_name, folder) in subfolder.folders.iter_mut() {
-    //         if folder.order <= order {
-    //             folder.order += 1;
-
-    //             if let Err(e) = folder.update_yyp(&mut self.yyp.folders) {
-    //                 error!(
-    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-    //                 This may become a hard error in the future. E: {1}",
-    //                 folder_name, e
-    //                 )
-    //             }
-    //         }
-    //     }
-
-    //     for (file_name, file) in subfolder.files.iter_mut() {
-    //         if file.order <= order {
-    //             file.order += 1;
-
-    //             if let Err(e) = file.update_yyp(&mut self.yyp.resources) {
-    //                 error!(
-    //                 "We couldn't find {0} in the Yyp, even though we had {0} in the FolderGraph.\
-    //                 This may become a hard error in the future. E: {1}",
-    //                 file_name, e
-    //                 )
-    //             }
-    //         }
-    //     }
-
-    //     Ok(ViewPath { path, name })
-    // }
 
     pub(crate) fn new_resource_end<T: YyResource>(
         &mut self,
@@ -484,7 +438,7 @@ impl Vfs {
     ) -> Result<(), FolderGraphError> {
         let v = self
             .resource_names
-            .get_error(name, resource)
+            .get_checked(name, resource)
             .map_err(FolderGraphError::ResourceNameError)?;
 
         if let Some(folder) = Self::get_folder_mut(&mut self.root, &v.parent_location) {
@@ -557,7 +511,7 @@ impl Vfs {
         // find the resource...
         let v = self
             .resource_names
-            .get_error(resource_to_move, resource)
+            .get_checked(resource_to_move, resource)
             .map_err(FolderGraphError::ResourceNameError)?;
 
         if self.get_folder(new_parent).is_none() {

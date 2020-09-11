@@ -62,10 +62,36 @@ impl<T: YyResource> YyResourceHandler<T> {
         self.resources.get(name)
     }
 
-    pub(crate) fn edit_parent(&mut self, name: &str, parent: ViewPath) {
+    pub(crate) fn edit_parent(
+        &mut self,
+        name: &str,
+        parent: ViewPath,
+    ) -> Result<(), YyResourceHandlerErrors> {
         if let Some(inner) = self.resources.get_mut(name) {
             inner.yy_resource.set_parent_view_path(parent);
             self.dirty_handler.edit(name.to_string());
+
+            Ok(())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
+        }
+    }
+
+    pub(crate) fn rename(
+        &mut self,
+        current_name: &str,
+        new_name: String,
+    ) -> Result<(), YyResourceHandlerErrors> {
+        if let Some(mut inner) = self.resources.remove(current_name) {
+            inner.yy_resource.set_name(new_name.clone());
+            self.dirty_handler.remove(current_name);
+            self.dirty_handler.add(new_name.clone());
+
+            self.resources.insert(new_name, inner);
+
+            Ok(())
+        } else {
+            Err(YyResourceHandlerErrors::ResourceNotFound)
         }
     }
 

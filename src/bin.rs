@@ -24,6 +24,8 @@ mod cli {
 pub use yy_boss::*;
 
 fn main() {
+    log_panics::init();
+
     let args = match cli::startup::parse_arguments() {
         Ok(v) => v,
         Err(e) => match e.kind {

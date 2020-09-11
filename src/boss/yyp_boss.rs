@@ -193,6 +193,36 @@ impl YypBoss {
             .ok_or_else(|| ResourceManipulationError::InternalError)
     }
 
+    /// Adds a new resource, which must not already exist within the project.
+    pub fn rename_resource<T: YyResource>(
+        &mut self,
+        name: &str,
+        new_name: String,
+    ) -> Result<(), ResourceManipulationError> {
+        // check to make sure the new name isn't taken...
+        if let Some(value) = self.vfs.resource_names.get(&new_name) {
+            return Err(ResourceManipulationError::BadRename {
+                existing_resource: value.resource,
+            });
+        }
+
+        // check to make sure we're not dealing with some COMEDIANS
+        if name == new_name {
+            return Ok(());
+        }
+
+        // remove the file from the VFS...
+        self.vfs
+            .rename_resource(name, T::RESOURCE, new_name.clone())?;
+
+        let handler = T::get_handler_mut(self);
+        handler
+            .rename(name, new_name)
+            .map_err(|_| ResourceManipulationError::InternalError)?;
+
+        Ok(())
+    }
+
     /// Move a resource within the Asset Tree
     pub fn move_resource<T: YyResource>(
         &mut self,
@@ -205,7 +235,9 @@ impl YypBoss {
             .map_err(ResourceManipulationError::FolderGraphError)?;
 
         let handler = T::get_handler_mut(self);
-        handler.edit_parent(name, new_parent);
+        handler
+            .edit_parent(name, new_parent)
+            .map_err(|_| ResourceManipulationError::InternalError)?;
 
         Ok(())
     }

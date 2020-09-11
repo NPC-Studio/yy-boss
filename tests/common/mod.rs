@@ -89,8 +89,8 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
             }
             YypBossNeq::ResourceNames => {
                 assert_eq!(
-                    ours.vfs.resource_names.get_all(),
-                    proof.vfs.resource_names.get_all(),
+                    ours.vfs.resource_names.inner(),
+                    proof.vfs.resource_names.inner(),
                     "target resource names and proof resource names were not equal"
                 );
             }
@@ -122,7 +122,7 @@ fn yypboss_neq(ours: &YypBoss, proof: &YypBoss) -> Result<(), YypBossNeq> {
     }
 
     // Assert our Current Resource names are the same...
-    if ours.vfs.resource_names.get_all() != proof.vfs.resource_names.get_all() {
+    if ours.vfs.resource_names.inner() != proof.vfs.resource_names.inner() {
         return Err(YypBossNeq::ResourceNames);
     }
 

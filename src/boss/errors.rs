@@ -43,6 +43,10 @@ pub enum ResourceManipulationError {
     #[serde(rename_all = "camelCase")]
     BadAdd { existing_resource: Resource },
 
+    #[error("cannot rename that resource -- a {} of that name already exists", .existing_resource)]
+    #[serde(rename_all = "camelCase")]
+    BadRename { existing_resource: Resource },
+
     #[error("cannot find that resource")]
     BadGet,
 

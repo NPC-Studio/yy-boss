@@ -42,6 +42,29 @@ impl YyCli {
                     Resource::Script => self.remove::<Script>(yyp_boss, identifier),
                     Resource::Object => self.remove::<Object>(yyp_boss, identifier),
                 },
+                ResourceCommandType::Rename {
+                    identifier,
+                    new_name,
+                } => {
+                    let output = match resource_command.resource {
+                        Resource::Sprite => {
+                            yyp_boss.rename_resource::<Sprite>(&identifier, new_name)
+                        }
+                        Resource::Script => {
+                            yyp_boss.rename_resource::<Script>(&identifier, new_name)
+                        }
+                        Resource::Object => {
+                            yyp_boss.rename_resource::<Object>(&identifier, new_name)
+                        }
+                    };
+
+                    match output {
+                        Ok(()) => Ok(CommandOutput::ok()),
+                        Err(e) => Err(YypBossError::ResourceManipulation {
+                            data: e.to_string(),
+                        }),
+                    }
+                }
                 ResourceCommandType::Get { identifier } => match resource_command.resource {
                     Resource::Sprite => self.get_resource::<Sprite>(yyp_boss, identifier),
                     Resource::Script => self.get_resource::<Script>(yyp_boss, identifier),
