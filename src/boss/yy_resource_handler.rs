@@ -81,8 +81,31 @@ impl<T: YyResource> YyResourceHandler<T> {
         &mut self,
         current_name: &str,
         new_name: String,
+        dir_path: &Path,
+        tcu: &TrailingCommaUtility,
     ) -> Result<(), YyResourceHandlerErrors> {
         if let Some(mut inner) = self.resources.remove(current_name) {
+            // Try to load this guy up...
+            if inner.associated_data.is_none() {
+                let output = inner
+                    .yy_resource
+                    .deserialize_associated_data(
+                        &dir_path.join(&inner.yy_resource.relative_yy_directory()),
+                        tcu,
+                    )
+                    .map_err(|e| {
+                        error!(
+                            "Couldn't deserialize {}'s associated data...{}",
+                            current_name, e
+                        );
+                        e
+                    })
+                    .ok()
+                    .unwrap_or_default();
+
+                inner.associated_data = Some(output);
+            }
+
             inner.yy_resource.set_name(new_name.clone());
             self.dirty_handler.remove(current_name);
             self.dirty_handler.add(new_name.clone());

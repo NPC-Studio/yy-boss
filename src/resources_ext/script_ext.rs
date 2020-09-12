@@ -47,11 +47,15 @@ impl YyResource for Script {
     fn deserialize_associated_data(
         &self,
         directory_path: &Path,
-        tcu: &TrailingCommaUtility,
+        _: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
         let path = directory_path.join(format!("{}.gml", self.name));
 
-        utils::deserialize_json_tc(&path, tcu).map_err(|e| e.into())
+        std::fs::read_to_string(path).map_err(|e| {
+            SerializedDataError::CouldNotDeserializeFile(crate::FileSerializationError::Io(
+                e.to_string(),
+            ))
+        })
     }
 
     fn serialize_associated_data_into_data(

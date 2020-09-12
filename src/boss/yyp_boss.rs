@@ -217,9 +217,10 @@ impl YypBoss {
         self.vfs
             .rename_resource(name, T::RESOURCE, new_name.clone())?;
 
+        let path = self.directory_manager.root_directory().to_path_buf();
         let handler = T::get_handler_mut(self);
         handler
-            .rename(name, new_name)
+            .rename(name, new_name, &path, &TCU)
             .map_err(|_| ResourceManipulationError::InternalError)?;
 
         Ok(())
