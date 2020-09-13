@@ -180,17 +180,88 @@ impl YyCli {
                     Resource::Object => Self::create_yy::<Object>(create_data),
                 },
                 UtilityCommand::PrettyEventNames { event_names: v } => {
-                    let output = v
+                    let mut output = v
                         .into_iter()
-                        .map(|v| {
-                            EventType::parse_filename_simple(&v)
-                                .map(|v| v.to_string())
-                                .unwrap_or(v)
-                        })
+                        .map(|v| EventType::parse_filename_simple(&v).map_err(|_| v.to_string()))
                         .collect::<Vec<_>>();
+                    output.sort();
+                    let output = output
+                        .into_iter()
+                        .map(|v| match v {
+                            Ok(v) => v.to_string(),
+                            Err(e) => e,
+                        })
+                        .collect();
 
                     Ok(CommandOutput::ok_event_names(output))
                 }
+
+                UtilityCommand::CreateEvent {
+                    identifier,
+                    event_file_name,
+                } => match EventType::parse_filename_simple(&event_file_name) {
+                    Ok(event_type) => {
+                        match yyp_boss
+                            .ensure_associated_data_is_loaded::<Object>(&identifier, false)
+                        {
+                            Ok(()) => {
+                                if yyp_boss.objects.add_event(&identifier, event_type) {
+                                    Ok(CommandOutput::ok())
+                                } else {
+                                    Err(YypBossError::ResourceManipulation {
+                                        data: format!(
+                                            "{} already had an event {}.",
+                                            identifier, event_file_name
+                                        ),
+                                    })
+                                }
+                            }
+                            Err(e) => Err(YypBossError::ResourceManipulation {
+                                data: e.to_string(),
+                            }),
+                        }
+                    }
+                    Err(e) => Err(YypBossError::CouldNotReadCommand {
+                        data: format!(
+                            "{} was not a valid event filename -- {}",
+                            event_file_name, e
+                        ),
+                    }),
+                },
+
+                UtilityCommand::DeleteEvent {
+                    identifier,
+                    event_file_name,
+                } => match EventType::parse_filename_simple(&event_file_name) {
+                    Ok(event_type) => {
+                        match yyp_boss
+                            .ensure_associated_data_is_loaded::<Object>(&identifier, false)
+                        {
+                            Ok(()) => {
+                                if yyp_boss.objects.remove_event(&identifier, event_type) {
+                                    Ok(CommandOutput::ok())
+                                } else {
+                                    Err(YypBossError::ResourceManipulation {
+                                        data: format!(
+                                            "{} did not have an event {}.",
+                                            identifier, event_file_name
+                                        ),
+                                    })
+                                }
+                            }
+                            Err(e) => Err(YypBossError::ResourceManipulation {
+                                data: e.to_string(),
+                            }),
+                        }
+                    }
+                    Err(e) => Err(YypBossError::CouldNotReadCommand {
+                        data: format!(
+                            "{} was not a valid event filename -- {}",
+                            event_file_name, e
+                        ),
+                    }),
+                },
+
                 UtilityCommand::ScriptGmlPath { script_name } => {
                     if let Some(script) = yyp_boss.scripts.get(&script_name) {
                         let path = yyp_boss

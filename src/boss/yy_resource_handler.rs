@@ -3,7 +3,7 @@ use super::{
     dirty_handler::{DirtyDrain, DirtyHandler},
     utils, FilesystemPath, YyResource,
 };
-use crate::YyResourceHandlerErrors;
+use crate::YyResourceHandlerError;
 use anyhow::Result as AnyResult;
 use log::{error, info};
 use std::{
@@ -62,18 +62,67 @@ impl<T: YyResource> YyResourceHandler<T> {
         self.resources.get(name)
     }
 
+    /// Returns an **mutable** reference to a resource's data, if it exists.
+    ///
+    /// Since associated data is lazily loaded, and be unloaded at any time,
+    /// there may not be any associated data returned. You can request that data to be
+    /// loaded using [`load_resource_associated_data`].
+    ///
+    /// # Safety
+    ///
+    /// This function is VERY UNSAFE, but not in a memory sense. The entire purpose
+    /// of this library is, in effect, to shield the user from making changes to the Yyp
+    /// database which require side effects. How could a user know which effects to use and what
+    /// to not use? They absolutely cannot. Unless you are very certain that the change you
+    /// are making will not impact *anything* outside that file, do not use this function.
+    ///
+    /// Additionally, be aware that mutating data does not guarentee serialization: please use [`force_serialize`].
+    ///
+    /// [`load_resource_associated_data`]: #method.load_resource_associated_data
+    /// [`force_serialize`]: #method.force_serialize
+    pub unsafe fn get_mut(&mut self, name: &str) -> Option<&mut YyResourceData<T>> {
+        self.resources.get_mut(name)
+    }
+
+    /// Attempts to mark a resource for serialization, and returns if it was succesfully marked.
+    pub fn force_serialize(&mut self, name: &str) -> Result<(), YyResourceHandlerError> {
+        if let Some(inner) = self.resources.get(name) {
+            if inner.associated_data.is_some() {
+                if self
+                    .dirty_handler
+                    .resources_to_reserialize()
+                    .get(name)
+                    .is_none()
+                {
+                    self.dirty_handler.edit(name.to_string());
+                } else {
+                    log::warn!(
+                        "attempt to force serialize {}, which was already marked for serialization",
+                        name
+                    );
+                }
+
+                Ok(())
+            } else {
+                Err(YyResourceHandlerError::CannotForceSerialization)
+            }
+        } else {
+            Err(YyResourceHandlerError::ResourceNotFound)
+        }
+    }
+
     pub(crate) fn edit_parent(
         &mut self,
         name: &str,
         parent: ViewPath,
-    ) -> Result<(), YyResourceHandlerErrors> {
+    ) -> Result<(), YyResourceHandlerError> {
         if let Some(inner) = self.resources.get_mut(name) {
             inner.yy_resource.set_parent_view_path(parent);
             self.dirty_handler.edit(name.to_string());
 
             Ok(())
         } else {
-            Err(YyResourceHandlerErrors::ResourceNotFound)
+            Err(YyResourceHandlerError::ResourceNotFound)
         }
     }
 
@@ -83,7 +132,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         new_name: String,
         dir_path: &Path,
         tcu: &TrailingCommaUtility,
-    ) -> Result<(), YyResourceHandlerErrors> {
+    ) -> Result<(), YyResourceHandlerError> {
         if let Some(mut inner) = self.resources.remove(current_name) {
             // Try to load this guy up...
             if inner.associated_data.is_none() {
@@ -114,7 +163,7 @@ impl<T: YyResource> YyResourceHandler<T> {
 
             Ok(())
         } else {
-            Err(YyResourceHandlerErrors::ResourceNotFound)
+            Err(YyResourceHandlerError::ResourceNotFound)
         }
     }
 
@@ -161,7 +210,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         resource_name: &str,
         root: &Path,
         tcu: &TrailingCommaUtility,
-    ) -> Result<&T::AssociatedData, YyResourceHandlerErrors> {
+    ) -> Result<&T::AssociatedData, YyResourceHandlerError> {
         if let Some(resource) = self.resources.get_mut(resource_name) {
             let associated_data = resource.yy_resource.deserialize_associated_data(
                 &root.join(resource.yy_resource.relative_yy_directory()),
@@ -172,7 +221,7 @@ impl<T: YyResource> YyResourceHandler<T> {
 
             Ok(&resource.associated_data.as_ref().unwrap())
         } else {
-            Err(YyResourceHandlerErrors::ResourceNotFound)
+            Err(YyResourceHandlerError::ResourceNotFound)
         }
     }
 
@@ -182,12 +231,12 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub fn unload_resource_associated_data(
         &mut self,
         resource_name: &str,
-    ) -> Result<(), YyResourceHandlerErrors> {
+    ) -> Result<(), YyResourceHandlerError> {
         if let Some(resource) = self.resources.get_mut(resource_name) {
             resource.associated_data = None;
             Ok(())
         } else {
-            Err(YyResourceHandlerErrors::ResourceNotFound)
+            Err(YyResourceHandlerError::ResourceNotFound)
         }
     }
 

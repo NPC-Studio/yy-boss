@@ -39,13 +39,30 @@ impl YyResource for Object {
         directory_path: &std::path::Path,
         data: &HashMap<EventType, String>,
     ) -> anyhow::Result<()> {
+        let mut allowed_files = std::collections::HashSet::with_capacity(1 + self.event_list.len());
+        allowed_files.insert(directory_path.join(format!("{}.yy", self.name)));
+
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             if let Some(gml) = data.get(&event_type) {
                 let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
                 std::fs::write(&path, gml)?;
+
+                allowed_files.insert(path);
             } else {
                 log::error!("we couldn't find a {} in our associated data, even though it should have been there. not serialized.", event_type);
             }
+        }
+
+        let files: std::collections::HashSet<std::path::PathBuf> = directory_path
+            .read_dir()
+            .map(|d| {
+                d.filter_map(|f| f.map(|file_data| file_data.path()).ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        for badfile in files.difference(&allowed_files) {
+            std::fs::remove_file(badfile)?;
         }
 
         Ok(())
@@ -165,6 +182,64 @@ impl YyResource for Object {
             let path =
                 Path::new(&format!("{}.gml", event.event_type.filename_simple())).to_path_buf();
             files_to_delete.push(path);
+        }
+    }
+}
+
+impl YyResourceHandler<Object> {
+    pub fn add_event(&mut self, identifier: &str, event_type: EventType) -> bool {
+        let output = unsafe { self.get_mut(&identifier).unwrap() };
+        let events: &mut HashMap<EventType, String> = output.associated_data.as_mut().unwrap();
+
+        if output
+            .yy_resource
+            .event_list
+            .iter()
+            .any(|v| v.event_type == event_type)
+            == false
+        {
+            events.insert(event_type, String::new());
+            output.yy_resource.event_list.push(ObjectEvent {
+                is_dn_d: false,
+                event_type,
+                collision_object_id: None,
+                parent: FilesystemPath {
+                    name: output.yy_resource.name.clone(),
+                    path: output.yy_resource.relative_yy_filepath(),
+                },
+                resource_version: ResourceVersion::default(),
+                name: None,
+                tags: Tags::new(),
+                resource_type: ConstGmEvent::Const,
+            });
+
+            // mark it an serialize...we know this is infallible
+            self.force_serialize(&identifier).unwrap();
+
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn remove_event(&mut self, identifier: &str, event_type: EventType) -> bool {
+        let output = unsafe { self.get_mut(&identifier).unwrap() };
+
+        if let Some(v) = output
+            .yy_resource
+            .event_list
+            .iter()
+            .position(|v| v.event_type == event_type)
+        {
+            output.yy_resource.event_list.remove(v);
+            output.associated_data.as_mut().unwrap().remove(&event_type);
+
+            // mark it an serialize...we know this is infallible
+            self.force_serialize(&identifier).unwrap();
+
+            true
+        } else {
+            false
         }
     }
 }

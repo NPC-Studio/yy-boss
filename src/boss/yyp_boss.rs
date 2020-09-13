@@ -279,7 +279,7 @@ impl YypBoss {
         &mut self,
         name: &str,
         force: bool,
-    ) -> Result<(), YyResourceHandlerErrors> {
+    ) -> Result<(), YyResourceHandlerError> {
         let path = self.directory_manager.root_directory().to_path_buf();
         let handler = T::get_handler_mut(self);
 

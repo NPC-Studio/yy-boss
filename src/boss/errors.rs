@@ -52,7 +52,7 @@ pub enum ResourceManipulationError {
 }
 
 #[derive(Debug, Error)]
-pub enum YyResourceHandlerErrors {
+pub enum YyResourceHandlerError {
     #[error(transparent)]
     FileSerializationError(#[from] FileSerializationError),
 
@@ -61,4 +61,7 @@ pub enum YyResourceHandlerErrors {
 
     #[error("the given resource was not found or managed on the type")]
     ResourceNotFound,
+
+    #[error("we cannot force serialization because the associated data could not be found")]
+    CannotForceSerialization,
 }

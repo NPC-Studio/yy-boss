@@ -11,13 +11,16 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     const SUBPATH_NAME: &'static str;
     const RESOURCE: Resource;
 
-    /// The relative filepath to the directory of the yy file. For a sprite named
-    /// `spr_player`, for example, this would be `sprites/spr_player`.
+    /// The relative filepath to the directory of the yy file.
+    /// 
+    /// Returns PathBuf like `sprites/spr_player`.
     fn relative_yy_directory(&self) -> PathBuf {
         self.relative_yy_filepath().parent().unwrap().to_owned()
     }
 
     /// The relative filepath to the yy file of the resource.
+    /// 
+    /// Returns PathBuf such as `sprites/spr_player/spr_player.yy`.
     fn relative_yy_filepath(&self) -> PathBuf {
         FilesystemPath::new_path(Self::SUBPATH_NAME, self.name())
     }

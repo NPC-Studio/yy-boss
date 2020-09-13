@@ -332,6 +332,18 @@ pub enum UtilityCommand {
     },
 
     #[serde(rename_all = "camelCase")]
+    CreateEvent {
+        identifier: String,
+        event_file_name: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
+    DeleteEvent {
+        identifier: String,
+        event_file_name: String,
+    },
+
+    #[serde(rename_all = "camelCase")]
     ScriptGmlPath {
         script_name: String,
     },
