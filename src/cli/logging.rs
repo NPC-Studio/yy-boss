@@ -15,17 +15,29 @@ impl Default for Logging {
     }
 }
 
-pub fn begin_logging(log: Logging, wd: &Path) {
+pub fn begin_logging(log: Logging, wd: &Path) -> Result<(), anyhow::Error> {
     match log {
-        Logging::NoLog => {}
+        Logging::NoLog => Ok(()),
         Logging::LogToFile(pathbuf) => {
-            let output = wd.join(pathbuf);
-            std::fs::create_dir_all(output.parent().unwrap()).expect("oh no logging broke");
+            let output = if pathbuf.is_relative() {
+                wd.join(pathbuf)
+            } else {
+                pathbuf
+            };
 
-            log_to_file(output, LevelFilter::Info).expect("oh no logging broke");
+            std::fs::create_dir_all(
+                output
+                    .parent()
+                    .ok_or_else(|| anyhow::anyhow!("don't use root directories you idiot"))?,
+            )?;
+
+            log_to_file(output, LevelFilter::Info)?;
+
+            Ok(())
         }
         Logging::LogToStdErr => {
             log_to_stderr(LevelFilter::Info);
+            Ok(())
         }
     }
 }

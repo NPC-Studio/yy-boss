@@ -128,13 +128,17 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
         })
         .print();
         return None;
-    } else if yy_cli.working_directory.is_dir() == false {
-        Output::Startup(Startup {
-            success: false,
-            error: Some(StartupError::BadWorkingDirectoryPath.to_string()),
-        })
-        .print();
-        return None;
+    } else {
+        std::fs::create_dir_all(&yy_cli.working_directory).ok()?;
+
+        if yy_cli.working_directory.is_dir() == false {
+            Output::Startup(Startup {
+                success: false,
+                error: Some(StartupError::BadWorkingDirectoryPath.to_string()),
+            })
+            .print();
+            return None;
+        }
     }
 
     Output::Startup(Startup {

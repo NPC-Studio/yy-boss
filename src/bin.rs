@@ -45,7 +45,14 @@ fn main() {
         },
     };
 
-    cli::logging::begin_logging(args.logging, &args.working_directory);
+    match cli::logging::begin_logging(args.logging, &args.working_directory) {
+        Ok(()) => {}
+        Err(e) => {
+            // ?? well....i mean???
+            eprintln!("{}", e);
+        }
+    }
+
     log::info!("Starting loop...");
     let yy_cli = cli::yy_cli::YyCli::new(args.working_directory);
 
