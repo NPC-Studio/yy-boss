@@ -174,6 +174,10 @@ impl YyCli {
                 },
             },
             Command::Utilities(util) => match util {
+                UtilityCommand::ProjectInfo => {
+                    Ok(CommandOutput::ok_metadata(yyp_boss.project_metadata()))
+                }
+
                 UtilityCommand::Create(create_data) => match create_data.resource {
                     Resource::Sprite => Self::create_yy::<Sprite>(create_data),
                     Resource::Script => Self::create_yy::<Script>(create_data),

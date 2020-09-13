@@ -2,7 +2,7 @@ use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
     YyResource, YyResourceData, YyResourceHandler, YypSerialization,
 };
-use crate::Resource;
+use crate::{ProjectMetadata, Resource};
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
 use std::{fs, path::Path};
@@ -151,6 +151,18 @@ impl YypBoss {
 
     pub fn version_string(&self) -> &str {
         &self.yyp.meta_data.ide_version
+    }
+
+    pub fn project_metadata(&self) -> ProjectMetadata {
+        ProjectMetadata {
+            name: self.yyp.name.clone(),
+            ide_version: self.yyp.meta_data.ide_version.clone(),
+            yyp_version: self.yyp.resource_version,
+            root_file: ViewPath {
+                name: self.yyp.name.clone(),
+                path: self.vfs.root_file_viewpath(),
+            },
+        }
     }
 
     pub fn tcu(&self) -> &TrailingCommaUtility {

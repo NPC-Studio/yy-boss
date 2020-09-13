@@ -38,6 +38,7 @@ fn main() {
                 Output::Startup(Startup {
                     success: false,
                     error: Some(StartupError::BadCliArguments(e.to_string()).to_string()),
+                    project_metadata: None,
                 })
                 .print();
                 return;

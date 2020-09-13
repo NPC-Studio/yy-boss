@@ -121,10 +121,11 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
         Err(err) => (None, Some(err)),
     };
 
-    if error.is_some() {
+    if let Some(error) = error {
         Output::Startup(Startup {
-            success: yyp.is_some(),
-            error: error.map(|e| e.to_string()),
+            success: false,
+            error: Some(error.to_string()),
+            project_metadata: None,
         })
         .print();
         return None;
@@ -135,6 +136,7 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
             Output::Startup(Startup {
                 success: false,
                 error: Some(StartupError::BadWorkingDirectoryPath.to_string()),
+                project_metadata: None,
             })
             .print();
             return None;
@@ -144,6 +146,7 @@ pub(crate) fn startup(success: Result<YypBoss, StartupError>, yy_cli: &YyCli) ->
     Output::Startup(Startup {
         success: true,
         error: None,
+        project_metadata: Some(yyp.as_ref().unwrap().project_metadata()),
     })
     .print();
 

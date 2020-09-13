@@ -1,11 +1,10 @@
-use std::path::PathBuf;
-
 use log::error;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use thiserror::Error;
 use yy_boss::{
     folders::{FlatFolderGraph, Item},
-    SerializedData,
+    ProjectMetadata, SerializedData,
 };
 use yy_typings::ViewPath;
 
@@ -31,6 +30,9 @@ pub struct Startup {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_metadata: Option<ProjectMetadata>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -67,6 +69,9 @@ pub struct CommandOutput {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_path: Option<PathBuf>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_metadata: Option<ProjectMetadata>,
 }
 
 impl CommandOutput {
@@ -81,6 +86,14 @@ impl CommandOutput {
     pub fn ok() -> Self {
         Self {
             success: true,
+            ..Self::default()
+        }
+    }
+
+    pub fn ok_metadata(pd: ProjectMetadata) -> Self {
+        Self {
+            success: true,
+            project_metadata: Some(pd),
             ..Self::default()
         }
     }

@@ -114,6 +114,10 @@ impl Vfs {
         self.root.get_folder_by_fname_mut(name)
     }
 
+    pub fn root_file_viewpath(&self) -> ViewPathLocation {
+        ROOT_FILE_VIEW_PATH.read().unwrap().clone()
+    }
+
     fn get_folder_inner<'a>(
         root: &'a FolderGraph,
         view_path: &ViewPathLocation,
@@ -232,7 +236,7 @@ impl Vfs {
         let path = parent_path.join(name.as_ref());
         subfolder.folders.push(FolderGraph::new(
             name.as_ref().to_owned(),
-            parent_path.clone(),
+            subfolder.view_path_location(),
             vec![],
             order,
         ));

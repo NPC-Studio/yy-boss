@@ -20,6 +20,9 @@ mod boss {
     pub mod utils;
     pub use utils::{FileSerializationError, SerializationFormat};
 
+    mod project_metadata;
+    pub use project_metadata::ProjectMetadata;
+
     mod errors;
     pub use errors::*;
 
