@@ -189,11 +189,12 @@ impl YyCli {
                         .map(|v| EventType::parse_filename_simple(&v).map_err(|_| v.to_string()))
                         .collect::<Vec<_>>();
                     output.sort();
+
                     let output = output
                         .into_iter()
                         .map(|v| match v {
-                            Ok(v) => v.to_string(),
-                            Err(e) => e,
+                            Ok(output) => (output.filename_simple(), output.to_string()),
+                            Err(e) => (e.clone(), e),
                         })
                         .collect();
 

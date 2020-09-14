@@ -324,7 +324,6 @@ pub enum VfsCommand {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "subCommand")]
 pub enum UtilityCommand {
-    
     /// Ask the project for basic info on how it should be ran.
     ///
     /// This will return a `ProjectMetaData` struct as SerializedDataOutput. This is the same

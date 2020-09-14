@@ -34,6 +34,8 @@ impl YyResource for Object {
         &mut yyp_boss.objects
     }
 
+    /// This implementation is seriously flawed, but is necesssary to support the GmCode
+    /// downstream crate,
     fn serialize_associated_data(
         &self,
         directory_path: &std::path::Path,
@@ -45,7 +47,10 @@ impl YyResource for Object {
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             if let Some(gml) = data.get(&event_type) {
                 let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
-                std::fs::write(&path, gml)?;
+                if path.exists() == false {
+                    log::info!("writing {} to {}", gml, path.display());
+                    std::fs::write(&path, gml)?;
+                }
 
                 allowed_files.insert(path);
             } else {
@@ -62,6 +67,7 @@ impl YyResource for Object {
             .unwrap_or_default();
 
         for badfile in files.difference(&allowed_files) {
+            log::info!("removing {}", badfile.display());
             std::fs::remove_file(badfile)?;
         }
 

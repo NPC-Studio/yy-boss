@@ -37,6 +37,7 @@ pub fn main_loop(mut yyp_boss: YypBoss, yy_cli: YyCli) {
         command.clear();
 
         if shutdown {
+            log::info!("Ending loop");
             break;
         }
     }
