@@ -295,7 +295,7 @@ impl Vfs {
         new_name: &str,
     ) -> Result<(), FolderGraphError> {
         if let Some(v) = self.get_folder(parent_path) {
-            if v.folders.iter().any(|v| v.name == *new_name) == false {
+            if v.folders.iter().any(|v| v.name == *new_name) {
                 Err(FolderGraphError::FolderAlreadyPresent)
             } else {
                 Ok(())
