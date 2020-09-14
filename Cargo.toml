@@ -1,6 +1,6 @@
 [package]
 name = "yy-boss"
-version = "0.4.7"
+version = "0.4.8"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -26,8 +26,8 @@ semver = {version = "0.10", features = ["serde"] }
 strum = "0.18"
 strum_macros = "0.18"
 
-anyhow = "1"
-thiserror = "1"
+anyhow = "1.0"
+thiserror = "1.0"
 
 log = "0.4"
 image = "0.23.9"
