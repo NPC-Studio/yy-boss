@@ -38,9 +38,9 @@ clap = "2.33"
 once_cell = "1.4"
 simple-logging = "2.0"
 log-panics = "2.0"
+uuid = { version = "0.8", features = ["serde", "v4"] }
 
 [dev-dependencies]
 include_dir = { version = "0.6", features = ["search"]}
 pretty_assertions = "0.6.1"
-uuid = { version = "0.8", features = ["serde", "v4"] }
 console = "0.11.3"

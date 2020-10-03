@@ -96,7 +96,7 @@ impl YyResource for Object {
     }
 
     fn serialize_associated_data_into_data(
-        _: &Path,
+        safe_dir: &Path,
         associated_data: &HashMap<EventType, String>,
     ) -> Result<SerializedData, SerializedDataError> {
         let simple_map: HashMap<String, String> = associated_data
@@ -104,9 +104,15 @@ impl YyResource for Object {
             .map(|(k, v)| (k.filename_simple(), v.clone()))
             .collect();
 
-        match serde_json::to_string_pretty(&simple_map) {
-            Ok(data) => Ok(SerializedData::Value { data }),
-            Err(e) => Err(e.into()),
+        let uuid = uuid::Uuid::new_v4().to_string();
+        let path = safe_dir.join(uuid);
+
+        let pretty_string =
+            serde_json::to_string(&simple_map).expect("serde failed for object deserialization");
+
+        match std::fs::write(&path, pretty_string) {
+            Ok(()) => Ok(SerializedData::Filepath { data: path }),
+            Err(e) => Err(SerializedDataError::InnerError(e.to_string())),
         }
     }
 
