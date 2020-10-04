@@ -10,7 +10,7 @@ pub enum DirtyState {
     Edit,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DirtyHandler<R: std::hash::Hash + Eq + Clone, A: Default = ()> {
     resources_to_reserialize: HashMap<R, DirtyState>,
     resources_to_remove: HashMap<R, DirtyState>,

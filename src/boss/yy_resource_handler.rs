@@ -19,6 +19,12 @@ pub struct YyResourceHandler<T: YyResource> {
     dirty_handler: DirtyHandler<String, Vec<PathBuf>>,
 }
 
+impl<T: YyResource> Default for YyResourceHandler<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: YyResource> YyResourceHandler<T> {
     pub(crate) fn new() -> Self {
         Self {

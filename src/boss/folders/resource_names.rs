@@ -6,7 +6,7 @@ use crate::{
 use std::collections::HashMap;
 use yy_typings::{FilesystemPath, ViewPathLocation, YypResource};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ResourceNames {
     names: HashMap<String, ResourceDescriptor>,
     dirty_handler: DirtyHandler<String>,
@@ -121,7 +121,7 @@ impl ResourceDescriptor {
 
     pub fn to_yyp_resource(&self, name: &str) -> YypResource {
         YypResource {
-            id: FilesystemPath::new(self.resource.base_name(), &name),
+            id: FilesystemPath::new(self.resource.subpath_name(), &name),
             order: self.order,
         }
     }

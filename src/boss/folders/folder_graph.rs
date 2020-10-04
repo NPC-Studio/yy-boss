@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 use yy_typings::{Tags, ViewPath, ViewPathLocation};
 
-#[derive(Debug, Clone, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, Serialize, Deserialize, Default)]
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPathLocation>,

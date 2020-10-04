@@ -12,7 +12,7 @@ static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPathLocation> =
 static ROOT_FILE_VIEW_PATH: once_cell::sync::Lazy<std::sync::RwLock<ViewPathLocation>> =
     once_cell::sync::Lazy::new(|| std::sync::RwLock::new(Default::default()));
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Vfs {
     pub resource_names: ResourceNames,
     root: FolderGraph,

@@ -2,7 +2,7 @@ use super::{errors::StartupError, utils};
 use crate::FileSerializationError;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub struct DirectoryManager {
     /// The path to the folder which houses the Yyp and the various other folders
     /// that Gms2 projects need, such as `sprites` or `objects`.
