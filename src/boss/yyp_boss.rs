@@ -5,12 +5,13 @@ use super::{
 use crate::{ProjectMetadata, Resource};
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
+use shader::Shader;
 use std::{fs, path::Path};
 use yy_typings::{
     script::Script,
     sprite_yy::*,
     utils::{ResourceNameValidator, TrailingCommaUtility},
-    Yyp,
+    AnimationCurve, Font, Path as YyPath, Yyp,
 };
 
 static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
@@ -19,13 +20,25 @@ static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
 static RNV: once_cell::sync::Lazy<ResourceNameValidator> =
     once_cell::sync::Lazy::new(ResourceNameValidator::new);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
     pub pipeline_manager: PipelineManager,
     pub sprites: YyResourceHandler<Sprite>,
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
+    pub shaders: YyResourceHandler<Shader>,
+    pub notes: YyResourceHandler<Note>,
+
+    pub animation_curves: YyResourceHandler<AnimationCurve>,
+    pub extensions: YyResourceHandler<Extension>,
+    pub fonts: YyResourceHandler<Font>,
+    pub paths: YyResourceHandler<YyPath>,
+    pub sequences: YyResourceHandler<Sequence>,
+    pub sounds: YyResourceHandler<Sound>,
+    pub tilesets: YyResourceHandler<TileSet>,
+    pub timelines: YyResourceHandler<Timeline>,
+
     pub vfs: Vfs,
     yyp: Yyp,
 }
@@ -45,28 +58,23 @@ impl YypBoss {
 
         let mut yyp_boss = Self {
             vfs: Vfs::new(&yyp.name),
-            sprites: YyResourceHandler::new(),
-            scripts: YyResourceHandler::new(),
-            objects: YyResourceHandler::new(),
             pipeline_manager: PipelineManager::new(&directory_manager),
             directory_manager,
             yyp,
+            ..Self::default()
         };
 
         // Load in Folders
         yyp_boss.vfs.load_in_folders(&yyp_boss.yyp.folders);
 
-        fn load_in_resource<T: YyResource>(
-            resource: &mut YyResourceHandler<T>,
-            folder_graph: &mut Vfs,
-            yyp_resources: &[YypResource],
-            directory_manager: &DirectoryManager,
-        ) -> Result<(), StartupError> {
-            for yyp_resource in yyp_resources
-                .iter()
-                .filter(|value| value.id.path.starts_with(T::SUBPATH_NAME))
-            {
-                let yy_file_path = directory_manager
+        // load in all of our resources...
+        for yyp_resource in yyp_boss.yyp.resources.clone().into_iter() {
+            fn load_in_file<T: YyResource>(
+                yyp_resource: YypResource,
+                yyp_boss: &mut YypBoss,
+            ) -> Result<(), StartupError> {
+                let yy_file_path = yyp_boss
+                    .directory_manager
                     .root_directory()
                     .join(&yyp_resource.id.path);
 
@@ -77,38 +85,47 @@ impl YypBoss {
                     }
                 })?;
 
-                folder_graph
+                yyp_boss
+                    .vfs
                     .load_in_file(&yy_file, yyp_resource.order)
                     .map_err(|e| StartupError::BadResourceTree {
                         name: yy_file.name().to_owned(),
                         error: e.to_string(),
                     })?;
-                resource.load_on_startup(yy_file);
+
+                let handler = T::get_handler_mut(yyp_boss);
+                handler.load_on_startup(yy_file);
+
+                Ok(())
             }
 
-            Ok(())
-        }
+            let path_as_str = yyp_resource.id.path.to_string_lossy();
 
-        // Load in our Resources
-        // @update_resource
-        load_in_resource(
-            &mut yyp_boss.sprites,
-            &mut yyp_boss.vfs,
-            &yyp_boss.yyp.resources,
-            &yyp_boss.directory_manager,
-        )?;
-        load_in_resource(
-            &mut yyp_boss.scripts,
-            &mut yyp_boss.vfs,
-            &yyp_boss.yyp.resources,
-            &yyp_boss.directory_manager,
-        )?;
-        load_in_resource(
-            &mut yyp_boss.objects,
-            &mut yyp_boss.vfs,
-            &yyp_boss.yyp.resources,
-            &yyp_boss.directory_manager,
-        )?;
+            let subpath = path_as_str
+                .split('/')
+                .next()
+                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?;
+
+            match Resource::parse_subpath(subpath)
+                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?
+            {
+                Resource::Sprite => load_in_file::<Sprite>(yyp_resource, &mut yyp_boss),
+                Resource::Script => load_in_file::<Script>(yyp_resource, &mut yyp_boss),
+                Resource::Object => load_in_file::<Object>(yyp_resource, &mut yyp_boss),
+                Resource::Note => load_in_file::<Note>(yyp_resource, &mut yyp_boss),
+                Resource::Shader => load_in_file::<Shader>(yyp_resource, &mut yyp_boss),
+                Resource::AnimationCurve => {
+                    load_in_file::<AnimationCurve>(yyp_resource, &mut yyp_boss)
+                }
+                Resource::Extension => load_in_file::<Extension>(yyp_resource, &mut yyp_boss),
+                Resource::Font => load_in_file::<Font>(yyp_resource, &mut yyp_boss),
+                Resource::Path => load_in_file::<YyPath>(yyp_resource, &mut yyp_boss),
+                Resource::Sequence => load_in_file::<Sequence>(yyp_resource, &mut yyp_boss),
+                Resource::Sound => load_in_file::<Sound>(yyp_resource, &mut yyp_boss),
+                Resource::TileSet => load_in_file::<TileSet>(yyp_resource, &mut yyp_boss),
+                Resource::Timeline => load_in_file::<Timeline>(yyp_resource, &mut yyp_boss),
+            }?;
+        }
 
         Ok(yyp_boss)
     }
@@ -131,11 +148,22 @@ impl YypBoss {
         self.vfs
             .serialize(&mut self.yyp.folders, &mut self.yyp.resources);
 
-        // serialize all the whatever
-        // @update_resource
+        // serialize all the tracked components
         self.sprites.serialize(&self.directory_manager)?;
         self.objects.serialize(&self.directory_manager)?;
         self.scripts.serialize(&self.directory_manager)?;
+        self.notes.serialize(&self.directory_manager)?;
+        self.shaders.serialize(&self.directory_manager)?;
+        
+        // THESE DO NOT HAVE EXCELLENT TYPINGS YET.
+        self.animation_curves.serialize(&self.directory_manager)?;
+        self.extensions.serialize(&self.directory_manager)?;
+        self.fonts.serialize(&self.directory_manager)?;
+        self.paths.serialize(&self.directory_manager)?;
+        self.sequences.serialize(&self.directory_manager)?;
+        self.sounds.serialize(&self.directory_manager)?;
+        self.tilesets.serialize(&self.directory_manager)?;
+        self.timelines.serialize(&self.directory_manager)?;
 
         // serialize the pipeline manifests
         self.pipeline_manager
@@ -183,6 +211,9 @@ impl YypBoss {
         associated_data: T::AssociatedData,
     ) -> Result<(), ResourceManipulationError> {
         self.can_use_name(yy_file.name())?;
+        if T::RESOURCE.can_manipulate() == false {
+            return Err(ResourceManipulationError::ResourceCannotBeManipulated);
+        }
 
         self.vfs.new_resource_end(&yy_file)?;
         let handler = T::get_handler_mut(self);
@@ -215,6 +246,11 @@ impl YypBoss {
         name: &str,
         new_name: String,
     ) -> Result<(), ResourceManipulationError> {
+        // we cannot rename resources, since we cannot reserialize them...
+        if T::RESOURCE.can_manipulate() == false {
+            return Err(ResourceManipulationError::ResourceCannotBeManipulated);
+        }
+
         // check to make sure the new name isn't taken...
         if let Some(value) = self.vfs.resource_names.get(&new_name) {
             return Err(ResourceManipulationError::NameCollision(value.resource));
@@ -225,7 +261,7 @@ impl YypBoss {
             return Ok(());
         }
 
-        // remove the file from the VFS...
+        // rename the file in the VFS...
         self.vfs
             .rename_resource(name, T::RESOURCE, new_name.clone())?;
 
@@ -256,6 +292,11 @@ impl YypBoss {
         name: &str,
         new_parent: ViewPath,
     ) -> Result<(), ResourceManipulationError> {
+        // cannot move them because we cannot reserialize them
+        if T::RESOURCE.can_manipulate() == false {
+            return Err(ResourceManipulationError::ResourceCannotBeManipulated);
+        }
+
         // vfs
         self.vfs
             .move_resource(name, T::RESOURCE, &new_parent.path)
@@ -292,6 +333,8 @@ impl YypBoss {
         name: &str,
         force: bool,
     ) -> Result<(), YyResourceHandlerError> {
+        // cannot move them because we cannot reserialize them
+
         let path = self.directory_manager.root_directory().to_path_buf();
         let handler = T::get_handler_mut(self);
 
@@ -321,6 +364,17 @@ impl YypBoss {
             Resource::Sprite => self.move_resource::<Sprite>(name, new_parent),
             Resource::Script => self.move_resource::<Script>(name, new_parent),
             Resource::Object => self.move_resource::<Object>(name, new_parent),
+            Resource::Note => self.move_resource::<Note>(name, new_parent),
+            Resource::Shader => self.move_resource::<Shader>(name, new_parent),
+
+            Resource::AnimationCurve
+            | Resource::Extension
+            | Resource::Font
+            | Resource::Path
+            | Resource::Sequence
+            | Resource::Sound
+            | Resource::TileSet
+            | Resource::Timeline => Err(ResourceManipulationError::ResourceCannotBeManipulated),
         }
     }
 
@@ -350,6 +404,58 @@ impl YypBoss {
                 Resource::Object => {
                     self.objects
                         .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Note => {
+                    self.notes
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Shader => {
+                    self.shaders
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::AnimationCurve => {
+                    self.animation_curves.remove(
+                        &fsys.name,
+                        self.directory_manager.root_directory(),
+                        &TCU,
+                    );
+                }
+                Resource::Extension => {
+                    self.extensions.remove(
+                        &fsys.name,
+                        self.directory_manager.root_directory(),
+                        &TCU,
+                    );
+                }
+                Resource::Font => {
+                    self.fonts
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Path => {
+                    self.paths
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Sequence => {
+                    self.sequences.remove(
+                        &fsys.name,
+                        self.directory_manager.root_directory(),
+                        &TCU,
+                    );
+                }
+                Resource::Sound => {
+                    self.sounds
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::TileSet => {
+                    self.tilesets
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Timeline => {
+                    self.timelines.remove(
+                        &fsys.name,
+                        self.directory_manager.root_directory(),
+                        &TCU,
+                    );
                 }
             }
         }

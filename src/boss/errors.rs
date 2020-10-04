@@ -17,6 +17,9 @@ pub enum StartupError {
     #[error("couldn't deserialize file at {:?} -- {}", .filepath, .error)]
     BadYyFile { filepath: PathBuf, error: String },
 
+    #[error("couldn't read resource {} in yyp -- bad subpath given", .0.display())]
+    BadResourceListing(PathBuf),
+
     #[error("couldn't load in resource {} in Asset Browser. Could be corrupted -- {}", .name, .error)]
     BadResourceTree { name: String, error: String },
 
@@ -49,6 +52,9 @@ pub enum ResourceManipulationError {
 
     #[error("internal error -- yyp-boss is in undefined state")]
     InternalError,
+
+    #[error("resource cannot be manipulated yet -- yyp-boss does not have full support yet. please file an issue")]
+    ResourceCannotBeManipulated,
 }
 
 #[derive(Debug, Error)]

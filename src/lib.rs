@@ -68,6 +68,15 @@ mod resources_ext {
 
     pub(crate) mod dummy;
 
+    mod note_ext;
+    pub use note_ext::*;
+
+    mod shader_ext;
+    pub use shader_ext::*;
+
+    mod unidentified_resources;
+    pub use unidentified_resources::*;
+
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
 

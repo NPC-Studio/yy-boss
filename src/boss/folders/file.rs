@@ -66,7 +66,7 @@ impl Files {
     ) {
         // rename our own thing...
         if let Some(fpath) = self.0.iter_mut().find(|v| v.name == name) {
-            *fpath = FilesystemPath::new(resource.base_name(), &new_name);
+            *fpath = FilesystemPath::new(resource.subpath_name(), &new_name);
         }
 
         // remove the old name...

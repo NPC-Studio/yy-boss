@@ -11,8 +11,10 @@ use yy_boss::{
 use yy_typings::{
     object_yy::{EventType, Object},
     script::Script,
+    shader::Shader,
     sprite_yy::Sprite,
     utils::TrailingCommaUtility,
+    AnimationCurve, Extension, Font, Note, Path, Sequence, Sound, TileSet, Timeline,
 };
 
 pub struct YyCli {
@@ -36,11 +38,31 @@ impl YyCli {
                     Resource::Sprite => self.add::<Sprite>(yyp_boss, new_resource),
                     Resource::Script => self.add::<Script>(yyp_boss, new_resource),
                     Resource::Object => self.add::<Object>(yyp_boss, new_resource),
+                    Resource::Note => self.add::<Note>(yyp_boss, new_resource),
+                    Resource::Shader => self.add::<Shader>(yyp_boss, new_resource),
+                    Resource::AnimationCurve => self.add::<AnimationCurve>(yyp_boss, new_resource),
+                    Resource::Extension => self.add::<Extension>(yyp_boss, new_resource),
+                    Resource::Font => self.add::<Font>(yyp_boss, new_resource),
+                    Resource::Path => self.add::<Path>(yyp_boss, new_resource),
+                    Resource::Sequence => self.add::<Sequence>(yyp_boss, new_resource),
+                    Resource::Sound => self.add::<Sound>(yyp_boss, new_resource),
+                    Resource::TileSet => self.add::<TileSet>(yyp_boss, new_resource),
+                    Resource::Timeline => self.add::<Timeline>(yyp_boss, new_resource),
                 },
                 ResourceCommandType::Remove { identifier } => match resource_command.resource {
                     Resource::Sprite => self.remove::<Sprite>(yyp_boss, identifier),
                     Resource::Script => self.remove::<Script>(yyp_boss, identifier),
                     Resource::Object => self.remove::<Object>(yyp_boss, identifier),
+                    Resource::Note => self.remove::<Note>(yyp_boss, identifier),
+                    Resource::Shader => self.remove::<Shader>(yyp_boss, identifier),
+                    Resource::AnimationCurve => self.remove::<AnimationCurve>(yyp_boss, identifier),
+                    Resource::Extension => self.remove::<Extension>(yyp_boss, identifier),
+                    Resource::Font => self.remove::<Font>(yyp_boss, identifier),
+                    Resource::Path => self.remove::<Path>(yyp_boss, identifier),
+                    Resource::Sequence => self.remove::<Sequence>(yyp_boss, identifier),
+                    Resource::Sound => self.remove::<Sound>(yyp_boss, identifier),
+                    Resource::TileSet => self.remove::<TileSet>(yyp_boss, identifier),
+                    Resource::Timeline => self.remove::<Timeline>(yyp_boss, identifier),
                 },
                 ResourceCommandType::Rename {
                     identifier,
@@ -56,6 +78,28 @@ impl YyCli {
                         Resource::Object => {
                             yyp_boss.rename_resource::<Object>(&identifier, new_name)
                         }
+                        Resource::Note => yyp_boss.rename_resource::<Note>(&identifier, new_name),
+                        Resource::Shader => {
+                            yyp_boss.rename_resource::<Shader>(&identifier, new_name)
+                        }
+                        Resource::AnimationCurve => {
+                            yyp_boss.rename_resource::<AnimationCurve>(&identifier, new_name)
+                        }
+                        Resource::Extension => {
+                            yyp_boss.rename_resource::<Extension>(&identifier, new_name)
+                        }
+                        Resource::Font => yyp_boss.rename_resource::<Font>(&identifier, new_name),
+                        Resource::Path => yyp_boss.rename_resource::<Path>(&identifier, new_name),
+                        Resource::Sequence => {
+                            yyp_boss.rename_resource::<Sequence>(&identifier, new_name)
+                        }
+                        Resource::Sound => yyp_boss.rename_resource::<Sound>(&identifier, new_name),
+                        Resource::TileSet => {
+                            yyp_boss.rename_resource::<TileSet>(&identifier, new_name)
+                        }
+                        Resource::Timeline => {
+                            yyp_boss.rename_resource::<Timeline>(&identifier, new_name)
+                        }
                     };
 
                     match output {
@@ -69,6 +113,18 @@ impl YyCli {
                     Resource::Sprite => self.get_resource::<Sprite>(yyp_boss, identifier),
                     Resource::Script => self.get_resource::<Script>(yyp_boss, identifier),
                     Resource::Object => self.get_resource::<Object>(yyp_boss, identifier),
+                    Resource::Note => self.get_resource::<Note>(yyp_boss, identifier),
+                    Resource::Shader => self.get_resource::<Shader>(yyp_boss, identifier),
+                    Resource::AnimationCurve
+                    | Resource::Extension
+                    | Resource::Font
+                    | Resource::Path
+                    | Resource::Sequence
+                    | Resource::Sound
+                    | Resource::TileSet
+                    | Resource::Timeline => Err(YypBossError::ResourceManipulation {
+                        data: ResourceManipulationError::ResourceCannotBeManipulated.to_string(),
+                    }),
                 },
                 ResourceCommandType::GetAssociatedData { identifier, force } => {
                     match resource_command.resource {
@@ -81,6 +137,24 @@ impl YyCli {
                         Resource::Object => {
                             self.ensure_associated_data::<Object>(yyp_boss, identifier, force)
                         }
+                        Resource::Note => {
+                            self.ensure_associated_data::<Note>(yyp_boss, identifier, force)
+                        }
+                        Resource::Shader => {
+                            self.ensure_associated_data::<Shader>(yyp_boss, identifier, force)
+                        }
+
+                        Resource::AnimationCurve
+                        | Resource::Extension
+                        | Resource::Font
+                        | Resource::Path
+                        | Resource::Sequence
+                        | Resource::Sound
+                        | Resource::TileSet
+                        | Resource::Timeline => Err(YypBossError::ResourceManipulation {
+                            data: ResourceManipulationError::ResourceCannotBeManipulated
+                                .to_string(),
+                        }),
                     }
                 }
                 ResourceCommandType::Exists { identifier } => Ok(CommandOutput::ok_exists(
@@ -182,6 +256,18 @@ impl YyCli {
                     Resource::Sprite => Self::create_yy::<Sprite>(create_data),
                     Resource::Script => Self::create_yy::<Script>(create_data),
                     Resource::Object => Self::create_yy::<Object>(create_data),
+                    Resource::Note => Self::create_yy::<Note>(create_data),
+                    Resource::Shader => Self::create_yy::<Shader>(create_data),
+                    Resource::AnimationCurve
+                    | Resource::Extension
+                    | Resource::Font
+                    | Resource::Path
+                    | Resource::Sequence
+                    | Resource::Sound
+                    | Resource::TileSet
+                    | Resource::Timeline => Err(YypBossError::ResourceManipulation {
+                        data: ResourceManipulationError::ResourceCannotBeManipulated.to_string(),
+                    }),
                 },
                 UtilityCommand::PrettyEventNames { event_names: v } => {
                     let mut output = v
