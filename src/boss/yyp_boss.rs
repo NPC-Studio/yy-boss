@@ -34,6 +34,7 @@ pub struct YypBoss {
     pub extensions: YyResourceHandler<Extension>,
     pub fonts: YyResourceHandler<Font>,
     pub paths: YyResourceHandler<YyPath>,
+    pub rooms: YyResourceHandler<Room>,
     pub sequences: YyResourceHandler<Sequence>,
     pub sounds: YyResourceHandler<Sound>,
     pub tilesets: YyResourceHandler<TileSet>,
@@ -117,6 +118,7 @@ impl YypBoss {
                 Resource::AnimationCurve => {
                     load_in_file::<AnimationCurve>(yyp_resource, &mut yyp_boss)
                 }
+                Resource::Room => load_in_file::<Room>(yyp_resource, &mut yyp_boss),
                 Resource::Extension => load_in_file::<Extension>(yyp_resource, &mut yyp_boss),
                 Resource::Font => load_in_file::<Font>(yyp_resource, &mut yyp_boss),
                 Resource::Path => load_in_file::<YyPath>(yyp_resource, &mut yyp_boss),
@@ -154,12 +156,13 @@ impl YypBoss {
         self.scripts.serialize(&self.directory_manager)?;
         self.notes.serialize(&self.directory_manager)?;
         self.shaders.serialize(&self.directory_manager)?;
-        
+
         // THESE DO NOT HAVE EXCELLENT TYPINGS YET.
         self.animation_curves.serialize(&self.directory_manager)?;
         self.extensions.serialize(&self.directory_manager)?;
         self.fonts.serialize(&self.directory_manager)?;
         self.paths.serialize(&self.directory_manager)?;
+        self.rooms.serialize(&self.directory_manager)?;
         self.sequences.serialize(&self.directory_manager)?;
         self.sounds.serialize(&self.directory_manager)?;
         self.tilesets.serialize(&self.directory_manager)?;
@@ -366,15 +369,7 @@ impl YypBoss {
             Resource::Object => self.move_resource::<Object>(name, new_parent),
             Resource::Note => self.move_resource::<Note>(name, new_parent),
             Resource::Shader => self.move_resource::<Shader>(name, new_parent),
-
-            Resource::AnimationCurve
-            | Resource::Extension
-            | Resource::Font
-            | Resource::Path
-            | Resource::Sequence
-            | Resource::Sound
-            | Resource::TileSet
-            | Resource::Timeline => Err(ResourceManipulationError::ResourceCannotBeManipulated),
+            _ => Err(ResourceManipulationError::ResourceCannotBeManipulated),
         }
     }
 
@@ -433,6 +428,10 @@ impl YypBoss {
                 }
                 Resource::Path => {
                     self.paths
+                        .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
+                }
+                Resource::Room => {
+                    self.rooms
                         .remove(&fsys.name, self.directory_manager.root_directory(), &TCU);
                 }
                 Resource::Sequence => {

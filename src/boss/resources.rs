@@ -2,7 +2,7 @@ use super::YyResource;
 use std::fmt;
 use yy_typings::{
     object_yy::Object, script::Script, shader::Shader, sprite_yy::Sprite, AnimationCurve,
-    Extension, Font, Note, Path, Sequence, Sound, TileSet, Timeline,
+    Extension, Font, Note, Path, Room, Sequence, Sound, TileSet, Timeline,
 };
 
 #[derive(
@@ -20,6 +20,7 @@ pub enum Resource {
     Extension,
     Font,
     Path,
+    Room,
     Sequence,
     Sound,
     TileSet,
@@ -38,6 +39,7 @@ impl Resource {
             Resource::Extension => Extension::SUBPATH_NAME,
             Resource::Font => Font::SUBPATH_NAME,
             Resource::Path => Path::SUBPATH_NAME,
+            Resource::Room => Room::SUBPATH_NAME,
             Resource::Sequence => Sequence::SUBPATH_NAME,
             Resource::Sound => Sound::SUBPATH_NAME,
             Resource::TileSet => TileSet::SUBPATH_NAME,
@@ -56,6 +58,7 @@ impl Resource {
             Extension::SUBPATH_NAME => Some(Resource::Extension),
             Font::SUBPATH_NAME => Some(Resource::Font),
             Path::SUBPATH_NAME => Some(Resource::Path),
+            Room::SUBPATH_NAME => Some(Resource::Room),
             Sequence::SUBPATH_NAME => Some(Resource::Sequence),
             Sound::SUBPATH_NAME => Some(Resource::Sound),
             TileSet::SUBPATH_NAME => Some(Resource::TileSet),
@@ -75,6 +78,7 @@ impl Resource {
             | Resource::Extension
             | Resource::Font
             | Resource::Path
+            | Resource::Room
             | Resource::Sequence
             | Resource::Sound
             | Resource::TileSet
@@ -95,6 +99,7 @@ impl fmt::Display for Resource {
             Resource::Extension => write!(f, "extension"),
             Resource::Font => write!(f, "font"),
             Resource::Path => write!(f, "path"),
+            Resource::Room => write!(f, "room"),
             Resource::Sequence => write!(f, "sequence"),
             Resource::Sound => write!(f, "sound"),
             Resource::TileSet => write!(f, "tile set"),

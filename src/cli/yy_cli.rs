@@ -14,7 +14,7 @@ use yy_typings::{
     shader::Shader,
     sprite_yy::Sprite,
     utils::TrailingCommaUtility,
-    AnimationCurve, Extension, Font, Note, Path, Sequence, Sound, TileSet, Timeline,
+    AnimationCurve, Extension, Font, Note, Path, Room, Sequence, Sound, TileSet, Timeline,
 };
 
 pub struct YyCli {
@@ -43,6 +43,7 @@ impl YyCli {
                     Resource::AnimationCurve => self.add::<AnimationCurve>(yyp_boss, new_resource),
                     Resource::Extension => self.add::<Extension>(yyp_boss, new_resource),
                     Resource::Font => self.add::<Font>(yyp_boss, new_resource),
+                    Resource::Room => self.add::<Room>(yyp_boss, new_resource),
                     Resource::Path => self.add::<Path>(yyp_boss, new_resource),
                     Resource::Sequence => self.add::<Sequence>(yyp_boss, new_resource),
                     Resource::Sound => self.add::<Sound>(yyp_boss, new_resource),
@@ -59,6 +60,7 @@ impl YyCli {
                     Resource::Extension => self.remove::<Extension>(yyp_boss, identifier),
                     Resource::Font => self.remove::<Font>(yyp_boss, identifier),
                     Resource::Path => self.remove::<Path>(yyp_boss, identifier),
+                    Resource::Room => self.remove::<Room>(yyp_boss, identifier),
                     Resource::Sequence => self.remove::<Sequence>(yyp_boss, identifier),
                     Resource::Sound => self.remove::<Sound>(yyp_boss, identifier),
                     Resource::TileSet => self.remove::<TileSet>(yyp_boss, identifier),
@@ -90,6 +92,7 @@ impl YyCli {
                         }
                         Resource::Font => yyp_boss.rename_resource::<Font>(&identifier, new_name),
                         Resource::Path => yyp_boss.rename_resource::<Path>(&identifier, new_name),
+                        Resource::Room => yyp_boss.rename_resource::<Room>(&identifier, new_name),
                         Resource::Sequence => {
                             yyp_boss.rename_resource::<Sequence>(&identifier, new_name)
                         }
@@ -119,6 +122,7 @@ impl YyCli {
                     | Resource::Extension
                     | Resource::Font
                     | Resource::Path
+                    | Resource::Room
                     | Resource::Sequence
                     | Resource::Sound
                     | Resource::TileSet
@@ -148,6 +152,7 @@ impl YyCli {
                         | Resource::Extension
                         | Resource::Font
                         | Resource::Path
+                        | Resource::Room
                         | Resource::Sequence
                         | Resource::Sound
                         | Resource::TileSet
@@ -262,6 +267,7 @@ impl YyCli {
                     | Resource::Extension
                     | Resource::Font
                     | Resource::Path
+                    | Resource::Room
                     | Resource::Sequence
                     | Resource::Sound
                     | Resource::TileSet
