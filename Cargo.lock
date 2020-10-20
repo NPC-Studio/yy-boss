@@ -967,8 +967,6 @@ dependencies = [
 [[package]]
 name = "yy-typings"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18c0150efac2b9e5ed79853b56ed7d7854f1693ed2f36c0cf0c8970c74e17b5d"
 dependencies = [
  "num-derive",
  "num-traits",
