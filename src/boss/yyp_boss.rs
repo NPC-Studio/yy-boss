@@ -2,7 +2,7 @@ use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
     YyResource, YyResourceData, YyResourceHandler, YypSerialization,
 };
-use crate::{ProjectMetadata, Resource};
+use crate::{FileSerializationError, ProjectMetadata, Resource};
 use anyhow::{Context, Result as AnyResult};
 use object_yy::Object;
 use shader::Shader;
@@ -47,9 +47,16 @@ pub struct YypBoss {
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
+        Self::with_startup_injest(path_to_yyp, &[])
+    }
+
+    pub fn with_startup_injest<P: AsRef<Path>>(
+        path_to_yyp: P,
+        resources_to_scan: &[Resource],
+    ) -> Result<YypBoss, StartupError> {
         let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU).map_err(|e| match e {
-            crate::FileSerializationError::Serde(e) => StartupError::BadYypDeserialize(e),
-            crate::FileSerializationError::Io(error) => StartupError::BadYypPath {
+            FileSerializationError::Serde(e) => StartupError::BadYypDeserialize(e),
+            FileSerializationError::Io(error) => StartupError::BadYypPath {
                 yyp_filepath: path_to_yyp.as_ref().to_owned(),
                 error,
             },
@@ -70,36 +77,6 @@ impl YypBoss {
 
         // load in all of our resources...
         for yyp_resource in yyp_boss.yyp.resources.clone().into_iter() {
-            fn load_in_file<T: YyResource>(
-                yyp_resource: YypResource,
-                yyp_boss: &mut YypBoss,
-            ) -> Result<(), StartupError> {
-                let yy_file_path = yyp_boss
-                    .directory_manager
-                    .root_directory()
-                    .join(&yyp_resource.id.path);
-
-                let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU).map_err(|e| {
-                    StartupError::BadYyFile {
-                        filepath: yy_file_path,
-                        error: e.to_string(),
-                    }
-                })?;
-
-                yyp_boss
-                    .vfs
-                    .load_in_file(&yy_file, yyp_resource.order)
-                    .map_err(|e| StartupError::BadResourceTree {
-                        name: yy_file.name().to_owned(),
-                        error: e.to_string(),
-                    })?;
-
-                let handler = T::get_handler_mut(yyp_boss);
-                handler.load_on_startup(yy_file);
-
-                Ok(())
-            }
-
             let path_as_str = yyp_resource.id.path.to_string_lossy();
 
             let subpath = path_as_str
@@ -107,29 +84,70 @@ impl YypBoss {
                 .next()
                 .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?;
 
-            match Resource::parse_subpath(subpath)
-                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?
-            {
-                Resource::Sprite => load_in_file::<Sprite>(yyp_resource, &mut yyp_boss),
-                Resource::Script => load_in_file::<Script>(yyp_resource, &mut yyp_boss),
-                Resource::Object => load_in_file::<Object>(yyp_resource, &mut yyp_boss),
-                Resource::Note => load_in_file::<Note>(yyp_resource, &mut yyp_boss),
-                Resource::Shader => load_in_file::<Shader>(yyp_resource, &mut yyp_boss),
+            let resource = Resource::parse_subpath(subpath)
+                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?;
+            let assoc = resources_to_scan.contains(&resource);
+
+            match resource {
+                Resource::Sprite => load_in_file::<Sprite>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Script => load_in_file::<Script>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Object => load_in_file::<Object>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Note => load_in_file::<Note>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Shader => load_in_file::<Shader>(yyp_resource, &mut yyp_boss, assoc),
                 Resource::AnimationCurve => {
-                    load_in_file::<AnimationCurve>(yyp_resource, &mut yyp_boss)
+                    load_in_file::<AnimationCurve>(yyp_resource, &mut yyp_boss, assoc)
                 }
-                Resource::Room => load_in_file::<Room>(yyp_resource, &mut yyp_boss),
-                Resource::Extension => load_in_file::<Extension>(yyp_resource, &mut yyp_boss),
-                Resource::Font => load_in_file::<Font>(yyp_resource, &mut yyp_boss),
-                Resource::Path => load_in_file::<YyPath>(yyp_resource, &mut yyp_boss),
-                Resource::Sequence => load_in_file::<Sequence>(yyp_resource, &mut yyp_boss),
-                Resource::Sound => load_in_file::<Sound>(yyp_resource, &mut yyp_boss),
-                Resource::TileSet => load_in_file::<TileSet>(yyp_resource, &mut yyp_boss),
-                Resource::Timeline => load_in_file::<Timeline>(yyp_resource, &mut yyp_boss),
+                Resource::Room => load_in_file::<Room>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Extension => {
+                    load_in_file::<Extension>(yyp_resource, &mut yyp_boss, assoc)
+                }
+                Resource::Font => load_in_file::<Font>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Path => load_in_file::<YyPath>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Sequence => load_in_file::<Sequence>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Sound => load_in_file::<Sound>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::TileSet => load_in_file::<TileSet>(yyp_resource, &mut yyp_boss, assoc),
+                Resource::Timeline => load_in_file::<Timeline>(yyp_resource, &mut yyp_boss, assoc),
             }?;
         }
 
-        Ok(yyp_boss)
+        return Ok(yyp_boss);
+
+        fn load_in_file<T: YyResource>(
+            yyp_resource: YypResource,
+            yyp_boss: &mut YypBoss,
+            load_in_associated_data: bool,
+        ) -> Result<(), StartupError> {
+            let yy_file_path = yyp_boss
+                .directory_manager
+                .root_directory()
+                .join(&yyp_resource.id.path);
+
+            let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU).map_err(|e| {
+                StartupError::BadYyFile {
+                    filepath: yy_file_path,
+                    error: e.to_string(),
+                }
+            })?;
+
+            yyp_boss
+                .vfs
+                .load_in_file(&yy_file, yyp_resource.order)
+                .map_err(|e| StartupError::BadResourceTree {
+                    name: yy_file.name().to_owned(),
+                    error: e.to_string(),
+                })?;
+
+            let name = yy_file.name().to_owned();
+            let root_path = yyp_boss.directory_manager.root_directory().to_owned();
+            let handler = T::get_handler_mut(yyp_boss);
+            handler.load_on_startup(yy_file);
+
+            if load_in_associated_data {
+                handler.load_resource_associated_data(&name, &root_path, &TCU)?;
+            }
+
+            Ok(())
+        }
     }
 
     /// Gets the default texture path, if it exists. The "Default" group simply

@@ -370,3 +370,12 @@ impl<T: YyResource + std::fmt::Debug> std::fmt::Debug for YyResourceData<T> {
         )
     }
 }
+
+impl<'a, T: YyResource> IntoIterator for &'a YyResourceHandler<T> {
+    type Item = &'a YyResourceData<T>;
+    type IntoIter = std::collections::hash_map::Values<'a, String, YyResourceData<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.resources.values()
+    }
+}

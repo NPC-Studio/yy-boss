@@ -2,11 +2,10 @@ use crate::{
     boss::{folders::FolderGraphError, FileSerializationError},
     Resource, SerializedDataError,
 };
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
 
-#[derive(Debug, Error, Serialize, Deserialize)]
+#[derive(Debug, Error)]
 pub enum StartupError {
     #[error("couldn't deserialize yyp -- {}", .0)]
     BadYypDeserialize(String),
@@ -19,6 +18,9 @@ pub enum StartupError {
 
     #[error("couldn't read resource {} in yyp -- bad subpath given", .0.display())]
     BadResourceListing(PathBuf),
+
+    #[error(transparent)]
+    BadAssociatedData(#[from] YyResourceHandlerError),
 
     #[error("couldn't load in resource {} in Asset Browser. Could be corrupted -- {}", .name, .error)]
     BadResourceTree { name: String, error: String },

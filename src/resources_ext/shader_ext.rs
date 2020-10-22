@@ -6,7 +6,7 @@ use std::path::Path;
 use yy_typings::{shader::Shader, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Shader {
-    type AssociatedData = ShaderFiles;
+    type AssociatedData = ShaderFile;
 
     const SUBPATH_NAME: &'static str = "shaders";
     const RESOURCE: Resource = Resource::Shader;
@@ -116,7 +116,46 @@ impl YyResource for Shader {
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct ShaderFiles {
+pub struct ShaderFile {
     pub vertex: String,
     pub pixel: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Copy, Hash, strum_macros::EnumIter)]
+pub enum ShaderKind {
+    Vertex,
+    Frag,
+}
+
+impl ShaderKind {
+    pub fn file_ending(&self) -> &'static str {
+        match self {
+            ShaderKind::Vertex => Shader::VERT_FILE_ENDING,
+            ShaderKind::Frag => Shader::FRAG_FILE_ENDING,
+        }
+    }
+
+    pub fn iter() -> impl IntoIterator<Item = ShaderKind> {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
+}
+
+impl std::ops::Index<ShaderKind> for ShaderFile {
+    type Output = String;
+
+    fn index(&self, index: ShaderKind) -> &Self::Output {
+        match index {
+            ShaderKind::Vertex => &self.vertex,
+            ShaderKind::Frag => &self.pixel,
+        }
+    }
+}
+
+impl std::ops::IndexMut<ShaderKind> for ShaderFile {
+    fn index_mut(&mut self, index: ShaderKind) -> &mut Self::Output {
+        match index {
+            ShaderKind::Vertex => &mut self.vertex,
+            ShaderKind::Frag => &mut self.pixel,
+        }
+    }
 }
