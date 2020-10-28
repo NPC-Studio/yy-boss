@@ -111,7 +111,6 @@ impl YypSerialization for YypConfig {
                 string.push_str(YypConfig::LINE_ENDING);
 
                 for child in config.children.iter() {
-                    println!("Config child: {:#?}", child);
                     let old_indentation = *indentation;
 
                     inner_config_print(string, child, indentation);
