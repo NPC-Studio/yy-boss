@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{Resource, YyResource, YypBoss};
 use std::path::PathBuf;
-use yy_boss::{
+use crate::{
     folders::FolderGraphError, utils, ResourceManipulationError, SerializedData,
     SerializedDataError,
 };

@@ -32,7 +32,7 @@ use super::{
 };
 use clap::{App, Arg};
 use std::path::{Path, PathBuf};
-use yy_boss::{StartupError, YypBoss};
+use crate::{StartupError, YypBoss};
 
 /// The required
 #[derive(Debug, Clone, PartialEq, Eq)]

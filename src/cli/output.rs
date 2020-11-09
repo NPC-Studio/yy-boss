@@ -2,7 +2,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
-use yy_boss::{
+use crate::{
     folders::{FlatFolderGraph, Item},
     ProjectMetadata, SerializedData,
 };

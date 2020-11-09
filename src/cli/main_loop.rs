@@ -1,10 +1,11 @@
+use crate::YypBoss;
+
 use super::{
     input::Command,
     output::{CommandOutput, Output, YypBossError::CouldNotReadCommand},
     yy_cli::YyCli,
 };
 use std::io;
-use yy_boss::YypBoss;
 
 pub fn main_loop(mut yyp_boss: YypBoss, yy_cli: YyCli) {
     let mut command = String::new();
