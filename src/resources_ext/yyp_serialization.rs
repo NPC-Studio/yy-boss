@@ -1,3 +1,5 @@
+use yy_typings::RoomOrderId;
+
 pub use super::yy_typings::{
     texture_group::TextureGroup, AudioGroup, FilesystemPath, ResourceVersion, Tags, Yyp, YypConfig,
     YypFolder, YypIncludedFile, YypMetaData, YypResource,
@@ -250,7 +252,7 @@ impl<T: YypSerialization> YypSerialization for Vec<T> {
             indentation -= 1;
 
             print_indentation(&mut output, indentation);
-            output.push_str("]");
+            output.push(']');
 
             output
         }
@@ -266,6 +268,12 @@ impl YypSerialization for String {
 fn print_indentation(string: &mut String, indentation: usize) {
     for _ in 0..indentation {
         string.push_str(TWO_SPACES);
+    }
+}
+
+impl YypSerialization for RoomOrderId {
+    fn yyp_serialization(&self, _: usize) -> String {
+        json_trailing_comma(self)
     }
 }
 

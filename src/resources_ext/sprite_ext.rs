@@ -10,9 +10,9 @@ use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, TexturePath};
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
-pub trait SpriteExt {
+pub trait SpriteExt: Sized {
     fn with(self, edit: impl Fn(&mut Self)) -> Self;
-    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Sprite;
+    fn new(name: &str, texture_group_id: TexturePath, parent: ViewPath) -> Self;
     fn with_layer(
         name: &str,
         texture_group_id: TexturePath,

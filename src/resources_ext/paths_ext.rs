@@ -21,8 +21,8 @@ impl ViewPathLocationExt for ViewPathLocation {
     }
 }
 
-pub trait TexturePathLocationExt {
-    fn new(texture_group_name: &str, pv: &ResourceNameValidator) -> Result<TexturePathLocation, PathError>;
+pub trait TexturePathLocationExt: Sized {
+    fn new(texture_group_name: &str, pv: &ResourceNameValidator) -> Result<Self, PathError>;
 }
 
 impl TexturePathLocationExt for TexturePathLocation {

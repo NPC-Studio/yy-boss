@@ -10,6 +10,9 @@ pub enum StartupError {
     #[error("couldn't deserialize yyp -- {}", .0)]
     BadYypDeserialize(String),
 
+    #[error("yyp is wrong version -- needed {}, got {}", .0, .1)]
+    YypIsWrongVersion(String, String),
+
     #[error("couldn't make or find the boss directory -- {}", .0)]
     BossDirectory(String),
 

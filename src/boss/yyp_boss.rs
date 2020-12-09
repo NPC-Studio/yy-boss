@@ -62,6 +62,13 @@ impl YypBoss {
             },
         })?;
 
+        if yyp.meta_data.ide_version != Yyp::DEFAULT_VERSION {
+            return Err(StartupError::YypIsWrongVersion(
+                Yyp::DEFAULT_VERSION.to_string(),
+                yyp.meta_data.ide_version,
+            ));
+        }
+
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 
         let mut yyp_boss = Self {
@@ -258,7 +265,7 @@ impl YypBoss {
         let handler = T::get_handler_mut(self);
         handler
             .remove(name, &path, &TCU)
-            .ok_or_else(|| ResourceManipulationError::InternalError)
+            .ok_or(ResourceManipulationError::InternalError)
     }
 
     /// Adds a new resource, which must not already exist within the project.
