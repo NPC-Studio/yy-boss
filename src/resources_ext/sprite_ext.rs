@@ -390,7 +390,7 @@ impl YyResource for Sprite {
             let path_to_image = dir_path.join(&format!("{}.png", frame.name.inner()));
 
             match image::open(&path_to_image) {
-                Ok(image) => output.insert(frame.name, image.to_rgba()),
+                Ok(image) => output.insert(frame.name, image.to_rgba8()),
                 Err(e) => {
                     return Err(SerializedDataError::BadData(format!(
                         "we couldn't read {:#?} -- {}",

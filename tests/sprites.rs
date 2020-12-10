@@ -42,7 +42,7 @@ fn add_sprite_to_yyp() {
     })
     .bbox_mode(|_, _| yy_boss::BboxModeUtility::FullImage);
 
-    let frame_buffer = image::open(IMAGE_PATH).unwrap().to_rgba();
+    let frame_buffer = image::open(IMAGE_PATH).unwrap().to_rgba8();
     yyp_boss
         .add_resource(
             sprite.clone(),

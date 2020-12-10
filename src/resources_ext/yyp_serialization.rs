@@ -39,8 +39,8 @@ impl YypSerialization for Yyp {
         print_yyp_line(output_ptr, "configs", self.configs.yyp_serialization(1));
         print_yyp_line(
             output_ptr,
-            "RoomOrder",
-            self.room_order.yyp_serialization(1),
+            "RoomOrderNodes",
+            self.room_order_nodes.yyp_serialization(1),
         );
         print_yyp_line(output_ptr, "Folders", self.folders.yyp_serialization(1));
         print_yyp_line(
@@ -224,11 +224,8 @@ impl YypSerialization for ResourceVersion {
 }
 
 fn json_trailing_comma(t: &impl serde::Serialize) -> String {
-    let mut output = serde_json::to_string(t).unwrap();
-    output.truncate(output.len() - 1);
-    output.push_str(",}");
-
-    output
+    let output = serde_json::to_string(t).unwrap();
+    output.replace("}", ",}")
 }
 
 impl<T: YypSerialization> YypSerialization for Vec<T> {
@@ -272,8 +269,8 @@ fn print_indentation(string: &mut String, indentation: usize) {
 }
 
 impl YypSerialization for RoomOrderId {
-    fn yyp_serialization(&self, _: usize) -> String {
-        json_trailing_comma(self)
+    fn yyp_serialization(&self, i: usize) -> String {
+        format!("{{\"roomId\":{},}}", self.room_id.yyp_serialization(i))
     }
 }
 
