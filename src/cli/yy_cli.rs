@@ -2,12 +2,12 @@ use super::{
     input::{Command, CreateCommand, NewResource, ResourceCommandType, UtilityCommand, VfsCommand},
     output::{CommandOutput, Output, YypBossError},
 };
-use crate::{Resource, YyResource, YypBoss};
-use std::path::PathBuf;
 use crate::{
     folders::FolderGraphError, utils, ResourceManipulationError, SerializedData,
     SerializedDataError,
 };
+use crate::{Resource, YyResource, YypBoss};
+use std::path::PathBuf;
 use yy_typings::{
     object_yy::{EventType, Object},
     script::Script,
@@ -556,6 +556,7 @@ impl YyCli {
         Ok((yy_data, assoc_output))
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn create_yy<T: YyResource>(cr: CreateCommand) -> Result<CommandOutput, YypBossError> {
         let mut yy = T::default();
 
