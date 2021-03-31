@@ -355,9 +355,9 @@ pub struct YyResourceData<T: YyResource> {
     pub associated_data: Option<T::AssociatedData>,
 }
 
-impl<T: YyResource> Into<(T, Option<T::AssociatedData>)> for YyResourceData<T> {
-    fn into(self) -> (T, Option<T::AssociatedData>) {
-        (self.yy_resource, self.associated_data)
+impl<T: YyResource> From<YyResourceData<T>> for (T, Option<T::AssociatedData>) {
+    fn from(o: YyResourceData<T>) -> Self {
+        (o.yy_resource, o.associated_data)
     }
 }
 

@@ -215,14 +215,11 @@ impl YyResourceHandler<Object> {
                 is_dn_d: false,
                 event_type,
                 collision_object_id: None,
-                parent: FilesystemPath {
-                    name: output.yy_resource.name.clone(),
-                    path: output.yy_resource.relative_yy_filepath(),
-                },
                 resource_version: ResourceVersion::default(),
                 name: None,
                 tags: Tags::new(),
                 resource_type: ConstGmEvent::Const,
+                ..Default::default()
             });
 
             // mark it an serialize...we know this is infallible
