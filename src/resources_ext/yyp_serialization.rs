@@ -196,7 +196,7 @@ impl YypSerialization for AudioGroup {
 
 impl YypSerialization for TextureGroup {
     fn yyp_serialization(&self, _: usize) -> String {
-        json_trailing_comma(&self)
+        json_trailing_comma(&self).replace("{,}", "{}")
     }
 }
 
@@ -225,7 +225,8 @@ impl YypSerialization for ResourceVersion {
 
 fn json_trailing_comma(t: &impl serde::Serialize) -> String {
     let output = serde_json::to_string(t).unwrap();
-    output.replace("}", ",}")
+    // this is actually peak performance
+    output.replace("}", ",}").replace("{,}", "{}")
 }
 
 impl<T: YypSerialization> YypSerialization for Vec<T> {
