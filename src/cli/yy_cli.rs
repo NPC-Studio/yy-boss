@@ -12,9 +12,10 @@ use yy_typings::{
     object_yy::{EventType, Object},
     script::Script,
     shader::Shader,
+    sounds::Sound,
     sprite_yy::Sprite,
     utils::TrailingCommaUtility,
-    AnimationCurve, Extension, Font, Note, Path, Room, Sequence, Sound, TileSet, Timeline,
+    AnimationCurve, Extension, Font, Note, Path, Room, Sequence, TileSet, Timeline,
 };
 
 pub struct YyCli {

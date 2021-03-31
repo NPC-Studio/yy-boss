@@ -9,6 +9,7 @@ use shader::Shader;
 use std::{fs, path::Path};
 use yy_typings::{
     script::Script,
+    sounds::Sound,
     sprite_yy::*,
     utils::{ResourceNameValidator, TrailingCommaUtility},
     AnimationCurve, Font, Path as YyPath, Yyp,
@@ -29,6 +30,7 @@ pub struct YypBoss {
     pub objects: YyResourceHandler<Object>,
     pub shaders: YyResourceHandler<Shader>,
     pub notes: YyResourceHandler<Note>,
+    pub sounds: YyResourceHandler<Sound>,
 
     pub animation_curves: YyResourceHandler<AnimationCurve>,
     pub extensions: YyResourceHandler<Extension>,
@@ -36,7 +38,6 @@ pub struct YypBoss {
     pub paths: YyResourceHandler<YyPath>,
     pub rooms: YyResourceHandler<Room>,
     pub sequences: YyResourceHandler<Sequence>,
-    pub sounds: YyResourceHandler<Sound>,
     pub tilesets: YyResourceHandler<TileSet>,
     pub timelines: YyResourceHandler<Timeline>,
 

@@ -74,6 +74,9 @@ mod resources_ext {
     mod shader_ext;
     pub use shader_ext::*;
 
+    mod sound_ext;
+    pub use sound_ext::*;
+
     mod unidentified_resources;
     pub use unidentified_resources::*;
 

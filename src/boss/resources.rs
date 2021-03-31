@@ -1,8 +1,8 @@
 use super::YyResource;
 use std::fmt;
 use yy_typings::{
-    object_yy::Object, script::Script, shader::Shader, sprite_yy::Sprite, AnimationCurve,
-    Extension, Font, Note, Path, Room, Sequence, Sound, TileSet, Timeline,
+    object_yy::Object, script::Script, shader::Shader, sounds::Sound, sprite_yy::Sprite,
+    AnimationCurve, Extension, Font, Note, Path, Room, Sequence, TileSet, Timeline,
 };
 
 #[derive(
@@ -14,6 +14,7 @@ pub enum Resource {
     Object,
     Note,
     Shader,
+    Sound,
 
     // unidentified resources
     AnimationCurve,
@@ -22,7 +23,6 @@ pub enum Resource {
     Path,
     Room,
     Sequence,
-    Sound,
     TileSet,
     Timeline,
 }
@@ -73,6 +73,7 @@ impl Resource {
             | Resource::Script
             | Resource::Object
             | Resource::Note
+            | Resource::Sound
             | Resource::Shader => true,
             Resource::AnimationCurve
             | Resource::Extension
@@ -80,7 +81,6 @@ impl Resource {
             | Resource::Path
             | Resource::Room
             | Resource::Sequence
-            | Resource::Sound
             | Resource::TileSet
             | Resource::Timeline => false,
         }
