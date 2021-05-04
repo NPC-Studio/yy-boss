@@ -219,7 +219,6 @@ impl YyResourceHandler<Object> {
                 name: None,
                 tags: Tags::new(),
                 resource_type: ConstGmEvent::Const,
-                ..Default::default()
             });
 
             // mark it an serialize...we know this is infallible
