@@ -2,7 +2,7 @@ use super::{directory_manager::DirectoryManager, utils, FilesystemPath};
 use log::{error, trace};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
     hash::Hash,
     path::{Path, PathBuf},
 };
@@ -259,21 +259,20 @@ impl PipelineManager {
         pipeline_name: impl Into<String>,
         source_name: impl Into<String>,
     ) -> PipelineResult {
-        match self.pipelines.get_mut(&pipeline_name.into()) {
-            Some(pipeline) => {
-                let source_name = source_name.into();
-                if pipeline.source_destinations.contains_key(&source_name) {
-                    Err(PipelineError::PipelineSourceAlreadyExists)
-                } else {
-                    pipeline
-                        .source_destinations
-                        .insert(source_name, Default::default());
-                    pipeline.dirty = true;
-                    self.dirty = true;
-                    Ok(())
-                }
+        let pipeline = self
+            .pipelines
+            .get_mut(&pipeline_name.into())
+            .ok_or(PipelineError::PipelineDoesNotExist)?;
+
+        let source_name = source_name.into();
+        match pipeline.source_destinations.entry(source_name) {
+            Entry::Vacant(e) => {
+                e.insert(Default::default());
+                pipeline.dirty = true;
+                self.dirty = true;
+                Ok(())
             }
-            None => Err(PipelineError::PipelineDoesNotExist),
+            Entry::Occupied(_) => Err(PipelineError::PipelineSourceAlreadyExists),
         }
     }
 
