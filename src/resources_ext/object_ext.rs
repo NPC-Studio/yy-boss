@@ -200,7 +200,7 @@ impl YyResource for Object {
 
 impl YyResourceHandler<Object> {
     pub fn add_event(&mut self, identifier: &str, event_type: EventType) -> bool {
-        let output = unsafe { self.get_mut(&identifier).unwrap() };
+        let output = unsafe { self.get_mut(identifier).unwrap() };
         let events: &mut HashMap<EventType, String> = output.associated_data.as_mut().unwrap();
 
         if output
@@ -222,7 +222,7 @@ impl YyResourceHandler<Object> {
             });
 
             // mark it an serialize...we know this is infallible
-            self.force_serialize(&identifier).unwrap();
+            self.force_serialize(identifier).unwrap();
 
             true
         } else {
@@ -231,7 +231,7 @@ impl YyResourceHandler<Object> {
     }
 
     pub fn remove_event(&mut self, identifier: &str, event_type: EventType) -> bool {
-        let output = unsafe { self.get_mut(&identifier).unwrap() };
+        let output = unsafe { self.get_mut(identifier).unwrap() };
 
         if let Some(v) = output
             .yy_resource
@@ -243,7 +243,7 @@ impl YyResourceHandler<Object> {
             output.associated_data.as_mut().unwrap().remove(&event_type);
 
             // mark it an serialize...we know this is infallible
-            self.force_serialize(&identifier).unwrap();
+            self.force_serialize(identifier).unwrap();
 
             true
         } else {

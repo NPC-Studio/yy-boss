@@ -145,7 +145,7 @@ impl YypSerialization for YypConfig {
         print_indentation(&mut output, indentation);
         let old_indentation = indentation;
 
-        output.push_str(&r#""children": ["#);
+        output.push_str(r#""children": ["#);
         if self.children.is_empty() == false {
             output.push_str(Self::LINE_ENDING);
 

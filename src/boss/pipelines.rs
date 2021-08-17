@@ -439,7 +439,7 @@ impl PartialEq for Pipeline {
 
 impl PartialOrd for Pipeline {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 

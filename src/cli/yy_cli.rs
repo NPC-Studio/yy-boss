@@ -430,7 +430,7 @@ impl YyCli {
         new_resource: NewResource,
     ) -> Result<CommandOutput, YypBossError> {
         let (yy_file, associated_data) =
-            self.read_new_resource::<T>(new_resource, &yyp_boss.tcu())?;
+            self.read_new_resource::<T>(new_resource, yyp_boss.tcu())?;
 
         // check for a bad add...
         match yyp_boss.add_resource(yy_file, associated_data) {

@@ -121,7 +121,7 @@ impl ResourceDescriptor {
 
     pub fn to_yyp_resource(&self, name: &str) -> YypResource {
         YypResource {
-            id: FilesystemPath::new(self.resource.subpath_name(), &name),
+            id: FilesystemPath::new(self.resource.subpath_name(), name),
             order: self.order,
         }
     }

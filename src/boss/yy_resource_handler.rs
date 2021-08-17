@@ -225,7 +225,7 @@ impl<T: YyResource> YyResourceHandler<T> {
 
             resource.associated_data = Some(associated_data);
 
-            Ok(&resource.associated_data.as_ref().unwrap())
+            Ok(resource.associated_data.as_ref().unwrap())
         } else {
             Err(YyResourceHandlerError::ResourceNotFound)
         }

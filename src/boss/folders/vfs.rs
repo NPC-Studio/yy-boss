@@ -215,7 +215,7 @@ impl Vfs {
         parent_path: &ViewPathLocation,
         name: S,
     ) -> Result<ViewPath, FolderGraphError> {
-        let subfolder = Self::get_folder_mut(&mut self.root, &parent_path).ok_or_else(|| {
+        let subfolder = Self::get_folder_mut(&mut self.root, parent_path).ok_or_else(|| {
             FolderGraphError::PathNotFound {
                 path: parent_path.inner().to_string(),
             }
@@ -257,7 +257,7 @@ impl Vfs {
         folder_path: &ViewPathLocation,
     ) -> Result<(), FolderGraphError> {
         let original_folder =
-            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+            Self::get_folder_mut(&mut self.root, folder_path).ok_or_else(|| {
                 FolderGraphError::PathNotFound {
                     path: folder_path.inner().to_string(),
                 }
@@ -378,7 +378,7 @@ impl Vfs {
         }
 
         let original_folder =
-            Self::get_folder_mut(&mut self.root, &folder_path).ok_or_else(|| {
+            Self::get_folder_mut(&mut self.root, folder_path).ok_or_else(|| {
                 FolderGraphError::PathNotFound {
                     path: folder_path.inner().to_string(),
                 }
@@ -480,12 +480,12 @@ impl Vfs {
             })?;
 
         // make sure that the dest isn't inside the start...
-        if Self::get_folder_inner(&self.root, &new_parent).is_some() {
+        if Self::get_folder_inner(&self.root, new_parent).is_some() {
             return Err(FolderGraphError::InvalidMoveDestination);
         }
 
         // aaand make sure that the dest is a valid folder...
-        if let Some(f) = Self::get_folder_inner(&self.root, &new_parent) {
+        if let Some(f) = Self::get_folder_inner(&self.root, new_parent) {
             if f.folders.iter().any(|f| f.name == folder_to_move.name) {
                 return Err(FolderGraphError::FolderAlreadyPresent);
             }
@@ -508,7 +508,7 @@ impl Vfs {
         let f = parent.folders.remove(pos);
 
         // attach
-        let dest = Self::get_folder_mut(&mut self.root, &new_parent).unwrap();
+        let dest = Self::get_folder_mut(&mut self.root, new_parent).unwrap();
         dest.folders.push(f);
 
         // mark the remove as dirty...
@@ -648,7 +648,7 @@ mod test {
         assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap![]);
 
         // bit of nesting...
-        let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
+        let new_folder = fgm.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
         let subfolder = fgm.new_folder_end(&new_folder.path, "Npcs").unwrap();
         assert_eq!(
             *fgm.dirty_handler.resources_to_reserialize(),
@@ -687,7 +687,7 @@ mod test {
         assert_eq!(*fgm.dirty_handler.resources_to_remove(), hashmap! {});
 
         // add and then check removal...
-        let new_folder = fgm.new_folder_end(&Vfs::root_folder(), "Sprites").unwrap();
+        let new_folder = fgm.new_folder_end(Vfs::root_folder(), "Sprites").unwrap();
         let subfolder = fgm.new_folder_end(&new_folder.path, "Npcs").unwrap();
 
         let mut dummy0 = vec![];
