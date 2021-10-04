@@ -1,6 +1,6 @@
 [package]
 name = "yy-boss"
-version = "0.5.9"
+version = "0.5.10"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -30,7 +30,7 @@ anyhow = "1.0"
 thiserror = "1.0"
 
 log = "0.4"
-image = "0.23.12"
+image = "0.23.14"
 regex = "1.3"
 maplit = "1.0"
 clap = "2.33"
