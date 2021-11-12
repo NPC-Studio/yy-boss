@@ -223,43 +223,43 @@ impl SpriteExt for Sprite {
                 }
                 OriginUtility::TopCenter => {
                     me.origin = Origin::TopCenter;
-                    me.sequence.xorigin = (w / 2) as isize;
+                    me.sequence.xorigin = (w / 2) as i32;
                     me.sequence.yorigin = 0;
                 }
                 OriginUtility::TopRight => {
                     me.origin = Origin::TopRight;
-                    me.sequence.xorigin = w as isize;
+                    me.sequence.xorigin = w as i32;
                     me.sequence.yorigin = 0;
                 }
                 OriginUtility::MiddleLeft => {
                     me.origin = Origin::MiddleLeft;
                     me.sequence.xorigin = 0;
-                    me.sequence.yorigin = (h / 2) as isize;
+                    me.sequence.yorigin = (h / 2) as i32;
                 }
                 OriginUtility::MiddleCenter => {
                     me.origin = Origin::MiddleCenter;
-                    me.sequence.xorigin = (w / 2) as isize;
-                    me.sequence.yorigin = (h / 2) as isize;
+                    me.sequence.xorigin = (w / 2) as i32;
+                    me.sequence.yorigin = (h / 2) as i32;
                 }
                 OriginUtility::MiddleRight => {
                     me.origin = Origin::MiddleRight;
-                    me.sequence.xorigin = w as isize;
-                    me.sequence.yorigin = (h / 2) as isize;
+                    me.sequence.xorigin = w as i32;
+                    me.sequence.yorigin = (h / 2) as i32;
                 }
                 OriginUtility::BottomLeft => {
                     me.origin = Origin::BottomLeft;
                     me.sequence.xorigin = 0;
-                    me.sequence.yorigin = h as isize;
+                    me.sequence.yorigin = h as i32;
                 }
                 OriginUtility::BottomCenter => {
                     me.origin = Origin::BottomCenter;
-                    me.sequence.xorigin = (w / 2) as isize;
-                    me.sequence.yorigin = h as isize;
+                    me.sequence.xorigin = (w / 2) as i32;
+                    me.sequence.yorigin = h as i32;
                 }
                 OriginUtility::BottomRight => {
                     me.origin = Origin::BottomRight;
-                    me.sequence.xorigin = w as isize;
-                    me.sequence.yorigin = h as isize;
+                    me.sequence.xorigin = w as i32;
+                    me.sequence.yorigin = h as i32;
                 }
             }
             me.sequence.lock_origin = locked;
@@ -482,11 +482,11 @@ pub enum OriginUtility {
     BottomLeft,
     BottomCenter,
     BottomRight,
-    Custom { x: isize, y: isize },
+    Custom { x: i32, y: i32 },
 }
 
 impl OriginUtility {
-    pub fn from_origin(o: Origin, origin_pos: (isize, isize)) -> OriginUtility {
+    pub fn from_origin(o: Origin, origin_pos: (i32, i32)) -> OriginUtility {
         match o {
             Origin::TopLeft => OriginUtility::TopLeft,
             Origin::TopCenter => OriginUtility::TopCenter,
