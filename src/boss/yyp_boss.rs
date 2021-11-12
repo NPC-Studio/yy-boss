@@ -63,11 +63,11 @@ impl YypBoss {
             },
         })?;
 
-        if yyp.meta_data.ide_version != Yyp::DEFAULT_VERSION {
-            return Err(StartupError::YypIsWrongVersion(
-                Yyp::DEFAULT_VERSION.to_string(),
-                yyp.meta_data.ide_version,
-            ));
+        let requirement = semver::VersionReq::parse(Yyp::DEFAULT_VERSION).unwrap();
+        let version = semver::Version::parse(&yyp.meta_data.ide_version).unwrap();
+
+        if requirement.matches(&version) {
+            return Err(StartupError::YypDoesNotMatch(requirement, version));
         }
 
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;

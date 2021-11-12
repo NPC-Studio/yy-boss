@@ -13,8 +13,8 @@ const CURRENT_PIPELINE_MANIFEST_SEMVER: semver::Version = semver::Version {
     major: 0,
     minor: 1,
     patch: 0,
-    build: Vec::new(),
-    pre: Vec::new(),
+    build: semver::BuildMetadata::EMPTY,
+    pre: semver::Prerelease::EMPTY,
 };
 
 #[derive(Debug, Default, Clone, Eq)]
@@ -474,7 +474,6 @@ pub enum PipelineError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
     fn trivial() {

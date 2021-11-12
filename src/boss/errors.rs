@@ -7,16 +7,16 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum StartupError {
-    #[error("couldn't deserialize yyp -- {}", .0)]
+    #[error("couldn't deserialize yyp -- {0}")]
     BadYypDeserialize(String),
 
-    #[error("yyp is wrong version -- needed {}, got {}", .0, .1)]
-    YypIsWrongVersion(String, String),
+    #[error("yyp is wrong version -- needed {0}, got {1}")]
+    YypDoesNotMatch(semver::VersionReq, semver::Version),
 
-    #[error("couldn't make or find the boss directory -- {}", .0)]
+    #[error("couldn't make or find the boss directory -- {0}")]
     BossDirectory(String),
 
-    #[error("couldn't deserialize file at {:?} -- {}", .filepath, .error)]
+    #[error("couldn't deserialize file at {filepath:?} -- {error}")]
     BadYyFile { filepath: PathBuf, error: String },
 
     #[error("couldn't read resource {} in yyp -- bad subpath given", .0.display())]
@@ -25,10 +25,10 @@ pub enum StartupError {
     #[error(transparent)]
     BadAssociatedData(#[from] YyResourceHandlerError),
 
-    #[error("couldn't load in resource {} in Asset Browser. Could be corrupted -- {}", .name, .error)]
+    #[error("couldn't load in resource {name} in Asset Browser. Could be corrupted -- {error}")]
     BadResourceTree { name: String, error: String },
 
-    #[error("bad path for yyp was given -- {:?}, {}", .yyp_filepath, .error)]
+    #[error("bad path for yyp was given -- {yyp_filepath:?}, {error}")]
     BadYypPath {
         yyp_filepath: PathBuf,
         error: String,
@@ -37,7 +37,7 @@ pub enum StartupError {
     #[error("a working directory path was given, but it was invalid")]
     BadWorkingDirectoryPath,
 
-    #[error("bad arguments -- {}", .0)]
+    #[error("bad arguments -- {0}")]
     BadCliArguments(String),
 }
 
