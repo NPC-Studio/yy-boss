@@ -64,9 +64,10 @@ impl YypBoss {
         })?;
 
         let requirement = semver::VersionReq::parse(Yyp::DEFAULT_VERSION).unwrap();
-        let version = semver::Version::parse(&yyp.meta_data.ide_version).unwrap();
+        let version =
+            semver::Version::parse(yyp.meta_data.ide_version.split_once(".").unwrap().1).unwrap();
 
-        if requirement.matches(&version) {
+        if requirement.matches(&version) == false {
             return Err(StartupError::YypDoesNotMatch(requirement, version));
         }
 
