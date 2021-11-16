@@ -22,7 +22,6 @@ pub trait SpriteExt: Sized {
     fn parent(self, parent: ViewPath) -> Sprite;
     fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
-    fn frame(self, frame_id: FrameId) -> Self;
     /// Clears all of the frames from the given image. Generally speaking,
     /// a sprite should have at least one frame when imported into GMS2, but this
     /// function will leave it entirely bare.
@@ -37,6 +36,7 @@ pub trait SpriteExt: Sized {
     /// a sprite should have at least one frame when imported into GMS2, but this
     /// function will leave it entirely bare.
     fn set_clear_all_frames(&mut self);
+    fn set_frame(&mut self, frame_id: FrameId);
 }
 
 impl SpriteExt for Sprite {
@@ -127,63 +127,61 @@ impl SpriteExt for Sprite {
         self
     }
 
-    fn frame(self, frame_name: FrameId) -> Self {
-        self.with(|me| {
-            let path_to_sprite = format!("sprites/{0}/{0}.yy", me.name);
-            let path_to_sprite = Path::new(&path_to_sprite);
-            // Update the Frame
-            me.frames.push(Frame {
-                composite_image: Image {
+    fn set_frame(&mut self, frame_name: FrameId) {
+        let path_to_sprite = format!("sprites/{0}/{0}.yy", self.name);
+        let path_to_sprite = Path::new(&path_to_sprite);
+        // Update the Frame
+        self.frames.push(Frame {
+            composite_image: Image {
+                frame_id: FilesystemPath {
+                    name: frame_name.inner().to_string(),
+                    path: path_to_sprite.to_owned(),
+                },
+                layer_id: None,
+                name: Some("composite".to_string()),
+                ..Image::default()
+            },
+            images: self
+                .layers
+                .iter()
+                .map(|layer| Image {
                     frame_id: FilesystemPath {
                         name: frame_name.inner().to_string(),
                         path: path_to_sprite.to_owned(),
                     },
-                    layer_id: None,
-                    name: Some("composite".to_string()),
+                    layer_id: Some(FilesystemPath {
+                        name: layer.name.inner().to_string(),
+                        path: path_to_sprite.to_owned(),
+                    }),
+                    name: None,
                     ..Image::default()
-                },
-                images: me
-                    .layers
-                    .iter()
-                    .map(|layer| Image {
-                        frame_id: FilesystemPath {
-                            name: frame_name.inner().to_string(),
-                            path: path_to_sprite.to_owned(),
-                        },
-                        layer_id: Some(FilesystemPath {
-                            name: layer.name.inner().to_string(),
-                            path: path_to_sprite.to_owned(),
-                        }),
-                        name: None,
-                        ..Image::default()
-                    })
-                    .collect(),
-                parent: FilesystemPath {
-                    name: me.name.clone(),
-                    path: path_to_sprite.to_owned(),
-                },
-                name: frame_name,
-                ..Frame::default()
-            });
+                })
+                .collect(),
+            parent: FilesystemPath {
+                name: self.name.clone(),
+                path: path_to_sprite.to_owned(),
+            },
+            name: frame_name,
+            ..Frame::default()
+        });
 
-            // Update the Sequence
-            let track: &mut Track = &mut me.sequence.tracks[0];
-            track.keyframes.keyframes.push(SpriteKeyframe {
-                id: SpriteSequenceId::new(),
-                key: me.frames.len() as f64 - 1.0,
-                channels: Channels {
-                    zero: SpriteZeroChannel {
-                        id: FilesystemPath {
-                            name: frame_name.inner().to_string(),
-                            path: path_to_sprite.to_owned(),
-                        },
-                        ..Default::default()
+        // Update the Sequence
+        let track: &mut Track = &mut self.sequence.tracks[0];
+        track.keyframes.keyframes.push(SpriteKeyframe {
+            id: SpriteSequenceId::new(),
+            key: self.frames.len() as f64 - 1.0,
+            channels: Channels {
+                zero: SpriteZeroChannel {
+                    id: FilesystemPath {
+                        name: frame_name.inner().to_string(),
+                        path: path_to_sprite.to_owned(),
                     },
+                    ..Default::default()
                 },
-                ..SpriteKeyframe::default()
-            });
-            me.sequence.length = me.frames.len() as f64;
-        })
+            },
+            ..SpriteKeyframe::default()
+        });
+        self.sequence.length = self.frames.len() as f64;
     }
 
     /// Test
@@ -465,13 +463,23 @@ impl YyResource for Sprite {
     }
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Bbox {
     pub top_left: (isize, isize),
     pub bottom_right: (isize, isize),
 }
 
-#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    strum_macros::EnumIter,
+    strum_macros::Display,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum OriginUtility {
     TopLeft,
     TopCenter,
@@ -503,13 +511,33 @@ impl OriginUtility {
             },
         }
     }
+
+    pub fn iter() -> impl Iterator<Item = Self> + Clone {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
 }
 
-#[derive(Debug, Copy, Clone, strum_macros::EnumIter, strum_macros::Display, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    strum_macros::EnumIter,
+    strum_macros::Display,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub enum BboxModeUtility {
     Automatic(Bbox),
     FullImage,
     Manual(Bbox),
+}
+
+impl BboxModeUtility {
+    pub fn iter() -> impl Iterator<Item = Self> {
+        <Self as strum::IntoEnumIterator>::iter()
+    }
 }
 
 impl From<BboxModeUtility> for BBoxMode {

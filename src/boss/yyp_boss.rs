@@ -255,7 +255,7 @@ impl YypBoss {
         }
     }
 
-    /// Adds a new resource, which must not already exist within the project.
+    /// Removes a resource, which must already exist within the project.
     pub fn remove_resource<T: YyResource>(
         &mut self,
         name: &str,
