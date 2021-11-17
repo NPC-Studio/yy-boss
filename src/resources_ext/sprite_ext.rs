@@ -20,7 +20,7 @@ pub trait SpriteExt: Sized {
         parent: ViewPath,
     ) -> Sprite;
     fn parent(self, parent: ViewPath) -> Sprite;
-    fn bbox_mode(self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self;
+    fn bbox_mode(self, f: impl Fn(i32, i32) -> BboxModeUtility) -> Self;
     fn collision_kind(self, collision_kind: CollisionKind) -> Self;
     /// Clears all of the frames from the given image. Generally speaking,
     /// a sprite should have at least one frame when imported into GMS2, but this
@@ -29,14 +29,14 @@ pub trait SpriteExt: Sized {
     /// Builder version.
     fn clear_all_frames(self) -> Self;
     fn origin(self, origin: OriginUtility, locked: bool) -> Self;
-    fn playback_speed(self, pback_speed: PlaybackSpeed, speed: f64) -> Self;
+    fn playback_speed(self, pback_speed: PlaybackSpeed, speed: f32) -> Self;
     fn dimensions(self, width: NonZeroUsize, height: NonZeroUsize) -> Self;
 
     /// Clears all of the frames from the given image. Generally speaking,
     /// a sprite should have at least one frame when imported into GMS2, but this
     /// function will leave it entirely bare.
     fn set_clear_all_frames(&mut self);
-    fn set_frame(&mut self, frame_id: FrameId);
+    fn set_frame(&mut self, frame_id: FrameId, sprite_sequence_id: SpriteSequenceId);
 }
 
 impl SpriteExt for Sprite {
@@ -103,15 +103,15 @@ impl SpriteExt for Sprite {
         self.with(|me| me.parent = parent.clone())
     }
 
-    fn bbox_mode(mut self, f: impl Fn(isize, isize) -> BboxModeUtility) -> Self {
-        let bbox_util = f(self.width.get() as isize, self.height.get() as isize);
+    fn bbox_mode(mut self, f: impl Fn(i32, i32) -> BboxModeUtility) -> Self {
+        let bbox_util = f(self.width.get() as i32, self.height.get() as i32);
         self.bbox_mode = bbox_util.into();
 
         let bbox = match bbox_util {
             BboxModeUtility::Automatic(bbox) | BboxModeUtility::Manual(bbox) => bbox,
             BboxModeUtility::FullImage => {
-                let width = self.width.get() as isize;
-                let height = self.height.get() as isize;
+                let width = self.width.get() as i32;
+                let height = self.height.get() as i32;
 
                 Bbox {
                     top_left: (0, 0),
@@ -127,7 +127,7 @@ impl SpriteExt for Sprite {
         self
     }
 
-    fn set_frame(&mut self, frame_name: FrameId) {
+    fn set_frame(&mut self, frame_name: FrameId, sprite_sequence_id: SpriteSequenceId) {
         let path_to_sprite = format!("sprites/{0}/{0}.yy", self.name);
         let path_to_sprite = Path::new(&path_to_sprite);
         // Update the Frame
@@ -153,7 +153,7 @@ impl SpriteExt for Sprite {
                         name: layer.name.inner().to_string(),
                         path: path_to_sprite.to_owned(),
                     }),
-                    name: None,
+                    name: Some(String::new()),
                     ..Image::default()
                 })
                 .collect(),
@@ -168,8 +168,8 @@ impl SpriteExt for Sprite {
         // Update the Sequence
         let track: &mut Track = &mut self.sequence.tracks[0];
         track.keyframes.keyframes.push(SpriteKeyframe {
-            id: SpriteSequenceId::new(),
-            key: self.frames.len() as f64 - 1.0,
+            id: sprite_sequence_id,
+            key: self.frames.len() as f32 - 1.0,
             channels: Channels {
                 zero: SpriteZeroChannel {
                     id: FilesystemPath {
@@ -181,7 +181,7 @@ impl SpriteExt for Sprite {
             },
             ..SpriteKeyframe::default()
         });
-        self.sequence.length = self.frames.len() as f64;
+        self.sequence.length = self.frames.len() as f32;
     }
 
     /// Test
@@ -205,65 +205,18 @@ impl SpriteExt for Sprite {
     }
     fn origin(self, origin: OriginUtility, locked: bool) -> Self {
         self.with(|me| {
-            let w = me.width.get();
-            let h = me.height.get();
+            let w = me.width.get() as i32;
+            let h = me.height.get() as i32;
 
-            match origin {
-                OriginUtility::Custom { x, y } => {
-                    me.origin = Origin::Custom;
-                    me.sequence.xorigin = x;
-                    me.sequence.yorigin = y;
-                }
-                OriginUtility::TopLeft => {
-                    me.origin = Origin::TopLeft;
-                    me.sequence.xorigin = 0;
-                    me.sequence.yorigin = 0;
-                }
-                OriginUtility::TopCenter => {
-                    me.origin = Origin::TopCenter;
-                    me.sequence.xorigin = (w / 2) as i32;
-                    me.sequence.yorigin = 0;
-                }
-                OriginUtility::TopRight => {
-                    me.origin = Origin::TopRight;
-                    me.sequence.xorigin = w as i32;
-                    me.sequence.yorigin = 0;
-                }
-                OriginUtility::MiddleLeft => {
-                    me.origin = Origin::MiddleLeft;
-                    me.sequence.xorigin = 0;
-                    me.sequence.yorigin = (h / 2) as i32;
-                }
-                OriginUtility::MiddleCenter => {
-                    me.origin = Origin::MiddleCenter;
-                    me.sequence.xorigin = (w / 2) as i32;
-                    me.sequence.yorigin = (h / 2) as i32;
-                }
-                OriginUtility::MiddleRight => {
-                    me.origin = Origin::MiddleRight;
-                    me.sequence.xorigin = w as i32;
-                    me.sequence.yorigin = (h / 2) as i32;
-                }
-                OriginUtility::BottomLeft => {
-                    me.origin = Origin::BottomLeft;
-                    me.sequence.xorigin = 0;
-                    me.sequence.yorigin = h as i32;
-                }
-                OriginUtility::BottomCenter => {
-                    me.origin = Origin::BottomCenter;
-                    me.sequence.xorigin = (w / 2) as i32;
-                    me.sequence.yorigin = h as i32;
-                }
-                OriginUtility::BottomRight => {
-                    me.origin = Origin::BottomRight;
-                    me.sequence.xorigin = w as i32;
-                    me.sequence.yorigin = h as i32;
-                }
-            }
+            let (origin, (xorigin, yorigin)) = origin.to_origin((w, h));
+            me.origin = origin;
+            me.sequence.xorigin = xorigin;
+            me.sequence.yorigin = yorigin;
+
             me.sequence.lock_origin = locked;
         })
     }
-    fn playback_speed(self, speed_type: PlaybackSpeed, speed: f64) -> Self {
+    fn playback_speed(self, speed_type: PlaybackSpeed, speed: f32) -> Self {
         self.with(|me| {
             me.sequence.playback_speed_type = speed_type;
             me.sequence.playback_speed = speed;
@@ -465,8 +418,8 @@ impl YyResource for Sprite {
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Bbox {
-    pub top_left: (isize, isize),
-    pub bottom_right: (isize, isize),
+    pub top_left: (i32, i32),
+    pub bottom_right: (i32, i32),
 }
 
 #[derive(
@@ -512,6 +465,24 @@ impl OriginUtility {
         }
     }
 
+    pub fn to_origin(self, canvas_dimensions: (i32, i32)) -> (Origin, (i32, i32)) {
+        let w = canvas_dimensions.0;
+        let h = canvas_dimensions.1;
+
+        match self {
+            OriginUtility::Custom { x, y } => (Origin::Custom, (x, y)),
+            OriginUtility::TopLeft => (Origin::TopLeft, (0, 0)),
+            OriginUtility::TopCenter => (Origin::TopCenter, ((w / 2), 0)),
+            OriginUtility::TopRight => (Origin::TopRight, (w, 0)),
+            OriginUtility::MiddleLeft => (Origin::MiddleLeft, (0, h / 2)),
+            OriginUtility::MiddleCenter => (Origin::MiddleCenter, (w / 2, h / 2)),
+            OriginUtility::MiddleRight => (Origin::MiddleRight, (w, h / 2)),
+            OriginUtility::BottomLeft => (Origin::BottomLeft, (0, h)),
+            OriginUtility::BottomCenter => (Origin::BottomCenter, (w / 2, h)),
+            OriginUtility::BottomRight => (Origin::BottomRight, (w, h)),
+        }
+    }
+
     pub fn iter() -> impl Iterator<Item = Self> + Clone {
         <Self as strum::IntoEnumIterator>::iter()
     }
@@ -535,7 +506,21 @@ pub enum BboxModeUtility {
 }
 
 impl BboxModeUtility {
-    pub fn iter() -> impl Iterator<Item = Self> {
+    pub fn to_bbox(self, canvas_dims: (i32, i32)) -> (BBoxMode, Bbox) {
+        let bbox_mode: BBoxMode = self.into();
+
+        let bbox = match self {
+            BboxModeUtility::Automatic(bbox) | BboxModeUtility::Manual(bbox) => bbox,
+            BboxModeUtility::FullImage => Bbox {
+                top_left: (0, 0),
+                bottom_right: canvas_dims,
+            },
+        };
+
+        (bbox_mode, bbox)
+    }
+
+    pub fn iter() -> impl Iterator<Item = Self> + Clone {
         <Self as strum::IntoEnumIterator>::iter()
     }
 }
@@ -551,23 +536,11 @@ impl From<BboxModeUtility> for BBoxMode {
 }
 
 impl BboxModeUtility {
-    pub fn from_bbox_data(
-        bbox_mode: BBoxMode,
-        left: isize,
-        top: isize,
-        right: isize,
-        bottom: isize,
-    ) -> BboxModeUtility {
+    pub fn from_bbox_data(bbox_mode: BBoxMode, bbox: Bbox) -> BboxModeUtility {
         match bbox_mode {
-            BBoxMode::Automatic => BboxModeUtility::Automatic(Bbox {
-                top_left: (top, left),
-                bottom_right: (bottom, right),
-            }),
+            BBoxMode::Automatic => BboxModeUtility::Automatic(bbox),
             BBoxMode::FullImage => BboxModeUtility::FullImage,
-            BBoxMode::Manual => BboxModeUtility::Manual(Bbox {
-                top_left: (top, left),
-                bottom_right: (bottom, right),
-            }),
+            BBoxMode::Manual => BboxModeUtility::Manual(bbox),
         }
     }
 }
