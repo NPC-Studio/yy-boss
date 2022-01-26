@@ -86,7 +86,8 @@ impl ResourceNames {
             let desc = &self.names[&refried_bean];
 
             if let Some(pos) = yyp_resources.iter().position(|v| v.id.name == refried_bean) {
-                yyp_resources[pos] = desc.to_yyp_resource(&refried_bean);
+                let rsc = desc.to_yyp_resource(&refried_bean);
+                yyp_resources[pos].id = rsc.id;
             } else {
                 yyp_resources.push(desc.to_yyp_resource(&refried_bean));
             }
