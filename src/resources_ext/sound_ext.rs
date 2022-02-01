@@ -3,7 +3,7 @@ use crate::{
     YypBoss,
 };
 use std::{fs, path::Path};
-use yy_typings::{sounds::Sound, utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{sound::Sound, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Sound {
     type AssociatedData = Vec<u8>;
@@ -12,19 +12,19 @@ impl YyResource for Sound {
     const RESOURCE: Resource = Resource::Sound;
 
     fn name(&self) -> &str {
-        &self.name
+        &self.resource_data.name
     }
 
     fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.resource_data.name = name;
     }
 
     fn set_parent_view_path(&mut self, vp: ViewPath) {
-        self.parent = vp;
+        self.resource_data.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.parent.clone()
+        self.resource_data.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {

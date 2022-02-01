@@ -12,7 +12,7 @@ use yy_typings::{
     object_yy::{EventType, Object},
     script::Script,
     shader::Shader,
-    sounds::Sound,
+    sound::Sound,
     sprite_yy::Sprite,
     utils::TrailingCommaUtility,
     AnimationCurve, Extension, Font, Note, Path, Room, Sequence, TileSet, Timeline,
@@ -365,7 +365,7 @@ impl YyCli {
                         let path = yyp_boss
                             .directory_manager
                             .resource_file(&script.yy_resource.relative_yy_directory())
-                            .join(format!("{}.gml", script.yy_resource.name));
+                            .join(format!("{}.gml", script.yy_resource.resource_data.name));
 
                         Ok(CommandOutput::ok_path(path))
                     } else {

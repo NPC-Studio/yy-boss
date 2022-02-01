@@ -15,7 +15,7 @@ use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
 #[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
-    resources: HashMap<String, YyResourceData<T>>,
+    pub resources: HashMap<String, YyResourceData<T>>,
     dirty_handler: DirtyHandler<String, Vec<PathBuf>>,
 }
 
@@ -302,8 +302,6 @@ impl<T: YyResource> YyResourceHandler<T> {
 
         // Finally, reserialize resources
         for (resource_to_reserialize, _) in resources_to_reserialize {
-            info!("reserializing {}", resource_to_reserialize);
-
             let resource = self
                 .resources
                 .get(&resource_to_reserialize)

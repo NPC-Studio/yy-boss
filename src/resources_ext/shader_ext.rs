@@ -12,19 +12,19 @@ impl YyResource for Shader {
     const RESOURCE: Resource = Resource::Shader;
 
     fn name(&self) -> &str {
-        &self.name
+        &self.resource_data.name
     }
 
     fn set_name(&mut self, name: String) {
-        self.name = name;
+        self.resource_data.name = name;
     }
 
     fn set_parent_view_path(&mut self, vp: ViewPath) {
-        self.parent = vp;
+        self.resource_data.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.parent.clone()
+        self.resource_data.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
@@ -40,8 +40,8 @@ impl YyResource for Shader {
         wd: &Path,
         data: &Self::AssociatedData,
     ) -> anyhow::Result<()> {
-        let vtx_path = wd.join(&self.name).with_extension(Self::VERT_FILE_ENDING);
-        let frag_path = wd.join(&self.name).with_extension(Self::FRAG_FILE_ENDING);
+        let vtx_path = wd.join(&self.resource_data.name).with_extension(Self::VERT_FILE_ENDING);
+        let frag_path = wd.join(&self.resource_data.name).with_extension(Self::FRAG_FILE_ENDING);
 
         std::fs::write(vtx_path, &data.vertex)?;
         std::fs::write(frag_path, &data.pixel)?;
@@ -54,8 +54,8 @@ impl YyResource for Shader {
         wd: &Path,
         _: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
-        let vtx_path = wd.join(&self.name).with_extension(Self::VERT_FILE_ENDING);
-        let frag_path = wd.join(&self.name).with_extension(Self::FRAG_FILE_ENDING);
+        let vtx_path = wd.join(&self.resource_data.name).with_extension(Self::VERT_FILE_ENDING);
+        let frag_path = wd.join(&self.resource_data.name).with_extension(Self::FRAG_FILE_ENDING);
 
         let assoc_data = Self::AssociatedData {
             vertex: std::fs::read_to_string(vtx_path).map_err(|e| {

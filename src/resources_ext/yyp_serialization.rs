@@ -259,7 +259,7 @@ impl<T: YypSerialization> YypSerialization for Vec<T> {
 
 impl YypSerialization for String {
     fn yyp_serialization(&self, _: usize) -> String {
-        format!("\"{}\"", self.to_string())
+        format!("\"{}\"", self)
     }
 }
 

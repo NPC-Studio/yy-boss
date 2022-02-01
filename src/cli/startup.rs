@@ -30,9 +30,9 @@ use super::{
     output::{Output, Startup},
     yy_cli::YyCli,
 };
+use crate::{StartupError, YypBoss};
 use clap::{App, Arg};
 use std::path::{Path, PathBuf};
-use crate::{StartupError, YypBoss};
 
 /// The required
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,7 +91,7 @@ pub(crate) fn parse_arguments() -> Result<Arguments, clap::Error> {
         let yyp_path = Path::new(matches.value_of("path").unwrap()).to_owned();
         let working_directory = matches
             .value_of("working_directory")
-            .map(|p| Path::new(p))
+            .map(Path::new)
             .unwrap()
             .to_owned();
 

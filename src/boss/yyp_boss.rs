@@ -9,7 +9,7 @@ use shader::Shader;
 use std::{fs, path::Path};
 use yy_typings::{
     script::Script,
-    sounds::Sound,
+    sound::Sound,
     sprite_yy::*,
     utils::{ResourceNameValidator, TrailingCommaUtility},
     AnimationCurve, Font, Path as YyPath, Yyp,

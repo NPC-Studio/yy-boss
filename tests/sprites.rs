@@ -2,9 +2,7 @@ use maplit::hashmap;
 use pretty_assertions::assert_eq;
 use yy_boss::{
     folders::Vfs,
-    yy_typings::sprite_yy::{
-        FrameId, Layer, LayerId, Sprite, SpriteKeyframe, SpriteSequenceId, Track,
-    },
+    yy_typings::sprite_yy::{FrameId, Layer, LayerId, Sprite, SpriteSequenceId},
     SpriteExt,
 };
 mod common;
@@ -34,11 +32,11 @@ fn add_sprite_to_yyp() {
         },
         new_view,
     )
-    .frame(single_frame_id)
     .with(|spr| {
-        let track: &mut Track = &mut spr.sequence.tracks[0];
-        let kf: &mut SpriteKeyframe = &mut track.keyframes.keyframes[0];
-        kf.id = SpriteSequenceId::with_string("ab8911a2-4626-42b7-b1a2-3b8d23b6fd3b");
+        spr.set_frame(
+            single_frame_id,
+            SpriteSequenceId::with_string("ab8911a2-4626-42b7-b1a2-3b8d23b6fd3b"),
+        );
     })
     .bbox_mode(|_, _| yy_boss::BboxModeUtility::FullImage);
 
