@@ -4,7 +4,7 @@ use crate::{
 };
 use std::path::Path;
 use yy_typings::{
-    utils::TrailingCommaUtility, AnimationCurve, Extension, Font, Path as YyPath, Room, Sequence,
+    utils::TrailingCommaUtility, AnimationCurve, Extension, Font, Path as YyPath, Sequence,
     TileSet, Timeline, ViewPath,
 };
 
@@ -86,7 +86,6 @@ unidentified_resource!(
 unidentified_resource!(Extension, "extensions", Resource::Extension, extensions);
 unidentified_resource!(Font, "fonts", Resource::Font, fonts);
 unidentified_resource!(YyPath, "paths", Resource::Path, paths);
-unidentified_resource!(Room, "rooms", Resource::Room, rooms);
 unidentified_resource!(Sequence, "sequences", Resource::Sequence, sequences);
 // unidentified_resource!(Sound, "sounds", Resource::Sound, sounds);
 unidentified_resource!(TileSet, "tilesets", Resource::TileSet, tilesets);
