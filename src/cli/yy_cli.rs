@@ -119,11 +119,11 @@ impl YyCli {
                     Resource::Object => self.get_resource::<Object>(yyp_boss, identifier),
                     Resource::Note => self.get_resource::<Note>(yyp_boss, identifier),
                     Resource::Shader => self.get_resource::<Shader>(yyp_boss, identifier),
+                    Resource::Room => self.get_resource::<Room>(yyp_boss, identifier),
                     Resource::AnimationCurve
                     | Resource::Extension
                     | Resource::Font
                     | Resource::Path
-                    | Resource::Room
                     | Resource::Sequence
                     | Resource::Sound
                     | Resource::TileSet
@@ -149,11 +149,14 @@ impl YyCli {
                             self.ensure_associated_data::<Shader>(yyp_boss, identifier, force)
                         }
 
+                        Resource::Room => {
+                            self.ensure_associated_data::<Room>(yyp_boss, identifier, force)
+                        }
+
                         Resource::AnimationCurve
                         | Resource::Extension
                         | Resource::Font
                         | Resource::Path
-                        | Resource::Room
                         | Resource::Sequence
                         | Resource::Sound
                         | Resource::TileSet
@@ -264,11 +267,11 @@ impl YyCli {
                     Resource::Object => Self::create_yy::<Object>(create_data),
                     Resource::Note => Self::create_yy::<Note>(create_data),
                     Resource::Shader => Self::create_yy::<Shader>(create_data),
+                    Resource::Room => Self::create_yy::<Room>(create_data),
                     Resource::AnimationCurve
                     | Resource::Extension
                     | Resource::Font
                     | Resource::Path
-                    | Resource::Room
                     | Resource::Sequence
                     | Resource::Sound
                     | Resource::TileSet

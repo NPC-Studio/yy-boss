@@ -15,13 +15,13 @@ pub enum Resource {
     Note,
     Shader,
     Sound,
+    Room,
 
     // unidentified resources
     AnimationCurve,
     Extension,
     Font,
     Path,
-    Room,
     Sequence,
     TileSet,
     Timeline,
@@ -74,12 +74,12 @@ impl Resource {
             | Resource::Object
             | Resource::Note
             | Resource::Sound
+            | Resource::Room
             | Resource::Shader => true,
             Resource::AnimationCurve
             | Resource::Extension
             | Resource::Font
             | Resource::Path
-            | Resource::Room
             | Resource::Sequence
             | Resource::TileSet
             | Resource::Timeline => false,

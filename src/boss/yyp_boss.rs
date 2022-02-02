@@ -31,12 +31,12 @@ pub struct YypBoss {
     pub shaders: YyResourceHandler<Shader>,
     pub notes: YyResourceHandler<Note>,
     pub sounds: YyResourceHandler<Sound>,
+    pub rooms: YyResourceHandler<Room>,
 
     pub animation_curves: YyResourceHandler<AnimationCurve>,
     pub extensions: YyResourceHandler<Extension>,
     pub fonts: YyResourceHandler<Font>,
     pub paths: YyResourceHandler<YyPath>,
-    pub rooms: YyResourceHandler<Room>,
     pub sequences: YyResourceHandler<Sequence>,
     pub tilesets: YyResourceHandler<TileSet>,
     pub timelines: YyResourceHandler<Timeline>,

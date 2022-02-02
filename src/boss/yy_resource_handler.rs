@@ -15,7 +15,7 @@ use yy_typings::{utils::TrailingCommaUtility, ViewPath};
 
 #[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
-    pub resources: HashMap<String, YyResourceData<T>>,
+    resources: HashMap<String, YyResourceData<T>>,
     dirty_handler: DirtyHandler<String, Vec<PathBuf>>,
 }
 
@@ -33,9 +33,7 @@ impl<T: YyResource> YyResourceHandler<T> {
         }
     }
 
-    /// Adds a new sprite into the game. It requires a `CreatedResource`,
-    /// which is created from the `YypBoss`, which guarantees that the resource
-    /// has been created in the Yyp.
+    /// Adds a new YyResource into the game.
     ///
     /// This operation is used to `add` or to `replace` the resource. If it is used
     /// to replace a resource, the resource will be returned.
@@ -82,16 +80,16 @@ impl<T: YyResource> YyResourceHandler<T> {
     /// to not use? They absolutely cannot. Unless you are very certain that the change you
     /// are making will not impact *anything* outside that file, do not use this function.
     ///
-    /// Additionally, be aware that mutating data does not guarentee serialization: please use [`force_serialize`].
+    /// Additionally, be aware that mutating data does not guarentee serialization: please use [`mark_for_serialization`].
     ///
     /// [`load_resource_associated_data`]: #method.load_resource_associated_data
-    /// [`force_serialize`]: #method.force_serialize
+    /// [`mark_for_serialization`]: #method.mark_for_serialization
     pub unsafe fn get_mut(&mut self, name: &str) -> Option<&mut YyResourceData<T>> {
         self.resources.get_mut(name)
     }
 
     /// Attempts to mark a resource for serialization, and returns if it was succesfully marked.
-    pub fn force_serialize(&mut self, name: &str) -> Result<(), YyResourceHandlerError> {
+    pub fn mark_for_serialization(&mut self, name: &str) -> Result<(), YyResourceHandlerError> {
         if let Some(inner) = self.resources.get(name) {
             if inner.associated_data.is_some() {
                 if self
@@ -344,6 +342,11 @@ impl<T: YyResource> YyResourceHandler<T> {
                 associated_data,
             },
         )
+    }
+
+    /// Get a reference to the yy resource handler's resources.
+    pub fn resources(&self) -> &HashMap<String, YyResourceData<T>> {
+        &self.resources
     }
 }
 

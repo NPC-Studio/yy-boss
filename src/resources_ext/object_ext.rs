@@ -221,7 +221,7 @@ impl YyResourceHandler<Object> {
             });
 
             // mark it an serialize...we know this is infallible
-            self.force_serialize(identifier).unwrap();
+            self.mark_for_serialization(identifier).unwrap();
 
             true
         } else {
@@ -242,7 +242,7 @@ impl YyResourceHandler<Object> {
             output.associated_data.as_mut().unwrap().remove(&event_type);
 
             // mark it an serialize...we know this is infallible
-            self.force_serialize(identifier).unwrap();
+            self.mark_for_serialization(identifier).unwrap();
 
             true
         } else {
