@@ -80,6 +80,9 @@ mod resources_ext {
     mod sound_ext;
     pub use sound_ext::*;
 
+    mod tile_set_ext;
+    pub use tile_set_ext::*;
+
     mod unidentified_resources;
     pub use unidentified_resources::*;
 

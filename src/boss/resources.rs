@@ -16,6 +16,7 @@ pub enum Resource {
     Shader,
     Sound,
     Room,
+    TileSet,
 
     // unidentified resources
     AnimationCurve,
@@ -23,7 +24,6 @@ pub enum Resource {
     Font,
     Path,
     Sequence,
-    TileSet,
     Timeline,
 }
 
@@ -75,13 +75,13 @@ impl Resource {
             | Resource::Note
             | Resource::Sound
             | Resource::Room
+            | Resource::TileSet
             | Resource::Shader => true,
             Resource::AnimationCurve
             | Resource::Extension
             | Resource::Font
             | Resource::Path
             | Resource::Sequence
-            | Resource::TileSet
             | Resource::Timeline => false,
         }
     }
