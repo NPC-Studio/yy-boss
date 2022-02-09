@@ -348,6 +348,11 @@ impl<T: YyResource> YyResourceHandler<T> {
     pub fn resources(&self) -> &HashMap<String, YyResourceData<T>> {
         &self.resources
     }
+
+    /// Get a mutable reference to the yy resource handler's resources.
+    pub fn resources_mut(&mut self) -> &mut HashMap<String, YyResourceData<T>> {
+        &mut self.resources
+    }
 }
 
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
