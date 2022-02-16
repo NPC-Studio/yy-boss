@@ -293,7 +293,6 @@ impl<T: YyResource> YyResourceHandler<T> {
         // Removes the resources!
         for (resource_to_remove, _) in resources_to_remove {
             let path = FilesystemPath::new_path(T::SUBPATH_NAME, &resource_to_remove);
-            info!("removing resource {} at {:?}", resource_to_remove, path);
             let yy_path = directory_manager.resource_file(&path);
             fs::remove_dir_all(yy_path.parent().unwrap())?;
         }
