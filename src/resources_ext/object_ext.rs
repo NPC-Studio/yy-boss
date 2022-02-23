@@ -82,12 +82,17 @@ impl YyResource for Object {
 
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
+            // chaotically, gamemaker will not make new blank gml scripts
+            let val = if path.exists() == false {
+                String::new()
+            } else {
+                std::fs::read_to_string(&path).map_err(|e| {
+                    SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Io(
+                        e.to_string(),
+                    ))
+                })?
+            };
 
-            let val = std::fs::read_to_string(&path).map_err(|e| {
-                SerializedDataError::CouldNotDeserializeFile(FileSerializationError::Io(
-                    e.to_string(),
-                ))
-            })?;
             associated_data.insert(event_type, val);
         }
 

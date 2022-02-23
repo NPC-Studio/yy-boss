@@ -48,7 +48,7 @@ pub struct YypBoss {
 impl YypBoss {
     /// Creates a new YyBoss Manager and performs startup file reading.
     pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
-        Self::with_startup_injest(path_to_yyp, &[])
+        Self::with_startup_injest(path_to_yyp, &[Resource::Object])
     }
 
     pub fn with_startup_injest<P: AsRef<Path>>(
@@ -152,7 +152,9 @@ impl YypBoss {
             handler.load_on_startup(yy_file);
 
             if load_in_associated_data {
-                handler.load_resource_associated_data(&name, &root_path, &TCU)?;
+                if let Err(e) = handler.load_resource_associated_data(&name, &root_path, &TCU) {
+                    return Err(StartupError::BadAssociatedData(name, e));
+                }
             }
 
             Ok(())

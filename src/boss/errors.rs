@@ -22,8 +22,8 @@ pub enum StartupError {
     #[error("couldn't read resource {} in yyp -- bad subpath given", .0.display())]
     BadResourceListing(PathBuf),
 
-    #[error(transparent)]
-    BadAssociatedData(#[from] YyResourceHandlerError),
+    #[error("couldn't load in {0} because {1}")]
+    BadAssociatedData(String, YyResourceHandlerError),
 
     #[error("couldn't load in resource {name} in Asset Browser. Could be corrupted -- {error}")]
     BadResourceTree { name: String, error: String },
