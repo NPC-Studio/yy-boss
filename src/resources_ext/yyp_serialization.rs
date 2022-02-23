@@ -28,13 +28,6 @@ impl YypSerialization for Yyp {
         print_yyp_line(output_ptr, "Options", self.options.yyp_serialization(1));
         print_yyp_line(output_ptr, "isDnDProject", self.is_dn_d_project.to_string());
         print_yyp_line(output_ptr, "isEcma", self.is_ecma.to_string());
-        // We need to do this here because Rust doesn't like empty strings
-        if self.tutorial_path.is_empty() {
-            output_ptr.push_str(&format!("\"tutorialPath\": \"\",{}", Self::LINE_ENDING));
-            print_indentation(output_ptr, 1);
-        } else {
-            print_yyp_line(output_ptr, "tutorialPath", self.tutorial_path.to_string());
-        }
 
         print_yyp_line(output_ptr, "configs", self.configs.yyp_serialization(1));
         print_yyp_line(

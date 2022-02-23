@@ -489,3 +489,19 @@ impl YypBoss {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn semver() {
+        let requirement = semver::VersionReq::parse(Yyp::DEFAULT_VERSION).unwrap();
+        let old = semver::Version::parse("3.6.595").unwrap();
+
+        assert!(requirement.matches(&old) == false, "old is old!");
+
+        let current = semver::Version::parse("1.1.610").unwrap();
+        assert!(requirement.matches(&current), "new is vibin");
+    }
+}
