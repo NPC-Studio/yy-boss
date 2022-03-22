@@ -17,7 +17,7 @@ fn add_sprite_to_yyp() {
 
     let new_view = yyp_boss
         .vfs
-        .new_folder_end(Vfs::root_folder(), "Sprites".to_string())
+        .new_folder_end(Vfs::root_folder(), "Sprites")
         .unwrap();
 
     let single_frame_id = FrameId::with_string("1df0d96b-d607-46d8-ad4b-144ced21f501");

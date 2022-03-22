@@ -219,7 +219,7 @@ impl YypSerialization for ResourceVersion {
 fn json_trailing_comma(t: &impl serde::Serialize) -> String {
     let output = serde_json::to_string(t).unwrap();
     // this is actually peak performance
-    output.replace("}", ",}").replace("{,}", "{}")
+    output.replace('}', ",}").replace("{,}", "{}")
 }
 
 impl<T: YypSerialization> YypSerialization for Vec<T> {
