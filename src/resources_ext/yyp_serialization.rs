@@ -26,7 +26,11 @@ impl YypSerialization for Yyp {
         print_indentation(output_ptr, 1);
         print_yyp_line(output_ptr, "resources", self.resources.yyp_serialization(1));
         print_yyp_line(output_ptr, "Options", self.options.yyp_serialization(1));
-        print_yyp_line(output_ptr, "isDnDProject", self.is_dn_d_project.to_string());
+        print_yyp_line(
+            output_ptr,
+            "defaultScriptType",
+            self.default_script_type.to_string(),
+        );
         print_yyp_line(output_ptr, "isEcma", self.is_ecma.to_string());
 
         print_yyp_line(output_ptr, "configs", self.configs.yyp_serialization(1));
