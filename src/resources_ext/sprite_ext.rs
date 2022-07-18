@@ -417,7 +417,262 @@ impl YyResource for Sprite {
             files.push(base_path.join(file));
         }
     }
+
+    fn serialize_yy_file(&self, path: &Path) -> Result<(), crate::FileSerializationError> {
+        use serde::Serialize;
+
+        let mut vec = vec![];
+        let mut serializer =
+            serde_json::ser::Serializer::with_formatter(&mut vec, SpritePrinter::new());
+        self.serialize(&mut serializer).unwrap();
+
+        let string = unsafe {
+            // We do not emit invalid UTF-8.
+            String::from_utf8_unchecked(vec)
+        };
+
+        std::fs::write(path, string).map_err(|e| crate::FileSerializationError::Io(e.to_string()))
+    }
 }
+
+struct SpritePrinter {
+    current_indent: usize,
+    has_value: bool,
+    indent: &'static [u8],
+}
+
+impl SpritePrinter {
+    pub fn new() -> Self {
+        SpritePrinter {
+            current_indent: 0,
+            has_value: false,
+            indent: b"  ",
+        }
+    }
+}
+
+use std::io;
+impl serde_json::ser::Formatter for SpritePrinter {
+    #[inline]
+    fn begin_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.current_indent += 1;
+        self.has_value = false;
+        writer.write_all(b"[")
+    }
+
+    #[inline]
+    fn end_array<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.current_indent -= 1;
+
+        if self.has_value {
+            writer.write_all(b"\n").unwrap();
+            indent(writer, self.current_indent, self.indent).unwrap();
+        }
+
+        writer.write_all(b"]")
+    }
+
+    #[inline]
+    fn begin_array_value<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        if first {
+            writer.write_all(b"\n").unwrap();
+        } else {
+            writer.write_all(b",\n").unwrap();
+        }
+        indent(writer, self.current_indent, self.indent).unwrap();
+        Ok(())
+    }
+
+    #[inline]
+    fn end_array_value<W>(&mut self, _writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.has_value = true;
+        Ok(())
+    }
+
+    #[inline]
+    fn begin_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.current_indent += 1;
+        self.has_value = false;
+        writer.write_all(b"{")
+    }
+
+    #[inline]
+    fn end_object<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.current_indent -= 1;
+
+        if self.has_value {
+            writer.write_all(b"\n").unwrap();
+            indent(writer, self.current_indent, self.indent).unwrap();
+        }
+
+        writer.write_all(b"}")
+    }
+
+    #[inline]
+    fn begin_object_key<W>(&mut self, writer: &mut W, first: bool) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        if first {
+            writer.write_all(b"\n").unwrap();
+        } else {
+            writer.write_all(b",\n").unwrap();
+        }
+        indent(writer, self.current_indent, self.indent)
+    }
+
+    #[inline]
+    fn begin_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        writer.write_all(b": ")
+    }
+
+    #[inline]
+    fn end_object_value<W>(&mut self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + io::Write,
+    {
+        self.has_value = true;
+        writer.write_all(b",").unwrap();
+        Ok(())
+    }
+}
+
+fn indent<W>(wr: &mut W, n: usize, s: &[u8]) -> io::Result<()>
+where
+    W: ?Sized + io::Write,
+{
+    for _ in 0..n {
+        wr.write_all(s).unwrap();
+    }
+
+    Ok(())
+}
+
+// fn print_indentation(string: &mut String, indentation: usize) {
+//     for _ in 0..indentation {
+//         string.push(' ');
+//         string.push(' ');
+//     }
+// }
+
+// fn print_key_value(
+//     output: &mut String,
+//     indentation: &mut usize,
+//     k: &str,
+//     v: &serde_json::Value,
+//     obj_end_newline: bool,
+// ) {
+//     print_key(output, indentation, k);
+//     print_value(output, indentation, v, obj_end_newline);
+// }
+
+// fn print_key(output: &mut String, indentation: &mut usize, k: &str) {
+//     use std::fmt::Write;
+
+//     print_indentation(output, *indentation);
+
+//     write!(output, "\"{}\": ", k).unwrap();
+// }
+
+// fn print_value(
+//     output: &mut String,
+//     indentation: &mut usize,
+//     v: &serde_json::Value,
+//     obj_end_newline: bool,
+// ) {
+//     use serde_json::Value;
+//     use std::fmt::Write;
+
+//     match v {
+//         Value::Null => {
+//             write!(output, "null,").unwrap();
+//         }
+//         Value::Bool(v) => {
+//             write!(output, "{},", v).unwrap();
+//         }
+//         Value::Number(numb) => {
+//             write!(output, "{},", numb).unwrap();
+//         }
+//         Value::String(str) => {
+//             write!(output, "\"{}\",", str).unwrap();
+//         }
+//         Value::Array(arr) => {
+//             if arr.is_empty() {
+//                 write!(output, "[],").unwrap();
+//             } else {
+//                 write!(output, "[\n").unwrap();
+//                 *indentation += 1;
+//                 for v in arr.iter() {
+//                     print_indentation(output, *indentation);
+//                     print_value(output, indentation, v, false);
+//                     write!(output, "\n").unwrap();
+//                 }
+
+//                 *indentation -= 1;
+//                 print_indentation(output, *indentation);
+//                 write!(output, "],").unwrap();
+//             }
+//         }
+//         Value::Object(obj) => {
+//             print_object(output, indentation, obj, true, obj_end_newline);
+//         }
+//     }
+// }
+
+// fn print_object(
+//     output: &mut String,
+//     indentation: &mut usize,
+//     obj: &serde_json::Map<String, serde_json::Value>,
+//     end_comma: bool,
+//     end_newline: bool,
+// ) {
+//     use std::fmt::Write;
+
+//     if obj.is_empty() {
+//         write!(output, "{{}}").unwrap();
+//     } else {
+//         write!(output, "{{\n").unwrap();
+//         *indentation += 1;
+
+//         for (k, v) in obj.iter() {
+//             print_key_value(output, indentation, k, v, end_newline);
+//             write!(output, "\n").unwrap();
+//         }
+
+//         *indentation -= 1;
+//         print_indentation(output, *indentation);
+//         write!(output, "}}").unwrap();
+//     }
+
+//     if end_comma {
+//         write!(output, ",").unwrap();
+//     }
+
+//     if end_newline {
+//         output.push('\n');
+//     }
+// }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Bbox {

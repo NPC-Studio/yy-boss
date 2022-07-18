@@ -1,4 +1,4 @@
-use crate::{FileSerializationError, Resource, YyResourceHandler, YypBoss};
+use crate::{utils, FileSerializationError, Resource, YyResourceHandler, YypBoss};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -12,14 +12,14 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     const RESOURCE: Resource;
 
     /// The relative filepath to the directory of the yy file.
-    /// 
+    ///
     /// Returns PathBuf like `sprites/spr_player`.
     fn relative_yy_directory(&self) -> PathBuf {
         self.relative_yy_filepath().parent().unwrap().to_owned()
     }
 
     /// The relative filepath to the yy file of the resource.
-    /// 
+    ///
     /// Returns PathBuf such as `sprites/spr_player/spr_player.yy`.
     fn relative_yy_filepath(&self) -> PathBuf {
         FilesystemPath::new_path(Self::SUBPATH_NAME, self.name())
@@ -102,6 +102,10 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     /// This function is ONLY called when a resource is being replaced. When a resource is being removed
     /// outright, then the entire folder is removed, so we don't need to carefully handle this.
     fn cleanup_on_replace(&self, paths_to_delete: impl FileHolder);
+
+    fn serialize_yy_file(&self, path: &Path) -> Result<(), FileSerializationError> {
+        utils::serialize_json(&path, self)
+    }
 }
 
 /// The data which is passed in as part of a Command. Each tag represents a different way to

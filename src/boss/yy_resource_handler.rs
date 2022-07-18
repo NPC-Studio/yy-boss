@@ -1,7 +1,7 @@
 use super::{
     directory_manager::DirectoryManager,
     dirty_handler::{DirtyDrain, DirtyHandler},
-    utils, FilesystemPath, YyResource,
+    FilesystemPath, YyResource,
 };
 use crate::YyResourceHandlerError;
 use anyhow::Result as AnyResult;
@@ -322,7 +322,7 @@ impl<T: YyResource> YyResourceHandler<T> {
                 )
             }
 
-            utils::serialize_json(&yy_path, &resource.yy_resource)?;
+            resource.yy_resource.serialize_yy_file(&yy_path)?;
         }
 
         Ok(())
