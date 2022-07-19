@@ -1,6 +1,6 @@
 [package]
 name = "yy-boss"
-version = "0.5.17"
+version = "0.5.18"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
