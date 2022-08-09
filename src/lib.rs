@@ -27,8 +27,6 @@ mod boss {
     pub use errors::*;
 
     mod dirty_handler;
-    mod pipelines;
-    pub use pipelines::{PipelineDesinations, PipelineError, PipelineManager};
 
     pub mod folders {
         mod folder_graph;

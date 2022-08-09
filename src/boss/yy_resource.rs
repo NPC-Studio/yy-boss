@@ -104,7 +104,7 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     fn cleanup_on_replace(&self, paths_to_delete: impl FileHolder);
 
     fn serialize_yy_file(&self, path: &Path) -> Result<(), FileSerializationError> {
-        utils::serialize_json(&path, self)
+        utils::serialize_json(path, self)
     }
 }
 

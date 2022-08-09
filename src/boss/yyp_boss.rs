@@ -1,9 +1,9 @@
 use super::{
-    directory_manager::DirectoryManager, errors::*, folders::*, pipelines::PipelineManager, utils,
-    YyResource, YyResourceData, YyResourceHandler, YypSerialization,
+    directory_manager::DirectoryManager, errors::*, folders::*, utils, YyResource, YyResourceData,
+    YyResourceHandler, YypSerialization,
 };
 use crate::{FileSerializationError, ProjectMetadata, Resource};
-use anyhow::{Context, Result as AnyResult};
+use anyhow::Result as AnyResult;
 use object_yy::Object;
 use shader::Shader;
 use std::{fs, path::Path};
@@ -24,7 +24,6 @@ static RNV: once_cell::sync::Lazy<ResourceNameValidator> =
 #[derive(Debug, PartialEq, Default)]
 pub struct YypBoss {
     pub directory_manager: DirectoryManager,
-    pub pipeline_manager: PipelineManager,
     pub sprites: YyResourceHandler<Sprite>,
     pub scripts: YyResourceHandler<Script>,
     pub objects: YyResourceHandler<Object>,
@@ -75,7 +74,6 @@ impl YypBoss {
 
         let mut yyp_boss = Self {
             vfs: Vfs::new(&yyp.name),
-            pipeline_manager: PipelineManager::new(&directory_manager),
             directory_manager,
             yyp,
             ..Self::default()
@@ -196,11 +194,6 @@ impl YypBoss {
         self.sounds.serialize(&self.directory_manager)?;
         self.tilesets.serialize(&self.directory_manager)?;
         self.timelines.serialize(&self.directory_manager)?;
-
-        // serialize the pipeline manifests
-        self.pipeline_manager
-            .serialize(&self.directory_manager)
-            .context("serializing pipelines")?;
 
         // Serialize Ourselves:
         let string = self.yyp.yyp_serialization(0);
