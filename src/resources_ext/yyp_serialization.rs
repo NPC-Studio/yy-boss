@@ -23,7 +23,7 @@ impl YypSerialization for Yyp {
 
         let output_ptr = &mut output;
         print_indentation(output_ptr, 1);
-        print_yyp_line(output_ptr, "resourceType", "GmProject".to_string());
+        print_yyp_line(output_ptr, "resourceType", "\"GMProject\"".to_string());
         print_yyp_line(
             output_ptr,
             "resourceVersion",
@@ -67,6 +67,12 @@ impl YypSerialization for Yyp {
             self.included_files.yyp_serialization(1),
         );
         print_yyp_line(output_ptr, "MetaData", self.meta_data.yyp_serialization(1));
+
+        // pop off two spaces + the newline
+        for _ in 0..TWO_SPACES.len() {
+            output_ptr.pop();
+        }
+        output_ptr.pop();
 
         format!(
             "{{{line}{output}{line}}}",

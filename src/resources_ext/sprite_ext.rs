@@ -56,10 +56,7 @@ impl SpriteExt for Sprite {
                 opacity: 100.0,
                 display_name: "default".to_string(),
 
-                common_data: CommonData {
-                    name: LayerId::new(),
-                    ..Default::default()
-                },
+                common_data: CommonData::new(LayerId::new()),
             },
             parent,
         )
@@ -72,10 +69,7 @@ impl SpriteExt for Sprite {
         parent: ViewPath,
     ) -> Sprite {
         Sprite {
-            common_data: CommonData {
-                name: name.to_string(),
-                ..Default::default()
-            },
+            common_data: CommonData::new(name.to_owned()),
             texture_group_id,
             sequence: SpriteSequence {
                 playback_speed: 15.0,
@@ -127,11 +121,7 @@ impl SpriteExt for Sprite {
         let path_to_sprite = format!("sprites/{0}/{0}.yy", self.common_data.name);
         let path_to_sprite = Path::new(&path_to_sprite);
         // Update the Frame
-
-        self.frames.push(CommonData {
-            name: frame_name,
-            ..Default::default()
-        });
+        self.frames.push(CommonData::new(frame_name));
 
         // Update the Sequence
         let track: &mut Track = &mut self.sequence.tracks[0];
