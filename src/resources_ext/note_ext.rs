@@ -12,19 +12,19 @@ impl YyResource for Note {
     const RESOURCE: Resource = Resource::Note;
 
     fn name(&self) -> &str {
-        &self.resource_data.name
+        &self.common_data.name
     }
 
     fn set_name(&mut self, name: String) {
-        self.resource_data.name = name;
+        self.common_data.name = name;
     }
 
     fn set_parent_view_path(&mut self, vp: ViewPath) {
-        self.resource_data.parent = vp;
+        self.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.resource_data.parent.clone()
+        self.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
@@ -41,7 +41,7 @@ impl YyResource for Note {
         data: &Self::AssociatedData,
     ) -> anyhow::Result<()> {
         let file = directory_path
-            .join(&self.resource_data.name)
+            .join(&self.common_data.name)
             .with_extension("txt");
         std::fs::write(file, data)?;
 
@@ -53,7 +53,7 @@ impl YyResource for Note {
         directory_path: &Path,
         _: &TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, SerializedDataError> {
-        let path = directory_path.join(format!("{}.txt", self.resource_data.name));
+        let path = directory_path.join(format!("{}.txt", self.common_data.name));
 
         std::fs::read_to_string(path).map_err(|e| {
             SerializedDataError::CouldNotDeserializeFile(crate::FileSerializationError::Io(

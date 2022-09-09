@@ -55,10 +55,11 @@ impl SpriteExt for Sprite {
                 blend_mode: 0,
                 opacity: 100.0,
                 display_name: "default".to_string(),
-                resource_version: ResourceVersion::default(),
-                name: LayerId::new(),
-                tags: vec![],
-                resource_type: ConstGmImageLayer::Const,
+
+                common_data: CommonData {
+                    name: LayerId::new(),
+                    ..Default::default()
+                },
             },
             parent,
         )
@@ -71,12 +72,12 @@ impl SpriteExt for Sprite {
         parent: ViewPath,
     ) -> Sprite {
         Sprite {
+            common_data: CommonData {
+                name: name.to_string(),
+                ..Default::default()
+            },
             texture_group_id,
             sequence: SpriteSequence {
-                sprite_id: FilesystemPath {
-                    name: name.to_string(),
-                    path: Path::new(&format!("sprites/{spr}/{spr}.yy", spr = name)).to_owned(),
-                },
                 playback_speed: 15.0,
                 playback_speed_type: PlaybackSpeed::FramesPerSecond,
                 length: 1.0,
@@ -86,24 +87,16 @@ impl SpriteExt for Sprite {
                 backdrop_height: 1080,
                 xorigin: 0,
                 yorigin: 0,
-                parent: FilesystemPath {
-                    name: name.to_string(),
-                    path: Path::new(&format!("sprites/{spr}/{spr}.yy", spr = name)).to_owned(),
-                },
                 ..SpriteSequence::default()
             },
-            resource_data: ResourceData {
-                name: name.to_string(),
-                parent,
-                ..Default::default()
-            },
             layers: vec![layer],
+            parent,
             ..Sprite::default()
         }
     }
 
     fn parent(self, parent: ViewPath) -> Sprite {
-        self.with(|me| me.resource_data.parent = parent.clone())
+        self.with(|me| me.parent = parent.clone())
     }
 
     fn bbox_mode(mut self, f: impl Fn(i32, i32) -> BboxModeUtility) -> Self {
@@ -131,41 +124,13 @@ impl SpriteExt for Sprite {
     }
 
     fn set_frame(&mut self, frame_name: FrameId, sprite_sequence_id: SpriteSequenceId) {
-        let path_to_sprite = format!("sprites/{0}/{0}.yy", self.resource_data.name);
+        let path_to_sprite = format!("sprites/{0}/{0}.yy", self.common_data.name);
         let path_to_sprite = Path::new(&path_to_sprite);
         // Update the Frame
-        self.frames.push(Frame {
-            composite_image: Image {
-                frame_id: FilesystemPath {
-                    name: frame_name.inner().to_string(),
-                    path: path_to_sprite.to_owned(),
-                },
-                layer_id: None,
-                name: Some("composite".to_string()),
-                ..Image::default()
-            },
-            images: self
-                .layers
-                .iter()
-                .map(|layer| Image {
-                    frame_id: FilesystemPath {
-                        name: frame_name.inner().to_string(),
-                        path: path_to_sprite.to_owned(),
-                    },
-                    layer_id: Some(FilesystemPath {
-                        name: layer.name.inner().to_string(),
-                        path: path_to_sprite.to_owned(),
-                    }),
-                    name: Some(String::new()),
-                    ..Image::default()
-                })
-                .collect(),
-            parent: FilesystemPath {
-                name: self.resource_data.name.clone(),
-                path: path_to_sprite.to_owned(),
-            },
+
+        self.frames.push(CommonData {
             name: frame_name,
-            ..Frame::default()
+            ..Default::default()
         });
 
         // Update the Sequence
@@ -239,33 +204,17 @@ impl YyResource for Sprite {
     const RESOURCE: Resource = Resource::Sprite;
 
     fn name(&self) -> &str {
-        &self.resource_data.name
+        &self.common_data.name
     }
 
     fn set_name(&mut self, name: String) {
-        self.resource_data.name = name.clone();
+        self.common_data.name = name.clone();
         let new_path = format!(
             "{base}/{name}/{name}.yy",
             base = Self::SUBPATH_NAME,
             name = name
         );
         let new_path = Path::new(&new_path);
-        for frame in &mut self.frames {
-            frame.parent = FilesystemPath {
-                name: name.clone(),
-                path: new_path.to_owned(),
-            };
-
-            frame.composite_image.frame_id.path = new_path.to_owned();
-            for image in frame.images.iter_mut() {
-                image.frame_id.path = new_path.to_owned();
-                image.layer_id.as_mut().unwrap().path = new_path.to_owned();
-            }
-        }
-        self.sequence.sprite_id = FilesystemPath {
-            name,
-            path: new_path.to_owned(),
-        };
         let track: &mut Track = &mut self.sequence.tracks[0];
         for kf in track.keyframes.keyframes.iter_mut() {
             kf.channels.zero.id.path = new_path.to_owned();
@@ -273,11 +222,11 @@ impl YyResource for Sprite {
     }
 
     fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
-        self.resource_data.parent = vp;
+        self.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.resource_data.parent.clone()
+        self.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
@@ -318,6 +267,7 @@ impl YyResource for Sprite {
                 .layers
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("All Sprites *must* have a single Layer!"))?
+                .common_data
                 .name
                 .inner()
                 .to_string();
@@ -385,9 +335,9 @@ impl YyResource for Sprite {
                 let output = self
                     .frames
                     .iter()
-                    .map(|frame: &Frame| {
+                    .map(|name| {
                         (
-                            frame.name,
+                            name.name,
                             SpriteImageBuffer::new(
                                 self.width.get() as u32,
                                 self.height.get() as u32,
@@ -403,7 +353,7 @@ impl YyResource for Sprite {
 
     fn cleanup_on_replace(&self, mut files: impl FileHolder) {
         // first, clean up the layer folders...
-        let base_path = Path::new(&self.resource_data.name);
+        let base_path = Path::new(&self.common_data.name);
         let layers_path = base_path.join("layers");
 
         // clean up the composite image...

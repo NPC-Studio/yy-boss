@@ -62,7 +62,7 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                 let mut our_yyp = ours.yyp().clone();
                 let proof_yyp = proof.yyp();
                 // We have to equalize the names here to prevent trivial mismatches...
-                our_yyp.name = proof_yyp.name.clone();
+                our_yyp.common_data.name = proof_yyp.common_data.name.clone();
 
                 // and we have to normalize orders
                 for yyp_resource in proof_yyp.folders.iter() {
@@ -73,7 +73,10 @@ pub fn assert_yypboss_eq(ours: &YypBoss, proof: &YypBoss) {
                     {
                         ours.order = yyp_resource.order;
                     } else {
-                        println!("Couldn't find {} in our Yyp...", yyp_resource.name);
+                        println!(
+                            "Couldn't find {} in our Yyp...",
+                            yyp_resource.common_data.name
+                        );
                     }
                 }
 
@@ -109,7 +112,7 @@ fn yypboss_neq(ours: &YypBoss, proof: &YypBoss) -> Result<(), YypBossNeq> {
     // Assert the our YYPs are the Same...
     let mut our_yyp = ours.yyp().clone();
     let proof_yyp = proof.yyp();
-    our_yyp.name = proof_yyp.name.clone();
+    our_yyp.common_data.name = proof_yyp.common_data.name.clone();
 
     // Assert our Yyps are the Same
     if our_yyp != *proof_yyp {

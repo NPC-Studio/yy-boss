@@ -2,13 +2,12 @@ use super::{Files, ResourceDescriptor, ResourceNames};
 use crate::{FilesystemPath, ViewPathLocationExt};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use yy_typings::{Tags, ViewPath, ViewPathLocation};
+use yy_typings::{ViewPath, ViewPathLocation};
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize, Default)]
 pub struct FolderGraph {
     pub name: String,
     pub path_to_parent: Option<ViewPathLocation>,
-    pub tags: Tags,
     pub order: usize,
     pub folders: Vec<FolderGraph>,
     pub files: Files,
@@ -40,15 +39,13 @@ impl FolderGraph {
             path_to_parent: None,
             files: Files::new(),
             folders: vec![],
-            tags: vec![],
         }
     }
 
-    pub fn new(name: String, parent: ViewPathLocation, tags: Tags, order: usize) -> FolderGraph {
+    pub fn new(name: String, parent: ViewPathLocation, order: usize) -> FolderGraph {
         FolderGraph {
             name,
             path_to_parent: Some(parent),
-            tags,
             order,
             files: Files::new(),
             folders: vec![],

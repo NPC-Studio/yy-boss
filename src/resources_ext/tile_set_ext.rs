@@ -8,19 +8,19 @@ impl YyResource for TileSet {
     const RESOURCE: Resource = Resource::TileSet;
 
     fn name(&self) -> &str {
-        &self.resource_data.name
+        &self.common_data.name
     }
 
     fn set_name(&mut self, name: String) {
-        self.resource_data.name = name;
+        self.common_data.name = name;
     }
 
     fn set_parent_view_path(&mut self, vp: ViewPath) {
-        self.resource_data.parent = vp;
+        self.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.resource_data.parent.clone()
+        self.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {

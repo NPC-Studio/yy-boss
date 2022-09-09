@@ -46,7 +46,6 @@ impl Vfs {
                         path_to_parent: Some(path_to_parent),
                         // all of these are defaults..below we add in specs for each
                         order: 0,
-                        tags: vec![],
                         folders: vec![],
                         files: Files::new(),
                     });
@@ -62,7 +61,6 @@ impl Vfs {
             // get the folder and add in its order and what not...
             let f = Vfs::get_folder_mut(&mut self.root, &new_folder.folder_path).unwrap();
             f.order = new_folder.order;
-            f.tags = new_folder.tags.clone();
         }
     }
 
@@ -237,7 +235,6 @@ impl Vfs {
         subfolder.folders.push(FolderGraph::new(
             name.as_ref().to_owned(),
             subfolder.view_path_location(),
-            vec![],
             order,
         ));
 
@@ -569,9 +566,10 @@ impl Vfs {
             let output = YypFolder {
                 folder_path: reserialize.clone(),
                 order: folder_data.order,
-                name: folder_data.name.clone(),
-                tags: folder_data.tags.clone(),
-                ..Default::default()
+                common_data: yy_typings::CommonData {
+                    name: folder_data.name.clone(),
+                    ..Default::default()
+                },
             };
 
             if let Some(pos) = yyp_folders
@@ -629,9 +627,7 @@ mod test {
                 folders: vec![],
                 files: Files::new(),
                 path_to_parent: Some(ViewPathLocation::new("folders")),
-                tags: vec![],
             }],
-            tags: vec![],
         };
 
         assert_eq!(fgm.root, root);
@@ -662,12 +658,10 @@ mod test {
             vec![FolderGraph {
                 name: "Sprites".to_string(),
                 path_to_parent: Some(ViewPathLocation::new("folders")),
-                tags: vec![],
                 order: 0,
                 folders: vec![FolderGraph {
                     name: "Npcs".to_string(),
                     path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy")),
-                    tags: vec![],
                     order: 0,
                     folders: vec![],
                     files: Files::new(),
@@ -700,14 +694,18 @@ mod test {
                 YypFolder {
                     folder_path: ViewPathLocation::new("folders/Sprites.yy"),
                     order: 0,
-                    name: "Sprites".to_string(),
-                    ..Default::default()
+                    common_data: yy_typings::CommonData {
+                        name: "Sprites".to_string(),
+                        ..Default::default()
+                    },
                 },
                 YypFolder {
                     folder_path: ViewPathLocation::new("folders/Sprites/Npcs.yy"),
                     order: 0,
-                    name: "Npcs".to_string(),
-                    ..Default::default()
+                    common_data: yy_typings::CommonData {
+                        name: "Npcs".to_string(),
+                        ..Default::default()
+                    },
                 }
             ]
         );
@@ -746,11 +744,9 @@ mod test {
                 name: "Sprites".to_string(),
                 order: 0,
                 path_to_parent: Some(ViewPathLocation::new("folders")),
-                tags: vec![],
                 folders: vec![FolderGraph {
                     name: "Another Subfolder".to_string(),
                     path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy",),),
-                    tags: vec![],
                     order: 0,
                     folders: vec![],
                     files: Files::new(),

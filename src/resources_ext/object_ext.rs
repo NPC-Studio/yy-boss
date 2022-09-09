@@ -12,18 +12,18 @@ impl YyResource for Object {
     const RESOURCE: Resource = Resource::Object;
 
     fn name(&self) -> &str {
-        &self.resource_data.name
+        &self.common_data.name
     }
     fn set_name(&mut self, name: String) {
-        self.resource_data.name = name;
+        self.common_data.name = name;
     }
 
     fn set_parent_view_path(&mut self, vp: yy_typings::ViewPath) {
-        self.resource_data.parent = vp;
+        self.parent = vp;
     }
 
     fn parent_view_path(&self) -> ViewPath {
-        self.resource_data.parent.clone()
+        self.parent.clone()
     }
 
     fn get_handler(yyp_boss: &YypBoss) -> &YyResourceHandler<Self> {
@@ -42,7 +42,7 @@ impl YyResource for Object {
         data: &HashMap<EventType, String>,
     ) -> anyhow::Result<()> {
         let mut allowed_files = std::collections::HashSet::with_capacity(1 + self.event_list.len());
-        allowed_files.insert(directory_path.join(format!("{}.yy", self.resource_data.name)));
+        allowed_files.insert(directory_path.join(format!("{}.yy", self.common_data.name)));
 
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             if let Some(gml) = data.get(&event_type) {
@@ -216,13 +216,11 @@ impl YyResourceHandler<Object> {
         {
             events.insert(event_type, String::new());
             output.yy_resource.event_list.push(ObjectEvent {
+                common_data: CommonData::default(),
                 is_dn_d: false,
                 event_type,
+
                 collision_object_id: None,
-                resource_version: ResourceVersion::default(),
-                name: None,
-                tags: Tags::new(),
-                resource_type: ConstGmEvent::Const,
             });
 
             // mark it an serialize...we know this is infallible

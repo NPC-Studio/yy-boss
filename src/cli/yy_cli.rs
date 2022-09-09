@@ -371,7 +371,7 @@ impl YyCli {
                         let path = yyp_boss
                             .directory_manager
                             .resource_file(&script.yy_resource.relative_yy_directory())
-                            .join(format!("{}.gml", script.yy_resource.resource_data.name));
+                            .join(format!("{}.gml", script.yy_resource.common_data.name));
 
                         Ok(CommandOutput::ok_path(path))
                     } else {

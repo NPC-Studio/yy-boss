@@ -73,7 +73,7 @@ impl YypBoss {
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
 
         let mut yyp_boss = Self {
-            vfs: Vfs::new(&yyp.name),
+            vfs: Vfs::new(&yyp.common_data.name),
             directory_manager,
             yyp,
             ..Self::default()
@@ -167,7 +167,7 @@ impl YypBoss {
         self.yyp
             .texture_groups
             .iter()
-            .find(|tex| tex.name == "Default")
+            .find(|tex| tex.common_data.name == "Default")
             .map(|texture_group| texture_group.into())
     }
 
@@ -208,11 +208,11 @@ impl YypBoss {
 
     pub fn project_metadata(&self) -> ProjectMetadata {
         ProjectMetadata {
-            name: self.yyp.name.clone(),
+            name: self.yyp.common_data.name.clone(),
             ide_version: self.yyp.meta_data.ide_version.clone(),
-            yyp_version: self.yyp.resource_version,
+            yyp_version: self.yyp.common_data.resource_version,
             root_file: ViewPath {
-                name: self.yyp.name.clone(),
+                name: self.yyp.common_data.name.clone(),
                 path: self.vfs.root_file_viewpath(),
             },
         }

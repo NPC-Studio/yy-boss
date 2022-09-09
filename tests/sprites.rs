@@ -27,7 +27,10 @@ fn add_sprite_to_yyp() {
         "spr_test",
         default_texture_group,
         Layer {
-            name: LayerId::with_string("17463651-1c81-4dea-a381-8f4a7635b32e"),
+            common_data: yy_typings::CommonData {
+                name: LayerId::with_string("17463651-1c81-4dea-a381-8f4a7635b32e"),
+                ..Default::default()
+            },
             ..Layer::default()
         },
         new_view,
