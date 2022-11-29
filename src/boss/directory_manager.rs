@@ -67,7 +67,7 @@ impl DirectoryManager {
 
     /// Creates a path within the root directory, probably to a resource.
     pub fn resource_file(&self, relative_path: &Path) -> PathBuf {
-        self.root_directory.join(&relative_path)
+        self.root_directory.join(relative_path)
     }
 
     /// Saves a file within the boss directory, as a compound operation.

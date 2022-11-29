@@ -197,7 +197,7 @@ impl YypBoss {
 
         // Serialize Ourselves:
         let string = self.yyp.yyp_serialization(0);
-        fs::write(&self.directory_manager.yyp(), &string)?;
+        fs::write(self.directory_manager.yyp(), &string)?;
 
         Ok(())
     }

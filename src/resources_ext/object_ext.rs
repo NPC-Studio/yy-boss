@@ -175,10 +175,7 @@ impl YyResource for Object {
 
         // first check if there are any excess keys...
         // and sheer them off. I don't think we need an error for this.
-        hmap = hmap
-            .into_iter()
-            .filter(|(key, _)| self.event_list.iter().any(|v| v.event_type == *key))
-            .collect();
+        hmap.retain(|key, _| self.event_list.iter().any(|v| v.event_type == *key));
 
         // second, check if there are any missing keys...
         for event_required in self.event_list.iter().map(|v| v.event_type) {
