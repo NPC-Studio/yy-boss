@@ -74,6 +74,11 @@ impl YypSerialization for Yyp {
         }
         output_ptr.pop();
 
+        // one more pop for CRLF!
+        if cfg!(target_os = "windows") {
+            output_ptr.pop();
+        }
+
         format!(
             "{{{line}{output}{line}}}",
             line = Self::LINE_ENDING,
