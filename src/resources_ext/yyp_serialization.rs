@@ -9,9 +9,9 @@ const MEMBER_NUMBER: usize = 70;
 const TWO_SPACES: &str = "  ";
 
 pub trait YypSerialization {
-    #[cfg(windows)]
+    #[cfg(target_os = "windows")]
     const LINE_ENDING: &'static str = "\r\n";
-    #[cfg(not(windows))]
+    #[cfg(not(target_os = "windows"))]
     const LINE_ENDING: &'static str = "\n";
 
     fn yyp_serialization(&self, indentation: usize) -> String;
