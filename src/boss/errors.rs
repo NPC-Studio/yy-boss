@@ -10,6 +10,9 @@ pub enum StartupError {
     #[error("couldn't deserialize yyp -- {0}")]
     BadYypDeserialize(String),
 
+    #[error("yyp is wrong year version -- needed {0}, got {1}")]
+    YypYearNotMatch(String, String),
+
     #[error("yyp is wrong version -- needed {0}, got {1}")]
     YypDoesNotMatch(semver::VersionReq, semver::Version),
 

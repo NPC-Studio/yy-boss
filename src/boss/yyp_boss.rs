@@ -62,12 +62,27 @@ impl YypBoss {
             },
         })?;
 
-        let requirement = semver::VersionReq::parse(Yyp::DEFAULT_VERSION).unwrap();
-        let version =
-            semver::Version::parse(yyp.meta_data.ide_version.split_once('.').unwrap().1).unwrap();
+        let (l_req, requirement) = Yyp::DEFAULT_VERSION
+            .split_once('.')
+            .map(|(l, r)| (l, semver::VersionReq::parse(r).unwrap()))
+            .unwrap();
 
-        if requirement.matches(&version) == false {
-            return Err(StartupError::YypDoesNotMatch(requirement, version));
+        let (l_actual, r_actual) = yyp
+            .meta_data
+            .ide_version
+            .split_once('.')
+            .map(|(l, r)| (l, semver::Version::parse(r).unwrap()))
+            .unwrap();
+
+        if l_req != l_actual {
+            return Err(StartupError::YypYearNotMatch(
+                l_req.to_string(),
+                l_actual.to_string(),
+            ));
+        }
+
+        if requirement.matches(&r_actual) == false {
+            return Err(StartupError::YypDoesNotMatch(requirement, r_actual));
         }
 
         let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
