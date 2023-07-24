@@ -107,15 +107,13 @@ impl ResourceNames {
 #[serde(rename_all = "camelCase")]
 pub struct ResourceDescriptor {
     pub resource: Resource,
-    pub order: usize,
     pub parent_location: ViewPathLocation,
 }
 
 impl ResourceDescriptor {
-    pub fn new(resource: Resource, order: usize, view_path_location: ViewPathLocation) -> Self {
+    pub fn new(resource: Resource, view_path_location: ViewPathLocation) -> Self {
         Self {
             resource,
-            order,
             parent_location: view_path_location,
         }
     }
@@ -123,7 +121,6 @@ impl ResourceDescriptor {
     pub fn to_yyp_resource(&self, name: &str) -> YypResource {
         YypResource {
             id: FilesystemPath::new(self.resource.subpath_name(), name),
-            order: self.order,
         }
     }
 }

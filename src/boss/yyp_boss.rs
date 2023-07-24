@@ -1,6 +1,6 @@
 use super::{
     directory_manager::DirectoryManager, errors::*, folders::*, utils, YyResource, YyResourceData,
-    YyResourceHandler, YypSerialization,
+    YyResourceHandler,
 };
 use crate::{FileSerializationError, ProjectMetadata, Resource};
 use anyhow::Result as AnyResult;
@@ -127,7 +127,7 @@ impl YypBoss {
             let yy_file_path = yyp_boss
                 .directory_manager
                 .root_directory()
-                .join(&yyp_resource.id.path);
+                .join(yyp_resource.id.path);
 
             let yy_file: T = utils::deserialize_json_tc(&yy_file_path, &TCU).map_err(|e| {
                 StartupError::BadYyFile {
@@ -138,7 +138,7 @@ impl YypBoss {
 
             yyp_boss
                 .vfs
-                .load_in_file(&yy_file, yyp_resource.order)
+                .load_in_file(&yy_file)
                 .map_err(|e| StartupError::BadResourceTree {
                     name: yy_file.name().to_owned(),
                     error: e.to_string(),
@@ -196,8 +196,8 @@ impl YypBoss {
         self.timelines.serialize(&self.directory_manager)?;
 
         // Serialize Ourselves:
-        let string = self.yyp.yyp_serialization(0);
-        fs::write(self.directory_manager.yyp(), &string)?;
+        let string = super::serialize_yyp(&self.yyp);
+        fs::write(self.directory_manager.yyp(), string)?;
 
         Ok(())
     }
@@ -482,21 +482,5 @@ impl YypBoss {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn semver() {
-        let requirement = semver::VersionReq::parse(Yyp::DEFAULT_VERSION).unwrap();
-        let old = semver::Version::parse("3.6.595").unwrap();
-
-        assert!(requirement.matches(&old) == false, "old is old!");
-
-        let current = semver::Version::parse("1.1.610").unwrap();
-        assert!(requirement.matches(&current), "new is vibin");
     }
 }

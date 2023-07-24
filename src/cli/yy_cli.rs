@@ -526,7 +526,7 @@ impl YyCli {
             }
             SerializedData::Filepath { data } => {
                 let path = self.working_directory.join(data);
-                utils::deserialize_json_tc(&path, tcu).map_err(|e| YypBossError::YyParseError {
+                utils::deserialize_json_tc(path, tcu).map_err(|e| YypBossError::YyParseError {
                     data: e.to_string(),
                 })
             }

@@ -56,7 +56,7 @@ mod resources_ext {
     pub use paths_ext::*;
 
     mod yyp_serialization;
-    pub use yyp_serialization::*;
+    pub use yyp_serialization::serialize_yyp;
 
     mod script_ext;
     pub use script_ext::*;

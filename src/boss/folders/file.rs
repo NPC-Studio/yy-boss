@@ -20,24 +20,23 @@ impl Files {
         self.0.iter().any(|f| f.name == *name)
     }
 
-    pub fn load_in<T: YyResource>(&mut self, yy: &T, order: usize, rn: &mut ResourceNames) {
-        self.0
-            .push(FilesystemPath::new(T::SUBPATH_NAME, yy.name()));
+    pub fn load_in<T: YyResource>(&mut self, yy: &T, rn: &mut ResourceNames) {
+        self.0.push(FilesystemPath::new(T::SUBPATH_NAME, yy.name()));
 
         // add to resource names...
         rn.load_in_resource(
             yy.name().to_string(),
-            ResourceDescriptor::new(T::RESOURCE, order, yy.parent_view_path().path),
+            ResourceDescriptor::new(T::RESOURCE, yy.parent_view_path().path),
         );
     }
 
-    pub fn add<T: YyResource>(&mut self, yy: &T, order: usize, rn: &mut ResourceNames) {
+    pub fn add<T: YyResource>(&mut self, yy: &T, rn: &mut ResourceNames) {
         self.attach(FilesystemPath::new(T::SUBPATH_NAME, yy.name()));
 
         // add to resource names...
         rn.insert(
             yy.name().to_string(),
-            ResourceDescriptor::new(T::RESOURCE, order, yy.parent_view_path().path),
+            ResourceDescriptor::new(T::RESOURCE, yy.parent_view_path().path),
         );
     }
 

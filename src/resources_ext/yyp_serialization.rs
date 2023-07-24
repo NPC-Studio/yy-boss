@@ -8,82 +8,84 @@ const BIG_NUMBER: usize = 2000;
 const MEMBER_NUMBER: usize = 70;
 const TWO_SPACES: &str = "  ";
 
-pub trait YypSerialization {
-    #[cfg(target_os = "windows")]
-    const LINE_ENDING: &'static str = "\r\n";
-    #[cfg(not(target_os = "windows"))]
-    const LINE_ENDING: &'static str = "\n";
+#[cfg(target_os = "windows")]
+const LINE_ENDING: &str = "\r\n";
+#[cfg(not(target_os = "windows"))]
+const LINE_ENDING: &str = "\n";
 
+pub trait YypSerialization {
     fn yyp_serialization(&self, indentation: usize) -> String;
 }
 
-impl YypSerialization for Yyp {
-    fn yyp_serialization(&self, _: usize) -> String {
-        let mut output = String::with_capacity(BIG_NUMBER);
+pub fn serialize_yyp(yyp: &Yyp) -> String {
+    let mut output = String::with_capacity(BIG_NUMBER);
 
-        let output_ptr = &mut output;
-        print_indentation(output_ptr, 1);
-        print_yyp_line(output_ptr, "resourceType", "\"GMProject\"".to_string());
-        print_yyp_line(
-            output_ptr,
-            "resourceVersion",
-            self.common_data.resource_version.yyp_serialization(1),
-        );
-        print_yyp_line(
-            output_ptr,
-            "name",
-            self.common_data.name.yyp_serialization(1),
-        );
+    let output_ptr = &mut output;
+    print_indentation(output_ptr, 1);
+    print_yyp_line(output_ptr, "resourceType", "\"GMProject\"".to_string());
+    print_yyp_line(
+        output_ptr,
+        "resourceVersion",
+        yyp.common_data.resource_version.yyp_serialization(1),
+    );
+    print_yyp_line(
+        output_ptr,
+        "name",
+        yyp.common_data.name.yyp_serialization(1),
+    );
 
-        print_yyp_line(output_ptr, "resources", self.resources.yyp_serialization(1));
-        print_yyp_line(output_ptr, "Options", self.options.yyp_serialization(1));
-        print_yyp_line(
-            output_ptr,
-            "defaultScriptType",
-            self.default_script_type.to_string(),
-        );
-        print_yyp_line(output_ptr, "isEcma", self.is_ecma.to_string());
+    print_yyp_line(
+        output_ptr,
+        "AudioGroups",
+        yyp.audio_groups.yyp_serialization(1),
+    );
+    print_yyp_line(output_ptr, "configs", yyp.configs.yyp_serialization(1));
+    print_yyp_line(
+        output_ptr,
+        "defaultScriptType",
+        yyp.default_script_type.to_string(),
+    );
+    print_yyp_line(output_ptr, "Folders", yyp.folders.yyp_serialization(1));
+    print_yyp_line(
+        output_ptr,
+        "IncludedFiles",
+        yyp.included_files.yyp_serialization(1),
+    );
+    print_yyp_line(output_ptr, "isEcma", yyp.is_ecma.to_string());
 
-        print_yyp_line(output_ptr, "configs", self.configs.yyp_serialization(1));
-        print_yyp_line(
-            output_ptr,
-            "RoomOrderNodes",
-            self.room_order_nodes.yyp_serialization(1),
-        );
-        print_yyp_line(output_ptr, "Folders", self.folders.yyp_serialization(1));
-        print_yyp_line(
-            output_ptr,
-            "AudioGroups",
-            self.audio_groups.yyp_serialization(1),
-        );
-        print_yyp_line(
-            output_ptr,
-            "TextureGroups",
-            self.texture_groups.yyp_serialization(1),
-        );
-        print_yyp_line(
-            output_ptr,
-            "IncludedFiles",
-            self.included_files.yyp_serialization(1),
-        );
-        print_yyp_line(output_ptr, "MetaData", self.meta_data.yyp_serialization(1));
+    // note: we don't know what this is, so we just print an empty array
+    print_yyp_line(output_ptr, "LibraryEmitters", "[]".to_string());
 
-        // pop off two spaces + the newline
-        for _ in 0..TWO_SPACES.len() {
-            output_ptr.pop();
-        }
+    print_yyp_line(output_ptr, "MetaData", yyp.meta_data.yyp_serialization(1));
+
+    print_yyp_line(output_ptr, "resources", yyp.resources.yyp_serialization(1));
+
+    print_yyp_line(
+        output_ptr,
+        "RoomOrderNodes",
+        yyp.room_order_nodes.yyp_serialization(1),
+    );
+    print_yyp_line(
+        output_ptr,
+        "TextureGroups",
+        yyp.texture_groups.yyp_serialization(1),
+    );
+
+    // pop off two spaces + the newline
+    for _ in 0..TWO_SPACES.len() {
         output_ptr.pop();
-
-        format!(
-            "{{{line}{output}{line}}}",
-            line = Self::LINE_ENDING,
-            output = output
-        )
     }
+    output_ptr.pop();
+
+    format!(
+        "{{{line}{output}{line}}}",
+        line = LINE_ENDING,
+        output = output
+    )
 }
 
 fn print_yyp_line(string: &mut String, label: &str, value: String) {
-    write!(string, "\"{}\": {},{}", label, value, Yyp::LINE_ENDING).unwrap();
+    write!(string, "\"{}\": {},{}", label, value, LINE_ENDING).unwrap();
     print_indentation(string, 1);
 }
 
@@ -99,11 +101,7 @@ impl YypSerialization for FilesystemPath {
 
 impl YypSerialization for YypResource {
     fn yyp_serialization(&self, indentation: usize) -> String {
-        format!(
-            r#"{{"id":{},"order":{},}}"#,
-            self.id.yyp_serialization(indentation),
-            self.order
-        )
+        format!(r#"{{"id":{},}}"#, self.id.yyp_serialization(indentation),)
     }
 }
 
@@ -111,12 +109,12 @@ impl YypSerialization for YypConfig {
     fn yyp_serialization(&self, mut indentation: usize) -> String {
         fn inner_config_print(string: &mut String, config: &YypConfig, indentation: &mut usize) {
             print_indentation(string, *indentation);
-            write!(string, r#"{{"name":"{}","children":["#, config.name).unwrap();
+            write!(string, r#"{{"children":["#).unwrap();
 
             if config.children.is_empty() == false {
+                string.push_str(LINE_ENDING);
                 // Get us to the write line...
                 *indentation += 2;
-                string.push_str(YypConfig::LINE_ENDING);
 
                 for child in config.children.iter() {
                     let old_indentation = *indentation;
@@ -130,30 +128,27 @@ impl YypSerialization for YypConfig {
 
                 *indentation -= 1;
                 print_indentation(string, *indentation);
-                string.push_str("],},");
-                string.push_str(YypConfig::LINE_ENDING);
+                string.push_str("],");
+                string.push_str(LINE_ENDING);
+                print_indentation(string, *indentation);
+                write!(string, "\"name\": \"{}\",{}", config.name, LINE_ENDING).unwrap();
                 *indentation -= 1;
             } else {
-                string.push_str("],},");
-                string.push_str(YypConfig::LINE_ENDING);
+                write!(string, "],\"name\":\"{}\",}},{}", config.name, LINE_ENDING).unwrap();
             }
         }
 
         let mut output = String::with_capacity(MEMBER_NUMBER);
 
         // Outer Config
-        write!(output, "{{{}", Self::LINE_ENDING).unwrap();
+        write!(output, "{{{}", LINE_ENDING).unwrap();
         indentation += 1;
-        print_indentation(&mut output, indentation);
-        write!(output, r#""name": "{}","#, self.name).unwrap();
-
-        output.push_str(YypConfig::LINE_ENDING);
         print_indentation(&mut output, indentation);
         let old_indentation = indentation;
 
         output.push_str(r#""children": ["#);
         if self.children.is_empty() == false {
-            output.push_str(Self::LINE_ENDING);
+            output.push_str(LINE_ENDING);
 
             indentation += 1;
 
@@ -165,12 +160,16 @@ impl YypSerialization for YypConfig {
             print_indentation(&mut output, indentation);
         }
 
+        print_indentation(&mut output, indentation);
+        write!(output, r#""name": "{}","#, self.name).unwrap();
+        output.push_str(LINE_ENDING);
+
         assert_eq!(
             old_indentation, indentation,
             "Child config stack must be balanced"
         );
 
-        write!(output, "],{}", YypConfig::LINE_ENDING).unwrap();
+        write!(output, "],{}", LINE_ENDING).unwrap();
         indentation -= 1;
 
         assert_eq!(1, indentation, "Stack must be down to 1 indent.");
@@ -211,7 +210,7 @@ impl YypSerialization for YypMetaData {
             "{{{line}{two}{two}\"IDEVersion\": \"{ide}\",{line}{two}}}",
             two = TWO_SPACES,
             ide = self.ide_version,
-            line = Self::LINE_ENDING
+            line = LINE_ENDING
         )
     }
 }
@@ -235,7 +234,7 @@ impl<T: YypSerialization> YypSerialization for Vec<T> {
         } else {
             let mut output = String::with_capacity(MEMBER_NUMBER);
 
-            write!(output, "[{}", Self::LINE_ENDING).unwrap();
+            write!(output, "[{}", LINE_ENDING).unwrap();
             indentation += 1;
 
             for value in self.iter() {
@@ -244,7 +243,7 @@ impl<T: YypSerialization> YypSerialization for Vec<T> {
                     output,
                     "{},{}",
                     value.yyp_serialization(indentation),
-                    Self::LINE_ENDING
+                    LINE_ENDING
                 )
                 .unwrap();
             }

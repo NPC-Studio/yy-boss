@@ -1,7 +1,7 @@
 use super::{
     directory_manager::DirectoryManager,
     dirty_handler::{DirtyDrain, DirtyHandler},
-    FilesystemPath, YyResource,
+    YyResource,
 };
 use crate::YyResourceHandlerError;
 use anyhow::Result as AnyResult;
@@ -11,7 +11,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use yy_typings::{utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{utils::TrailingCommaUtility, FilesystemPath, ViewPath};
 
 #[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {
@@ -143,7 +143,7 @@ impl<T: YyResource> YyResourceHandler<T> {
                 let output = inner
                     .yy_resource
                     .deserialize_associated_data(
-                        &dir_path.join(&inner.yy_resource.relative_yy_directory()),
+                        &dir_path.join(inner.yy_resource.relative_yy_directory()),
                         tcu,
                     )
                     .map_err(|e| {
@@ -188,7 +188,7 @@ impl<T: YyResource> YyResourceHandler<T> {
             // Try to load this guy up...
             if assoc.is_none() {
                 let output = yy
-                    .deserialize_associated_data(&dir_path.join(&yy.relative_yy_directory()), tcu)
+                    .deserialize_associated_data(&dir_path.join(yy.relative_yy_directory()), tcu)
                     .map_err(|e| {
                         error!("Couldn't deserialize {}'s assoc data...{}", value, e);
                         e

@@ -1,3 +1,0 @@
-/// @desc 
-
-canvas.__updateChildren();

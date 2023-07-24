@@ -45,7 +45,6 @@ impl Vfs {
                         name: section.clone(),
                         path_to_parent: Some(path_to_parent),
                         // all of these are defaults..below we add in specs for each
-                        order: 0,
                         folders: vec![],
                         files: Files::new(),
                     });
@@ -59,16 +58,11 @@ impl Vfs {
             }
 
             // get the folder and add in its order and what not...
-            let f = Vfs::get_folder_mut(&mut self.root, &new_folder.folder_path).unwrap();
-            f.order = new_folder.order;
+            Vfs::get_folder_mut(&mut self.root, &new_folder.folder_path).unwrap();
         }
     }
 
-    pub(crate) fn load_in_file<T: YyResource>(
-        &mut self,
-        yy: &T,
-        order: usize,
-    ) -> Result<(), FolderGraphError> {
+    pub(crate) fn load_in_file<T: YyResource>(&mut self, yy: &T) -> Result<(), FolderGraphError> {
         // Add to the folder graph
         let folder =
             Vfs::get_folder_mut(&mut self.root, &yy.parent_view_path().path).ok_or_else(|| {
@@ -78,7 +72,7 @@ impl Vfs {
             })?;
 
         // add and sort
-        folder.files.load_in(yy, order, &mut self.resource_names);
+        folder.files.load_in(yy, &mut self.resource_names);
 
         Ok(())
     }
@@ -224,18 +218,11 @@ impl Vfs {
             return Err(FolderGraphError::FolderAlreadyPresent);
         }
 
-        let order = subfolder
-            .folders
-            .last()
-            .map(|f| f.order + 1)
-            .unwrap_or_default();
-
         // Create our Path...
         let path = parent_path.join(name.as_ref());
         subfolder.folders.push(FolderGraph::new(
             name.as_ref().to_owned(),
             subfolder.view_path_location(),
-            order,
         ));
 
         // reserialize it
@@ -433,13 +420,7 @@ impl Vfs {
                 path: yy.parent_view_path().path.inner().to_string(),
             })?;
 
-        let order = subfolder
-            .folders
-            .last()
-            .map(|f| f.order + 1)
-            .unwrap_or_default();
-
-        subfolder.files.add(yy, order, &mut self.resource_names);
+        subfolder.files.add(yy, &mut self.resource_names);
         Ok(())
     }
 
@@ -565,7 +546,6 @@ impl Vfs {
 
             let output = YypFolder {
                 folder_path: reserialize.clone(),
-                order: folder_data.order,
                 common_data: yy_typings::CommonData {
                     name: folder_data.name.clone(),
                     ..Default::default()
@@ -618,12 +598,10 @@ mod test {
 
         let root = FolderGraph {
             name: "folders".to_string(),
-            order: 0,
             path_to_parent: None,
             files: Files::new(),
             folders: vec![FolderGraph {
                 name: "Sprites".to_string(),
-                order: 0,
                 folders: vec![],
                 files: Files::new(),
                 path_to_parent: Some(ViewPathLocation::new("folders")),
@@ -658,11 +636,9 @@ mod test {
             vec![FolderGraph {
                 name: "Sprites".to_string(),
                 path_to_parent: Some(ViewPathLocation::new("folders")),
-                order: 0,
                 folders: vec![FolderGraph {
                     name: "Npcs".to_string(),
                     path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy")),
-                    order: 0,
                     folders: vec![],
                     files: Files::new(),
                 }],
@@ -693,7 +669,6 @@ mod test {
             maplit::hashset![
                 YypFolder {
                     folder_path: ViewPathLocation::new("folders/Sprites.yy"),
-                    order: 0,
                     common_data: yy_typings::CommonData {
                         name: "Sprites".to_string(),
                         ..Default::default()
@@ -701,7 +676,6 @@ mod test {
                 },
                 YypFolder {
                     folder_path: ViewPathLocation::new("folders/Sprites/Npcs.yy"),
-                    order: 0,
                     common_data: yy_typings::CommonData {
                         name: "Npcs".to_string(),
                         ..Default::default()
@@ -742,12 +716,10 @@ mod test {
             *found,
             FolderGraph {
                 name: "Sprites".to_string(),
-                order: 0,
                 path_to_parent: Some(ViewPathLocation::new("folders")),
                 folders: vec![FolderGraph {
                     name: "Another Subfolder".to_string(),
                     path_to_parent: Some(ViewPathLocation::new("folders/Sprites.yy",),),
-                    order: 0,
                     folders: vec![],
                     files: Files::new(),
                 },],
