@@ -160,16 +160,15 @@ impl YypSerialization for YypConfig {
             print_indentation(&mut output, indentation);
         }
 
+        write!(output, "],{}", LINE_ENDING).unwrap();
         print_indentation(&mut output, indentation);
-        write!(output, r#""name": "{}","#, self.name).unwrap();
-        output.push_str(LINE_ENDING);
+        write!(output, r#""name": "{}",{}"#, self.name, LINE_ENDING).unwrap();
 
         assert_eq!(
             old_indentation, indentation,
             "Child config stack must be balanced"
         );
 
-        write!(output, "],{}", LINE_ENDING).unwrap();
         indentation -= 1;
 
         assert_eq!(1, indentation, "Stack must be down to 1 indent.");
