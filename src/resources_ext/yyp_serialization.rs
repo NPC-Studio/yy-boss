@@ -77,6 +77,11 @@ pub fn serialize_yyp(yyp: &Yyp) -> String {
     }
     output_ptr.pop();
 
+    // second byte for the \r
+    if cfg!(target_os = "windows") {
+        output_ptr.pop();
+    }
+
     format!(
         "{{{line}{output}{line}}}",
         line = LINE_ENDING,
