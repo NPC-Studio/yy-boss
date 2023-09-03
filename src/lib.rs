@@ -1,50 +1,31 @@
 #![allow(clippy::bool_comparison)]
 #![warn(elided_lifetimes_in_paths)]
 
-mod boss {
-    use super::*;
+mod yy_resource;
+pub use yy_resource::{FileHolder, SerializedData, SerializedDataError, YyResource};
 
-    mod yy_resource;
-    pub use yy_resource::{FileHolder, SerializedData, SerializedDataError, YyResource};
+mod yyp_boss;
+pub use yyp_boss::YypBoss;
 
-    mod yyp_boss;
-    pub use yyp_boss::YypBoss;
+mod resources;
+pub use resources::Resource;
 
-    mod resources;
-    pub use resources::Resource;
+mod yy_resource_handler;
+pub use yy_resource_handler::{YyResourceData, YyResourceHandler};
 
-    mod yy_resource_handler;
-    pub use yy_resource_handler::{YyResourceData, YyResourceHandler};
+mod directory_manager;
+pub mod utils;
+pub use utils::{FileSerializationError, SerializationFormat};
 
-    mod directory_manager;
-    pub mod utils;
-    pub use utils::{FileSerializationError, SerializationFormat};
+mod project_metadata;
+pub use project_metadata::ProjectMetadata;
 
-    mod project_metadata;
-    pub use project_metadata::ProjectMetadata;
+mod errors;
+pub use errors::*;
 
-    mod errors;
-    pub use errors::*;
+mod dirty_handler;
 
-    mod dirty_handler;
-
-    pub mod folders {
-        mod folder_graph;
-        pub use folder_graph::*;
-
-        mod folder_graph_error;
-        pub use folder_graph_error::*;
-
-        mod vfs;
-        pub use vfs::*;
-
-        mod resource_names;
-        pub use resource_names::*;
-
-        mod file;
-        pub(crate) use file::*;
-    }
-}
+pub mod folders;
 
 mod resources_ext {
     use super::*;
@@ -89,6 +70,5 @@ mod resources_ext {
 
 pub mod cli;
 
-pub use boss::*;
 pub use resources_ext::*;
 pub use yy_typings;

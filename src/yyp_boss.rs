@@ -1,8 +1,7 @@
-use super::{
-    directory_manager::DirectoryManager, errors::*, folders::*, utils, YyResource, YyResourceData,
-    YyResourceHandler,
+use crate::{
+    directory_manager::DirectoryManager, errors::*, folders::*, utils, FileSerializationError,
+    ProjectMetadata, Resource, YyResource, YyResourceData, YyResourceHandler,
 };
-use crate::{FileSerializationError, ProjectMetadata, Resource};
 use anyhow::Result as AnyResult;
 use object_yy::Object;
 use shader::Shader;

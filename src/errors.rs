@@ -1,7 +1,4 @@
-use crate::{
-    boss::{folders::FolderGraphError, FileSerializationError},
-    Resource, SerializedDataError,
-};
+use crate::{folders::FolderGraphError, FileSerializationError, Resource, SerializedDataError};
 use std::path::PathBuf;
 use thiserror::Error;
 

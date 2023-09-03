@@ -1,10 +1,12 @@
-use super::{Files, FolderGraph, FolderGraphError, Item, ResourceDescriptor, ResourceNames};
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
+
 use crate::{
-    boss::dirty_handler::{DirtyDrain, DirtyHandler},
+    dirty_handler::{DirtyDrain, DirtyHandler},
     PathStrExt, Resource, ViewPathLocationExt, YyResource,
 };
-use std::collections::HashMap;
-use yy_typings::{FilesystemPath, ViewPath, ViewPathLocation, YypFolder, YypResource};
 
 static ROOT_FOLDER_VIEW_PATH: once_cell::sync::Lazy<ViewPathLocation> =
     once_cell::sync::Lazy::new(ViewPathLocation::root_folder);
@@ -576,15 +578,395 @@ impl Vfs {
     }
 }
 
+#[derive(Debug, Clone, Eq, Serialize, Deserialize, Default)]
+pub struct FolderGraph {
+    pub name: String,
+    pub path_to_parent: Option<ViewPathLocation>,
+    pub folders: Vec<FolderGraph>,
+    pub files: Files,
+}
+
+impl PartialEq for FolderGraph {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl std::hash::Hash for FolderGraph {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
+impl FolderGraph {
+    pub(super) fn root() -> FolderGraph {
+        FolderGraph {
+            name: "folders".to_string(),
+            path_to_parent: None,
+            files: Files::new(),
+            folders: vec![],
+        }
+    }
+
+    pub fn new(name: String, parent: ViewPathLocation) -> FolderGraph {
+        FolderGraph {
+            name,
+            path_to_parent: Some(parent),
+            files: Files::new(),
+            folders: vec![],
+        }
+    }
+
+    pub fn view_path_location(&self) -> ViewPathLocation {
+        match &self.path_to_parent {
+            Some(parent_path) => parent_path.join(&self.name),
+            None => ViewPathLocation::root_folder(),
+        }
+    }
+
+    pub fn view_path(&self) -> ViewPath {
+        let path = self.view_path_location();
+
+        ViewPath {
+            name: self.name.clone(),
+            path,
+        }
+    }
+
+    pub(super) fn get_folder_by_fname_mut<'a>(
+        &'a mut self,
+        name: &str,
+    ) -> Option<&'a mut FolderGraph> {
+        if self.files.contains_name(name) {
+            return Some(self);
+        }
+
+        for subfolder in self.folders.iter_mut() {
+            if let Some(found) = subfolder.get_folder_by_fname_mut(name) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    pub(super) fn get_folder_by_fname<'a>(&'a self, name: &str) -> Option<&'a FolderGraph> {
+        if self.files.contains_name(name) {
+            return Some(self);
+        }
+
+        for subfolder in self.folders.iter() {
+            if let Some(found) = subfolder.get_folder_by_fname(name) {
+                return Some(found);
+            }
+        }
+
+        None
+    }
+
+    pub fn to_flat(&self, resource_names: &ResourceNames) -> FlatFolderGraph {
+        let view_path = self.view_path();
+
+        FlatFolderGraph {
+            path_to_parent: self.path_to_parent.clone(),
+            folders: self.folders.iter().map(|v| v.view_path()).collect(),
+            files: self
+                .files
+                .inner()
+                .iter()
+                .filter_map(|v| {
+                    resource_names
+                        .get(&v.name)
+                        .map(|rd| FlatResourceDescriptor {
+                            filesystem_path: v.clone(),
+                            resource_descriptor: rd.clone(),
+                        })
+                })
+                .collect(),
+            view_path,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, Ord, PartialOrd, PartialEq, Serialize, Deserialize, Hash)]
+pub enum Item {
+    Folder,
+    Resource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatFolderGraph {
+    pub view_path: ViewPath,
+    pub path_to_parent: Option<ViewPathLocation>,
+    pub folders: Vec<ViewPath>,
+    pub files: Vec<FlatResourceDescriptor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlatResourceDescriptor {
+    pub filesystem_path: FilesystemPath,
+    pub resource_descriptor: ResourceDescriptor,
+}
+
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum FolderGraphError {
+    #[error("path {} was not found", .path)]
+    PathNotFound { path: String },
+
+    #[error("folder already existed at that location")]
+    FolderAlreadyPresent,
+
+    #[error("file already existed at that location")]
+    FileAlreadyPresent,
+
+    #[error("foldergraph is out of sync with internal Yyp -- yypboss is in undefined state")]
+    InternalError,
+
+    #[error("couldn't remove folder, not empty")]
+    CannotRemoveFolder,
+
+    #[error("cannot remove the root folder, why are you doing that don't do that come on now")]
+    CannotEditRootFolder,
+
+    #[error("cannot move folder inside itself")]
+    InvalidMoveDestination,
+
+    #[error(transparent)]
+    ResourceNameError(#[from] ResourceNameError),
+}
+
+#[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(tag = "resourceNameError")]
+pub enum ResourceNameError {
+    #[error("cannot use that resource name, as that name is being used already by a {}", .existing_resource)]
+    #[serde(rename_all = "camelCase")]
+    BadResourceName { existing_resource: Resource },
+
+    #[error("no resource found of that name")]
+    NoResourceByThatName,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct ResourceNames {
+    names: HashMap<String, ResourceDescriptor>,
+    dirty_handler: DirtyHandler<String>,
+}
+
+impl ResourceNames {
+    pub(crate) fn new() -> Self {
+        Self {
+            names: HashMap::new(),
+            dirty_handler: DirtyHandler::new(),
+        }
+    }
+
+    pub(crate) fn load_in_resource(&mut self, name: String, resource: ResourceDescriptor) {
+        self.names.insert(name, resource);
+    }
+
+    pub(crate) fn insert(
+        &mut self,
+        name: String,
+        resource: ResourceDescriptor,
+    ) -> Option<ResourceDescriptor> {
+        if let Some(ret) = self.names.insert(name.clone(), resource) {
+            self.dirty_handler.edit(name);
+            Some(ret)
+        } else {
+            self.dirty_handler.add(name);
+            None
+        }
+    }
+
+    pub(crate) fn remove(&mut self, name: &str) -> Option<ResourceDescriptor> {
+        if let Some(output) = self.names.remove(name) {
+            self.dirty_handler.remove(name);
+            Some(output)
+        } else {
+            None
+        }
+    }
+
+    pub fn get(&self, name: &str) -> Option<&ResourceDescriptor> {
+        self.names.get(name)
+    }
+
+    /// Returns all the currently known names and descriptors in the project.
+    pub fn inner(&self) -> &HashMap<String, ResourceDescriptor> {
+        &self.names
+    }
+
+    pub(crate) fn get_checked(
+        &self,
+        name: &str,
+        r: Resource,
+    ) -> Result<&ResourceDescriptor, ResourceNameError> {
+        match self.get(name) {
+            Some(v) => {
+                if v.resource == r {
+                    Ok(v)
+                } else {
+                    Err(ResourceNameError::BadResourceName {
+                        existing_resource: r,
+                    })
+                }
+            }
+            None => Err(ResourceNameError::NoResourceByThatName),
+        }
+    }
+
+    pub(crate) fn serialize(&mut self, yyp_resources: &mut Vec<YypResource>) {
+        let DirtyDrain {
+            resources_to_reserialize,
+            resources_to_remove,
+            associated_values: _,
+        } = self.dirty_handler.drain_all();
+
+        for (refried_bean, _) in resources_to_reserialize {
+            let desc = &self.names[&refried_bean];
+
+            if let Some(pos) = yyp_resources.iter().position(|v| v.id.name == refried_bean) {
+                let rsc = desc.to_yyp_resource(&refried_bean);
+                yyp_resources[pos].id = rsc.id;
+            } else {
+                yyp_resources.push(desc.to_yyp_resource(&refried_bean));
+            }
+        }
+
+        for (name, _) in resources_to_remove {
+            if let Some(pos) = yyp_resources.iter().position(|v| v.id.name == name) {
+                yyp_resources.remove(pos);
+            }
+        }
+    }
+}
+
+#[derive(
+    Debug, PartialEq, Eq, Clone, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceDescriptor {
+    pub resource: Resource,
+    pub parent_location: ViewPathLocation,
+}
+
+impl ResourceDescriptor {
+    pub fn new(resource: Resource, view_path_location: ViewPathLocation) -> Self {
+        Self {
+            resource,
+            parent_location: view_path_location,
+        }
+    }
+
+    pub fn to_yyp_resource(&self, name: &str) -> YypResource {
+        YypResource {
+            id: FilesystemPath::new(self.resource.subpath_name(), name),
+        }
+    }
+}
+
+#[derive(Default, Debug, Eq, PartialEq, Clone, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct Files(Vec<FilesystemPath>);
+
+impl Files {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_vec(fpaths: Vec<FilesystemPath>) -> Self {
+        Self(fpaths)
+    }
+
+    pub fn contains_name(&self, name: &str) -> bool {
+        self.0.iter().any(|f| f.name == *name)
+    }
+
+    pub fn load_in<T: YyResource>(&mut self, yy: &T, rn: &mut ResourceNames) {
+        self.0.push(FilesystemPath::new(T::SUBPATH_NAME, yy.name()));
+
+        // add to resource names...
+        rn.load_in_resource(
+            yy.name().to_string(),
+            ResourceDescriptor::new(T::RESOURCE, yy.parent_view_path().path),
+        );
+    }
+
+    pub fn add<T: YyResource>(&mut self, yy: &T, rn: &mut ResourceNames) {
+        self.attach(FilesystemPath::new(T::SUBPATH_NAME, yy.name()));
+
+        // add to resource names...
+        rn.insert(
+            yy.name().to_string(),
+            ResourceDescriptor::new(T::RESOURCE, yy.parent_view_path().path),
+        );
+    }
+
+    pub fn drain_into(
+        &mut self,
+        rn: &mut ResourceNames,
+        buf: &mut HashMap<FilesystemPath, ResourceDescriptor>,
+    ) {
+        for file in self.0.drain(..) {
+            let v = rn.remove(&file.name).unwrap();
+            buf.insert(file, v);
+        }
+    }
+
+    pub fn remove(&mut self, name: &str, rn: &mut ResourceNames) {
+        self.detach(name);
+        rn.remove(name);
+    }
+
+    pub fn edit_name(
+        &mut self,
+        name: &str,
+        new_name: String,
+        resource: Resource,
+        rn: &mut ResourceNames,
+    ) {
+        // rename our own thing...
+        if let Some(fpath) = self.0.iter_mut().find(|v| v.name == name) {
+            *fpath = FilesystemPath::new(resource.subpath_name(), &new_name);
+        }
+
+        // remove the old name...
+        if let Some(resource_desc) = rn.remove(name) {
+            rn.insert(new_name, resource_desc);
+        }
+    }
+
+    pub fn attach(&mut self, fsyspath: FilesystemPath) {
+        self.0.push(fsyspath);
+    }
+
+    pub fn detach(&mut self, name: &str) -> Option<FilesystemPath> {
+        self.0
+            .iter()
+            .position(|v| v.name == name)
+            .map(|p| self.0.remove(p))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn inner(&self) -> &Vec<FilesystemPath> {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::boss::dirty_handler::DirtyState;
+
+    use crate::dirty_handler::DirtyState;
     use maplit::hashmap;
     // use pretty_assertions::assert_eq;
     use super::YyResource;
     use std::{collections::HashSet, path::Path};
-    use yy_typings::script::Script;
+    use yy_typings::{script::Script, ViewPathLocation, YypFolder};
 
     #[test]
     fn folder_manipulations() {

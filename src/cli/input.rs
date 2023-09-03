@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use yy_typings::{ViewPath, ViewPathLocation};
 
-use crate::boss::{Resource, SerializedData};
+use crate::{Resource, SerializedData};
 
 /// The type of command to give, pertaining to each of the general areas the YyBoss can give.
 ///
