@@ -1,7 +1,9 @@
-use super::{
-    input::{Command, CreateCommand, NewResource, ResourceCommandType, UtilityCommand, VfsCommand},
-    output::{CommandOutput, Output, YypBossError},
-};
+mod input;
+pub use input::*;
+
+mod output;
+pub use output::*;
+
 use crate::{
     folders::FolderGraphError, utils, ResourceManipulationError, SerializedData,
     SerializedDataError,
@@ -98,15 +100,13 @@ pub fn parse_command(
                 }
             }
             ResourceCommandType::Get { identifier } => match resource_command.resource {
-                Resource::Sprite => get_resource::<Sprite>(yyp_boss, working_directory, identifier),
-                Resource::Script => get_resource::<Script>(yyp_boss, working_directory, identifier),
-                Resource::Object => get_resource::<Object>(yyp_boss, working_directory, identifier),
-                Resource::Note => get_resource::<Note>(yyp_boss, working_directory, identifier),
-                Resource::Shader => get_resource::<Shader>(yyp_boss, working_directory, identifier),
-                Resource::Room => get_resource::<Room>(yyp_boss, working_directory, identifier),
-                Resource::TileSet => {
-                    get_resource::<TileSet>(yyp_boss, working_directory, identifier)
-                }
+                Resource::Sprite => get_resource::<Sprite>(yyp_boss, identifier),
+                Resource::Script => get_resource::<Script>(yyp_boss, identifier),
+                Resource::Object => get_resource::<Object>(yyp_boss, identifier),
+                Resource::Note => get_resource::<Note>(yyp_boss, identifier),
+                Resource::Shader => get_resource::<Shader>(yyp_boss, identifier),
+                Resource::Room => get_resource::<Room>(yyp_boss, identifier),
+                Resource::TileSet => get_resource::<TileSet>(yyp_boss, identifier),
                 Resource::AnimationCurve
                 | Resource::Extension
                 | Resource::Font
@@ -465,7 +465,6 @@ fn remove<T: YyResource>(
 
 fn get_resource<T: YyResource>(
     yyp_boss: &YypBoss,
-    working_directory: &Utf8Path,
     resource_name: String,
 ) -> Result<CommandOutput, YypBossError> {
     match yyp_boss.get_resource::<T>(&resource_name) {

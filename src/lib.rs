@@ -87,26 +87,7 @@ mod resources_ext {
     pub type SpriteImageBuffer = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
 }
 
-#[allow(dead_code)]
-pub mod cli {
-    /// All input which the cli can receive as Json has their Rust forms defined here.
-    pub mod input;
-
-    /// All output which the cli can output as Json has their Rust forms defined here.
-    pub mod output;
-
-    /// All startup options which the cli can receive as Json has their Rust forms defined here.
-    pub mod startup;
-
-    /// Logging options for using the Cli.
-    pub mod logging;
-
-    #[doc(hidden)]
-    pub(super) mod main_loop;
-
-    #[doc(hidden)]
-    pub mod yy_cli;
-}
+pub mod cli;
 
 pub use boss::*;
 pub use resources_ext::*;

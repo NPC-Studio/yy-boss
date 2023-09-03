@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
-use crate::{Resource, SerializedData};
 use yy_typings::{ViewPath, ViewPathLocation};
+
+use crate::boss::{Resource, SerializedData};
 
 /// The type of command to give, pertaining to each of the general areas the YyBoss can give.
 ///
@@ -32,9 +33,6 @@ pub enum Command {
     /// A command type to serialize current changes. This currently serializes all changes which the YypBoss
     /// tracks, including Assets and Pipelines.
     Serialize,
-
-    /// A command type to shutdown the YypBoss. If there are changes to be made, they will be permanently lost.
-    Shutdown,
 }
 
 /// A resource command, which will allow users to read and write resources

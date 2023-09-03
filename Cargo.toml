@@ -8,20 +8,12 @@ description = "A collection of typings for GameMaker Studio 2 YY and YYP files"
 repository = "https://github.com/NPC-Studio/yy-boss"
 readme = "README.md"
 
-[lib]
-name = "yy_boss"
-path = "src/lib.rs"
-
-[[bin]]
-name = "yy-boss-cli"
-path = "src/bin.rs"
-
 [dependencies]
 yy-typings = "0.5.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
-semver = {version = "1.0", features = ["serde"] }
+semver = { version = "1.0", features = ["serde"] }
 
 strum = "0.22"
 strum_macros = "0.22"
@@ -39,8 +31,9 @@ once_cell = "1.4"
 simple-logging = "2.0"
 log-panics = "2.0"
 uuid = { version = "0.8", features = ["serde", "v4"] }
+camino = "1.1.6"
 
 [dev-dependencies]
-include_dir = { version = "0.6", features = ["search"]}
+include_dir = { version = "0.6", features = ["search"] }
 pretty_assertions = "1"
 console = "0.15"
