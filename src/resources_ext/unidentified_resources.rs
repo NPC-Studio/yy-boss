@@ -87,5 +87,4 @@ unidentified_resource!(Extension, "extensions", Resource::Extension, extensions)
 unidentified_resource!(Font, "fonts", Resource::Font, fonts);
 unidentified_resource!(YyPath, "paths", Resource::Path, paths);
 unidentified_resource!(Sequence, "sequences", Resource::Sequence, sequences);
-// unidentified_resource!(Sound, "sounds", Resource::Sound, sounds);
 unidentified_resource!(Timeline, "timelines", Resource::Timeline, timelines);
