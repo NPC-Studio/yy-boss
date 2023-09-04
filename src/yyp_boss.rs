@@ -44,57 +44,11 @@ pub struct YypBoss {
 }
 
 impl YypBoss {
-    /// Creates a new YyBoss Manager and performs startup file reading.
-    pub fn new<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
-        Self::with_startup_injest(path_to_yyp, &[Resource::Object])
-    }
-
-    pub fn with_startup_injest<P: AsRef<Path>>(
+    pub fn new<P: AsRef<Path>>(
         path_to_yyp: P,
         resources_to_scan: &[Resource],
     ) -> Result<YypBoss, StartupError> {
-        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU).map_err(|e| match e {
-            FileSerializationError::Serde(e) => StartupError::BadYypDeserialize(e),
-            FileSerializationError::Io(error) => StartupError::BadYypPath {
-                yyp_filepath: path_to_yyp.as_ref().to_owned(),
-                error,
-            },
-        })?;
-
-        let (l_req, requirement) = Yyp::DEFAULT_VERSION
-            .split_once('.')
-            .map(|(l, r)| (l, semver::VersionReq::parse(r).unwrap()))
-            .unwrap();
-
-        let (l_actual, r_actual) = yyp
-            .meta_data
-            .ide_version
-            .split_once('.')
-            .map(|(l, r)| (l, semver::Version::parse(r).unwrap()))
-            .unwrap();
-
-        if l_req != l_actual {
-            return Err(StartupError::YypYearNotMatch(
-                l_req.to_string(),
-                l_actual.to_string(),
-            ));
-        }
-
-        if requirement.matches(&r_actual) == false {
-            return Err(StartupError::YypDoesNotMatch(requirement, r_actual));
-        }
-
-        let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
-
-        let mut yyp_boss = Self {
-            vfs: Vfs::new(&yyp.common_data.name),
-            directory_manager,
-            yyp,
-            ..Self::default()
-        };
-
-        // Load in Folders
-        yyp_boss.vfs.load_in_folders(&yyp_boss.yyp.folders);
+        let mut yyp_boss = Self::without_resources(path_to_yyp)?;
 
         // load in all of our resources...
         for yyp_resource in yyp_boss.yyp.resources.clone().into_iter() {
@@ -171,6 +125,80 @@ impl YypBoss {
 
             Ok(())
         }
+    }
+
+    /// Loads the yyp *without* any resources. This is very fast and ideal for quick edits.
+    pub fn without_resources<P: AsRef<Path>>(path_to_yyp: P) -> Result<YypBoss, StartupError> {
+        let yyp: Yyp = utils::deserialize_json_tc(&path_to_yyp, &TCU).map_err(|e| match e {
+            FileSerializationError::Serde(e) => StartupError::BadYypDeserialize(e),
+            FileSerializationError::Io(error) => StartupError::BadYypPath {
+                yyp_filepath: path_to_yyp.as_ref().to_owned(),
+                error,
+            },
+        })?;
+
+        let (l_req, requirement) = Yyp::DEFAULT_VERSION
+            .split_once('.')
+            .map(|(l, r)| (l, semver::VersionReq::parse(r).unwrap()))
+            .unwrap();
+
+        let (l_actual, r_actual) = yyp
+            .meta_data
+            .ide_version
+            .split_once('.')
+            .map(|(l, r)| (l, semver::Version::parse(r).unwrap()))
+            .unwrap();
+
+        if l_req != l_actual {
+            return Err(StartupError::YypYearNotMatch(
+                l_req.to_string(),
+                l_actual.to_string(),
+            ));
+        }
+
+        if requirement.matches(&r_actual) == false {
+            return Err(StartupError::YypDoesNotMatch(requirement, r_actual));
+        }
+
+        let directory_manager = DirectoryManager::new(path_to_yyp.as_ref())?;
+
+        let mut yyp_boss = Self {
+            vfs: Vfs::new(&yyp.common_data.name),
+            directory_manager,
+            yyp,
+            ..Self::default()
+        };
+
+        // Load in Folders
+        yyp_boss.vfs.load_in_folders(&yyp_boss.yyp.folders);
+
+        Ok(yyp_boss)
+    }
+
+    /// This fills in names, internally, without loading those resources. This makes startup very fast,
+    /// but *only* do this if you know what you're doing, as the Vfs will no longer be accurate.
+    pub fn quick_name(&mut self) -> Result<(), StartupError> {
+        for yyp_resource in self.yyp.resources.clone() {
+            let path_as_str = yyp_resource.id.path.to_string_lossy();
+
+            let subpath = path_as_str
+                .split('/')
+                .next()
+                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?;
+
+            let resource = Resource::parse_subpath(subpath)
+                .ok_or_else(|| StartupError::BadResourceListing(yyp_resource.id.path.clone()))?;
+
+            self.vfs.resource_names.insert(
+                yyp_resource.id.name.clone(),
+                ResourceDescriptor {
+                    resource,
+                    parent_location: self.project_metadata().root_file.path,
+                },
+            );
+        }
+
+        Ok(())
     }
 
     /// Gets the default texture path, if it exists. The "Default" group simply
