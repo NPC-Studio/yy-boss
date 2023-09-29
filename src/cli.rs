@@ -289,7 +289,7 @@ pub fn parse_command(
             UtilityCommand::PrettyEventNames { event_names: v } => {
                 let mut output = v
                     .into_iter()
-                    .map(|v| EventType::parse_filename_simple(&v).map_err(|_| v.to_string()))
+                    .map(|v| EventType::parse_filename_heuristic(&v).map_err(|_| v.to_string()))
                     .collect::<Vec<_>>();
                 output.sort();
 
@@ -307,7 +307,7 @@ pub fn parse_command(
             UtilityCommand::CreateEvent {
                 identifier,
                 event_file_name,
-            } => match EventType::parse_filename_simple(&event_file_name) {
+            } => match EventType::parse_filename_heuristic(&event_file_name) {
                 Ok(event_type) => {
                     match yyp_boss.ensure_associated_data_is_loaded::<Object>(&identifier, false) {
                         Ok(()) => {
@@ -338,7 +338,7 @@ pub fn parse_command(
             UtilityCommand::DeleteEvent {
                 identifier,
                 event_file_name,
-            } => match EventType::parse_filename_simple(&event_file_name) {
+            } => match EventType::parse_filename_heuristic(&event_file_name) {
                 Ok(event_type) => {
                     match yyp_boss.ensure_associated_data_is_loaded::<Object>(&identifier, false) {
                         Ok(()) => {
@@ -385,7 +385,7 @@ pub fn parse_command(
                 event_file_name,
             } => {
                 if let Some(object) = yyp_boss.objects.get(&object_name) {
-                    if EventType::parse_filename_simple(&event_file_name).is_ok() {
+                    if EventType::parse_filename_heuristic(&event_file_name).is_ok() {
                         let path = yyp_boss
                             .directory_manager
                             .resource_file(&object.yy_resource.relative_yy_directory())
