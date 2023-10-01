@@ -11,7 +11,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use yy_typings::{utils::TrailingCommaUtility, FilesystemPath, ViewPath};
+use yy_typings::{FilesystemPath, TrailingCommaUtility, ViewPath};
 
 #[derive(Debug, PartialEq)]
 pub struct YyResourceHandler<T: YyResource> {

@@ -3,7 +3,7 @@ use crate::{
     YyResourceHandler, YypBoss,
 };
 use std::path::Path;
-use yy_typings::{shader::Shader, utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{Shader, TrailingCommaUtility, ViewPath};
 
 impl YyResource for Shader {
     type AssociatedData = ShaderFile;

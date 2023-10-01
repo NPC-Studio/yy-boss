@@ -32,6 +32,3 @@ mod resources_ext;
 pub use resources_ext::*;
 
 pub mod cli;
-
-/// We re-export yy_typings to help dependencies by users.
-pub use yy_typings;

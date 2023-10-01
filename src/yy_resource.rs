@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     path::{Path, PathBuf},
 };
-use yy_typings::{utils::TrailingCommaUtility, FilesystemPath, ViewPath};
+use yy_typings::{FilesystemPath, TrailingCommaUtility, ViewPath};
 
 pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + PartialEq {
     type AssociatedData: Debug + Clone + PartialEq + Default;

@@ -966,7 +966,7 @@ mod test {
     // use pretty_assertions::assert_eq;
     use super::YyResource;
     use std::{collections::HashSet, path::Path};
-    use yy_typings::{script::Script, ViewPathLocation, YypFolder};
+    use yy_typings::{Script, ViewPathLocation, YypFolder};
 
     #[test]
     fn folder_manipulations() {

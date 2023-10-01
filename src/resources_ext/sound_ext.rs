@@ -3,7 +3,7 @@ use crate::{
     YypBoss,
 };
 use std::{fs, path::Path};
-use yy_typings::{sound::Sound, utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{Sound, TrailingCommaUtility, ViewPath};
 
 impl YyResource for Sound {
     type AssociatedData = Vec<u8>;

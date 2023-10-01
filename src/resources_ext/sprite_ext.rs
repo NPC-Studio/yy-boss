@@ -6,7 +6,25 @@ use anyhow::Context;
 use anyhow::Result as AnyResult;
 use image::{ImageBuffer, Rgba};
 use std::{collections::HashMap, num::NonZeroUsize, path::Path};
-use yy_typings::{sprite_yy::*, utils::TrailingCommaUtility, TexturePath};
+use yy_typings::BBoxMode;
+use yy_typings::Channels;
+use yy_typings::CollisionKind;
+use yy_typings::CommonData;
+use yy_typings::FilesystemPath;
+use yy_typings::FrameId;
+use yy_typings::LayerId;
+use yy_typings::Origin;
+use yy_typings::PlaybackSpeed;
+use yy_typings::Sprite;
+use yy_typings::SpriteKeyframe;
+use yy_typings::SpriteLayer;
+use yy_typings::SpriteSequence;
+use yy_typings::SpriteSequenceId;
+use yy_typings::SpriteZeroChannel;
+use yy_typings::TexturePath;
+use yy_typings::Track;
+use yy_typings::TrailingCommaUtility;
+use yy_typings::ViewPath;
 
 pub type SpriteImageBuffer = ImageBuffer<Rgba<u8>, Vec<u8>>;
 
@@ -16,7 +34,7 @@ pub trait SpriteExt: Sized {
     fn with_layer(
         name: &str,
         texture_group_id: TexturePath,
-        layer: Layer,
+        layer: SpriteLayer,
         parent: ViewPath,
     ) -> Sprite;
     fn parent(self, parent: ViewPath) -> Sprite;
@@ -49,7 +67,7 @@ impl SpriteExt for Sprite {
         Sprite::with_layer(
             name,
             texture_group_id,
-            Layer {
+            SpriteLayer {
                 visible: true,
                 is_locked: false,
                 blend_mode: 0,
@@ -65,7 +83,7 @@ impl SpriteExt for Sprite {
     fn with_layer(
         name: &str,
         texture_group_id: TexturePath,
-        layer: Layer,
+        layer: SpriteLayer,
         parent: ViewPath,
     ) -> Sprite {
         Sprite {
@@ -256,7 +274,7 @@ impl YyResource for Sprite {
             let image_layer_id = self
                 .layers
                 .first()
-                .ok_or_else(|| anyhow::anyhow!("All Sprites *must* have a single Layer!"))?
+                .ok_or_else(|| anyhow::anyhow!("All Sprites *must* have a single SpriteLayer!"))?
                 .common_data
                 .name
                 .inner()

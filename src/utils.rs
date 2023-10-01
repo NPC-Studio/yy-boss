@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 use thiserror::Error;
-use yy_typings::utils::TrailingCommaUtility;
+use yy_typings::TrailingCommaUtility;
 
 #[derive(Debug, Error, Serialize, Deserialize)]
 #[serde(rename = "camelCase")]

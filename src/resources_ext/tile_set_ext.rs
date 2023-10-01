@@ -47,7 +47,7 @@ impl YyResource for TileSet {
     fn deserialize_associated_data(
         &self,
         _directory_path: &std::path::Path,
-        _tcu: &yy_typings::utils::TrailingCommaUtility,
+        _tcu: &yy_typings::TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, crate::SerializedDataError> {
         Ok(())
     }
@@ -64,7 +64,7 @@ impl YyResource for TileSet {
     fn deserialize_associated_data_from_data(
         &self,
         _incoming_data: &crate::SerializedData,
-        _tcu: &yy_typings::utils::TrailingCommaUtility,
+        _tcu: &yy_typings::TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, crate::SerializedDataError> {
         Ok(())
     }

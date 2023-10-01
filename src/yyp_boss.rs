@@ -3,15 +3,11 @@ use crate::{
     ProjectMetadata, Resource, YyResource, YyResourceData, YyResourceHandler,
 };
 use anyhow::Result as AnyResult;
-use object_yy::Object;
-use shader::Shader;
 use std::{fs, path::Path};
 use yy_typings::{
-    script::Script,
-    sound::Sound,
-    sprite_yy::*,
-    utils::{ResourceNameValidator, TrailingCommaUtility},
-    AnimationCurve, Font, Path as YyPath, Yyp,
+    AnimationCurve, Extension, Font, Note, Object, Path as YyPath, ResourceNameValidator, Room,
+    Script, Sequence, Shader, Sound, Sprite, TexturePath, TileSet, Timeline, TrailingCommaUtility,
+    ViewPath, ViewPathLocation, Yyp, YypResource,
 };
 
 static TCU: once_cell::sync::Lazy<TrailingCommaUtility> =
@@ -29,8 +25,8 @@ pub struct YypBoss {
     pub shaders: YyResourceHandler<Shader>,
     pub notes: YyResourceHandler<Note>,
     pub sounds: YyResourceHandler<Sound>,
-    pub rooms: YyResourceHandler<Room>,
 
+    pub rooms: YyResourceHandler<Room>,
     pub animation_curves: YyResourceHandler<AnimationCurve>,
     pub extensions: YyResourceHandler<Extension>,
     pub fonts: YyResourceHandler<Font>,

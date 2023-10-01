@@ -1,8 +1,8 @@
 use super::YyResource;
 use std::fmt;
 use yy_typings::{
-    object_yy::Object, script::Script, shader::Shader, sound::Sound, sprite_yy::Sprite,
-    AnimationCurve, Extension, Font, Note, Path, Room, Sequence, TileSet, Timeline,
+    AnimationCurve, Extension, Font, Note, Object, Path, Room, Script, Sequence, Shader, Sound,
+    Sprite, TileSet, Timeline,
 };
 
 #[derive(

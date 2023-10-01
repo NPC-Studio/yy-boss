@@ -4,8 +4,8 @@ use crate::{
 };
 use std::path::Path;
 use yy_typings::{
-    utils::TrailingCommaUtility, AnimationCurve, Extension, Font, Path as YyPath, Sequence,
-    Timeline, ViewPath,
+    AnimationCurve, Extension, Font, Path as YyPath, Room, Sequence, Timeline,
+    TrailingCommaUtility, ViewPath,
 };
 
 macro_rules! unidentified_resource {
@@ -88,3 +88,4 @@ unidentified_resource!(Font, "fonts", Resource::Font, fonts);
 unidentified_resource!(YyPath, "paths", Resource::Path, paths);
 unidentified_resource!(Sequence, "sequences", Resource::Sequence, sequences);
 unidentified_resource!(Timeline, "timelines", Resource::Timeline, timelines);
+unidentified_resource!(Room, "rooms", Resource::Room, rooms);

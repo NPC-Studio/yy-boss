@@ -3,7 +3,7 @@ use crate::{
     YyResourceHandler, YypBoss,
 };
 use std::path::Path;
-use yy_typings::{utils::TrailingCommaUtility, Note, ViewPath};
+use yy_typings::{Note, TrailingCommaUtility, ViewPath};
 
 impl YyResource for Note {
     type AssociatedData = String;

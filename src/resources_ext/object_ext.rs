@@ -1,10 +1,11 @@
+use yy_typings::{CommonData, EventType, Object, ObjectEvent, TrailingCommaUtility, ViewPath};
+
 use crate::{
     FileHolder, FileSerializationError, Resource, SerializedData, SerializedDataError, YyResource,
     YyResourceHandler, YypBoss,
 };
 
 use std::{collections::HashMap, path::Path};
-use yy_typings::{sprite_yy::object_yy::*, utils::TrailingCommaUtility, ViewPath};
 
 impl YyResource for Object {
     type AssociatedData = HashMap<EventType, String>;
@@ -46,7 +47,7 @@ impl YyResource for Object {
 
         for event_type in self.event_list.iter().map(|v| v.event_type) {
             if let Some(gml) = data.get(&event_type) {
-                let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
+                let path = directory_path.join(format!("{}.gml", event_type.filename()));
                 if path.exists() == false {
                     log::info!("writing {} to {}", gml, path.display());
                     std::fs::write(&path, gml)?;
@@ -81,7 +82,7 @@ impl YyResource for Object {
         let mut associated_data = HashMap::new();
 
         for event_type in self.event_list.iter().map(|v| v.event_type) {
-            let path = directory_path.join(format!("{}.gml", event_type.filename_simple()));
+            let path = directory_path.join(format!("{}.gml", event_type.filename()));
             // chaotically, gamemaker will not make new blank gml scripts
             let val = if path.exists() == false {
                 String::new()
@@ -105,7 +106,7 @@ impl YyResource for Object {
     ) -> Result<SerializedData, SerializedDataError> {
         let simple_map: HashMap<String, String> = associated_data
             .iter()
-            .map(|(k, v)| (k.filename_simple(), v.clone()))
+            .map(|(k, v)| (k.filename(), v.clone()))
             .collect();
 
         let uuid = uuid::Uuid::new_v4().to_string();
@@ -193,7 +194,7 @@ impl YyResource for Object {
     fn cleanup_on_replace(&self, mut files_to_delete: impl FileHolder) {
         for event in self.event_list.iter() {
             let path =
-                Path::new(&format!("{}.gml", event.event_type.filename_simple())).to_path_buf();
+                Path::new(&format!("{}.gml", event.event_type.filename())).to_path_buf();
             files_to_delete.push(path);
         }
     }

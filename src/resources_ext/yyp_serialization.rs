@@ -1,7 +1,7 @@
 use std::fmt::Write;
 pub use yy_typings::{
-    texture_group::TextureGroup, AudioGroup, FilesystemPath, ResourceVersion, RoomOrderId, Tags,
-    Yyp, YypConfig, YypFolder, YypIncludedFile, YypMetaData, YypResource,
+    AudioGroup, FilesystemPath, ResourceVersion, RoomOrderId, TextureGroup, Yyp, YypConfig,
+    YypFolder, YypIncludedFile, YypMetaData, YypResource,
 };
 
 const BIG_NUMBER: usize = 2000;

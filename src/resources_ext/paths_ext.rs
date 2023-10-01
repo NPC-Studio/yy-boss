@@ -1,6 +1,6 @@
 use std::{iter::Skip, str::Split};
 use thiserror::Error;
-use yy_typings::{utils::ResourceNameValidator, TexturePathLocation, ViewPathLocation};
+use yy_typings::{ResourceNameValidator, TexturePathLocation, ViewPathLocation};
 
 pub trait ViewPathLocationExt {
     /// Iterates over the folder subpaths -- not including the root `folders`.
@@ -26,7 +26,10 @@ pub trait TexturePathLocationExt: Sized {
 }
 
 impl TexturePathLocationExt for TexturePathLocation {
-    fn new(texture_group_name: &str, pv: &ResourceNameValidator) -> Result<TexturePathLocation, PathError> {
+    fn new(
+        texture_group_name: &str,
+        pv: &ResourceNameValidator,
+    ) -> Result<TexturePathLocation, PathError> {
         if pv.is_valid(texture_group_name) == false {
             Err(PathError::PathContainsInvalidCharacters)
         } else {

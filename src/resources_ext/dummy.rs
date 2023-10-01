@@ -2,7 +2,7 @@ use super::YyResource;
 use crate::{FileHolder, SerializedDataError};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use yy_typings::utils::TrailingCommaUtility;
+use yy_typings::TrailingCommaUtility;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Ord, PartialOrd)]
 pub struct DummyResource(String, usize);
@@ -45,7 +45,7 @@ impl YyResource for DummyResource {
     fn deserialize_associated_data(
         &self,
         _: &Path,
-        _: &yy_typings::utils::TrailingCommaUtility,
+        _: &yy_typings::TrailingCommaUtility,
     ) -> Result<Self::AssociatedData, crate::SerializedDataError> {
         Ok(0)
     }

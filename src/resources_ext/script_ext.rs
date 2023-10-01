@@ -3,7 +3,7 @@ use crate::{
     YyResourceHandler, YypBoss,
 };
 use std::path::Path;
-use yy_typings::{sprite_yy::script::Script, utils::TrailingCommaUtility, ViewPath};
+use yy_typings::{Script, TrailingCommaUtility, ViewPath};
 
 impl YyResource for Script {
     type AssociatedData = String;
