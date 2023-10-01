@@ -315,8 +315,8 @@ impl YypBoss {
         }
 
         // check to make sure the new name isn't taken...
-        if let Some(value) = self.vfs.resource_names.get(&new_name) {
-            return Err(ResourceManipulationError::NameCollision(value.resource));
+        if self.vfs.resource_names.get(&new_name).is_some() {
+            return Err(ResourceManipulationError::NameCollision);
         }
 
         // check to make sure we're not dealing with some COMEDIANS
@@ -338,8 +338,8 @@ impl YypBoss {
     }
 
     pub fn can_use_name(&self, name: &str) -> Result<(), ResourceManipulationError> {
-        if let Some(r) = self.vfs.resource_names.get(name) {
-            return Err(ResourceManipulationError::NameCollision(r.resource));
+        if self.vfs.resource_names.get(name).is_some() {
+            return Err(ResourceManipulationError::NameCollision);
         }
 
         if RNV.is_valid(name) == false {

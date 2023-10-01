@@ -74,10 +74,10 @@ impl Resource {
             | Resource::Object
             | Resource::Note
             | Resource::Sound
-            | Resource::Room
             | Resource::TileSet
             | Resource::Shader => true,
             Resource::AnimationCurve
+            | Resource::Room
             | Resource::Extension
             | Resource::Font
             | Resource::Path

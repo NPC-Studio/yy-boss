@@ -1,4 +1,4 @@
-use crate::{folders::FolderGraphError, FileSerializationError, Resource, SerializedDataError};
+use crate::{folders::FolderGraphError, FileSerializationError, SerializedDataError};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -46,10 +46,10 @@ pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),
 
-    #[error("cannot add that resource -- a {} of that name already exists", .0)]
-    NameCollision(Resource),
+    #[error("name already used")]
+    NameCollision,
 
-    #[error("cannot use that name -- resource names must be [A-z_]\\w+")]
+    #[error("bad name given")]
     BadName,
 
     #[error("cannot find that resource")]
