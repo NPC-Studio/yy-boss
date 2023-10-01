@@ -41,12 +41,12 @@ pub enum StartupError {
     BadCliArguments(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum ResourceManipulationError {
     #[error(transparent)]
     FolderGraphError(#[from] FolderGraphError),
 
-    #[error("name already used")]
+    #[error("resource already exists")]
     NameCollision,
 
     #[error("bad name given")]
