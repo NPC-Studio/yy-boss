@@ -389,6 +389,12 @@ impl YyResource for Sprite {
             String::from_utf8_unchecked(vec)
         };
 
+        let string = if cfg!(target_os = "windows") {
+            string.replace('\n', "\r\n")
+        } else {
+            string
+        };
+
         std::fs::write(path, string).map_err(|e| crate::FileSerializationError::Io(e.to_string()))
     }
 }
