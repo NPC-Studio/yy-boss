@@ -234,7 +234,7 @@ impl YypBoss {
         self.timelines.serialize(&self.directory_manager)?;
 
         // Serialize Ourselves:
-        let string = yy_typings::serialize_yyp(&self.yyp);
+        let string = yy_typings::serialize_file(&self.yyp);
         fs::write(self.directory_manager.yyp(), string)?;
 
         Ok(())
