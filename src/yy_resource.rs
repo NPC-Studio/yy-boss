@@ -1,4 +1,4 @@
-use crate::{utils, FileSerializationError, Resource, YyResourceHandler, YypBoss};
+use crate::{FileSerializationError, Resource, YyResourceHandler, YypBoss};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Debug,
@@ -104,7 +104,8 @@ pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + 
     fn cleanup_on_replace(&self, paths_to_delete: impl FileHolder);
 
     fn serialize_yy_file(&self, path: &Path) -> Result<(), FileSerializationError> {
-        utils::serialize_json(path, self)
+        let output_string = yy_typings::serialize_file(self);
+        std::fs::write(path, output_string).map_err(|e| FileSerializationError::Io(e.to_string()))
     }
 }
 

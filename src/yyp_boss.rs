@@ -221,6 +221,8 @@ impl YypBoss {
         self.scripts.serialize(&self.directory_manager)?;
         self.notes.serialize(&self.directory_manager)?;
         self.shaders.serialize(&self.directory_manager)?;
+        self.tilesets.serialize(&self.directory_manager)?;
+        self.sounds.serialize(&self.directory_manager)?;
 
         // THESE DO NOT HAVE EXCELLENT TYPINGS YET.
         self.animation_curves.serialize(&self.directory_manager)?;
@@ -229,8 +231,6 @@ impl YypBoss {
         self.paths.serialize(&self.directory_manager)?;
         self.rooms.serialize(&self.directory_manager)?;
         self.sequences.serialize(&self.directory_manager)?;
-        self.sounds.serialize(&self.directory_manager)?;
-        self.tilesets.serialize(&self.directory_manager)?;
         self.timelines.serialize(&self.directory_manager)?;
 
         // Serialize Ourselves:

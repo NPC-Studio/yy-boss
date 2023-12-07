@@ -36,11 +36,6 @@ impl YyResource for TileSet {
         _directory_path: &std::path::Path,
         _data: &Self::AssociatedData,
     ) -> anyhow::Result<()> {
-        // let file = directory_path
-        //     .join(&self.resource_data.name)
-        //     .with_extension("gml");
-        // std::fs::write(file, data)?;
-
         Ok(())
     }
 
