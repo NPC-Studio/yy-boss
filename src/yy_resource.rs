@@ -6,7 +6,9 @@ use std::{
 };
 use yy_typings::{FilesystemPath, TrailingCommaUtility, ViewPath};
 
-pub trait YyResource: Serialize + for<'de> Deserialize<'de> + Clone + Default + PartialEq {
+pub trait YyResource:
+    Serialize + for<'de> Deserialize<'de> + Clone + Default + PartialEq + 'static
+{
     type AssociatedData: Debug + Clone + PartialEq + Default;
     const SUBPATH_NAME: &'static str;
     const RESOURCE: Resource;
