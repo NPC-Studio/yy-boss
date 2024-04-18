@@ -74,10 +74,6 @@ macro_rules! unidentified_resource {
             }
 
             fn cleanup_on_replace(&self, _: impl FileHolder) {}
-
-            fn serialize_yy_file(&self, path: &Path) -> Result<(), crate::FileSerializationError> {
-                crate::utils::serialize_json(path, self)
-            }
         }
     };
 }

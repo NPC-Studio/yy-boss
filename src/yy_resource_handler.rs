@@ -321,8 +321,9 @@ impl<T: YyResource> YyResourceHandler<T> {
                     resource.yy_resource.name()
                 )
             }
-
-            resource.yy_resource.serialize_yy_file(&yy_path)?;
+            let output_string = yy_typings::serialize_file(&resource.yy_resource);
+            std::fs::write(yy_path, output_string)
+                .map_err(|e| crate::FileSerializationError::Io(e.to_string()))?;
         }
 
         Ok(())

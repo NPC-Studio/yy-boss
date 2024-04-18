@@ -104,11 +104,6 @@ pub trait YyResource:
     /// This function is ONLY called when a resource is being replaced. When a resource is being removed
     /// outright, then the entire folder is removed, so we don't need to carefully handle this.
     fn cleanup_on_replace(&self, paths_to_delete: impl FileHolder);
-
-    fn serialize_yy_file(&self, path: &Path) -> Result<(), FileSerializationError> {
-        let output_string = yy_typings::serialize_file(self);
-        std::fs::write(path, output_string).map_err(|e| FileSerializationError::Io(e.to_string()))
-    }
 }
 
 /// The data which is passed in as part of a Command. Each tag represents a different way to
