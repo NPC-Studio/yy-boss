@@ -840,6 +840,9 @@ impl ResourceNames {
                 yyp_resources.remove(pos);
             }
         }
+
+        // sort the keys!
+        yyp_resources.sort_by_cached_key(YypResource::sort_key);
     }
 }
 
