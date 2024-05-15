@@ -81,10 +81,10 @@ impl<R: std::hash::Hash + Eq + Clone, A: Default> DirtyHandler<R, A> {
         self.resources_to_reserialize.insert(new_value, dirty_state);
     }
 
-    pub fn remove<Q: ?Sized>(&mut self, value: &Q)
+    pub fn remove<Q>(&mut self, value: &Q)
     where
         R: Borrow<Q>,
-        Q: std::hash::Hash + Eq + ToOwned<Owned = R>,
+        Q: std::hash::Hash + Eq + ToOwned<Owned = R> + ?Sized,
     {
         match self.resources_to_reserialize.remove(value) {
             Some(DirtyState::New) => {

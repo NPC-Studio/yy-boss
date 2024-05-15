@@ -1,4 +1,5 @@
 #![allow(clippy::bool_comparison)]
+#![allow(clippy::assigning_clones)]
 #![warn(elided_lifetimes_in_paths)]
 
 mod directory_manager;

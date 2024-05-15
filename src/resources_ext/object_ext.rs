@@ -180,7 +180,7 @@ impl YyResource for Object {
 
         // second, check if there are any missing keys...
         for event_required in self.event_list.iter().map(|v| v.event_type) {
-            if hmap.get(&event_required).is_none() {
+            if hmap.contains_key(&event_required) == false {
                 return Err(SerializedDataError::BadData(format!(
                     "missing event {}",
                     event_required
@@ -193,8 +193,7 @@ impl YyResource for Object {
 
     fn cleanup_on_replace(&self, mut files_to_delete: impl FileHolder) {
         for event in self.event_list.iter() {
-            let path =
-                Path::new(&format!("{}.gml", event.event_type.filename())).to_path_buf();
+            let path = Path::new(&format!("{}.gml", event.event_type.filename())).to_path_buf();
             files_to_delete.push(path);
         }
     }
