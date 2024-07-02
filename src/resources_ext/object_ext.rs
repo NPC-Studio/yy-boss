@@ -218,6 +218,7 @@ impl YyResourceHandler<Object> {
                 event_type,
 
                 collision_object_id: None,
+                gm_version_stamp: yy_typings::VersionStamp,
             });
 
             // mark it an serialize...we know this is infallible
