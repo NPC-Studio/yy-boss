@@ -1,6 +1,6 @@
 [package]
 name = "yy-boss"
-version = "0.9.6"
+version = "0.9.7"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ repository = "https://github.com/NPC-Studio/yy-boss"
 readme = "README.md"
 
 [dependencies]
-yy-typings = "0.7.6"
+yy-typings = "0.7.7"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_yaml = "0.8"
