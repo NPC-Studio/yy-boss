@@ -145,7 +145,7 @@ impl SpriteExt for Sprite {
         let track: &mut Track = &mut self.sequence.tracks[0];
         track.keyframes.keyframes.push(SpriteKeyframe {
             id: sprite_sequence_id,
-            key: self.frames.len() as f32 - 1.0,
+            key: self.frames.len() as f64 - 1.0,
             channels: Channels {
                 zero: SpriteZeroChannel {
                     id: FilesystemPath {
@@ -157,7 +157,7 @@ impl SpriteExt for Sprite {
             },
             ..SpriteKeyframe::default()
         });
-        self.sequence.length = self.frames.len() as f32;
+        self.sequence.length = self.frames.len() as f64;
     }
 
     /// Test
@@ -299,7 +299,7 @@ impl YyResource for Sprite {
         let mut output = HashMap::new();
 
         for frame in self.frames.iter() {
-            let path_to_image = dir_path.join(&format!("{}.png", frame.name.inner()));
+            let path_to_image = dir_path.join(format!("{}.png", frame.name.inner()));
 
             match image::open(&path_to_image) {
                 Ok(image) => output.insert(frame.name, image.to_rgba8()),

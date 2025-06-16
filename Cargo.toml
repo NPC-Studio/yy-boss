@@ -2,16 +2,16 @@
 name = "yy-boss"
 version = "0.9.5"
 authors = ["Jonathan Spira <jjspira@gmail.com>"]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "A collection of typings for GameMaker Studio 2 YY and YYP files"
 repository = "https://github.com/NPC-Studio/yy-boss"
 readme = "README.md"
 
 [dependencies]
-yy-typings = "0.7.5"
+yy-typings = "0.7.6"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0", features = ["arbitrary_precision", "preserve_order"] }
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_yaml = "0.8"
 semver = { version = "1.0", features = ["serde"] }
 
