@@ -12,8 +12,11 @@ pub enum FileSerializationError {
     Io(String),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize, Default,
+)]
 pub enum SerializationFormat {
+    #[default]
     Json,
     Yaml,
 }
@@ -57,12 +60,6 @@ impl SerializationFormat {
             SerializationFormat::Yaml => serde_yaml::to_string(data)
                 .map_err(|e| FileSerializationError::Serde(e.to_string())),
         }
-    }
-}
-
-impl Default for SerializationFormat {
-    fn default() -> Self {
-        Self::Json
     }
 }
 

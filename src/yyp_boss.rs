@@ -1,6 +1,6 @@
 use crate::{
-    directory_manager::DirectoryManager, errors::*, folders::*, utils, FileSerializationError,
-    ProjectMetadata, Resource, YyResource, YyResourceData, YyResourceHandler,
+    FileSerializationError, ProjectMetadata, Resource, YyResource, YyResourceData,
+    YyResourceHandler, directory_manager::DirectoryManager, errors::*, folders::*, utils,
 };
 use anyhow::Result as AnyResult;
 use std::{fs, path::Path};
@@ -113,10 +113,10 @@ impl YypBoss {
             let handler = T::get_handler_mut(yyp_boss);
             handler.load_on_startup(yy_file);
 
-            if load_in_associated_data {
-                if let Err(e) = handler.load_resource_associated_data(&name, &root_path, &TCU) {
-                    return Err(StartupError::BadAssociatedData(name, e));
-                }
+            if load_in_associated_data
+                && let Err(e) = handler.load_resource_associated_data(&name, &root_path, &TCU)
+            {
+                return Err(StartupError::BadAssociatedData(name, e));
             }
 
             Ok(())

@@ -9,7 +9,7 @@ repository = "https://github.com/NPC-Studio/yy-boss"
 readme = "README.md"
 
 [dependencies]
-yy-typings = "0.7.8"
+yy-typings = { version = "0.7.8", path = "../yy-typings" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde_yaml = "0.8"
